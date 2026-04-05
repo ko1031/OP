@@ -142,6 +142,16 @@ export default function CardModal({
               <EffectText text={card.effect} />
             </div>
 
+            {/* トリガーテキスト */}
+            {card.trigger && (
+              <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-3">
+                <div className="text-[10px] font-bold text-yellow-300 mb-1 flex items-center gap-1">
+                  <Zap size={10} /> トリガー
+                </div>
+                <EffectText text={card.trigger} />
+              </div>
+            )}
+
             {/* ── アクションボタン ── */}
             {isLeader ? (
               /* リーダー設定ボタン */

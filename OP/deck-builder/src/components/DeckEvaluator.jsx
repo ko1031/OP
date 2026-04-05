@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { evaluateDeck, analyzeLeaderSynergy, analyzeMatchups, generateStrategy, getLeaderStrategyHints } from '../utils/deckRules';
+import { evaluateDeck, analyzeLeaderSynergy, analyzeMatchups, generateStrategy, getLeaderStrategyHints, generateWinConditions } from '../utils/deckRules';
 
 // ── グレード色定義 ──────────────────────────────────
 const GRADE_COLOR = {
@@ -159,7 +159,8 @@ function ScoreTab({ result, deck = [] }) {
   if (!result) return <EmptyState />;
   const {
     grade, totalScore, counterScore, costScore, typeScore,
-    charCounterValue, charCounterCards, eventCounterCards, mainEventCards, triggerCards,
+    charCounterValue, charCounterCards, charCounter1000Cards, charCounter2000Cards,
+    eventCounterCards, mainEventCards, triggerCards,
     highCostEventCards, lowCost, midCost, highCost, lowPct,
     charCount, eventCount, leaderRules = {}, advice,
   } = result;
@@ -200,24 +201,36 @@ function ScoreTab({ result, deck = [] }) {
         <div className="text-xs font-semibold text-orange-300 mb-2">🛡 防御リソース</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           <div className="flex justify-between text-xs">
-            <span className="text-gray-500">キャラカウンター合計</span>
+            <span className="text-gray-500">カウンター合計</span>
             <span className={charCounterValue >= 20000 ? 'text-yellow-300 font-bold' : 'text-gray-300'}>
               {(charCounterValue/1000).toFixed(0)}K
             </span>
           </div>
           <div className="flex justify-between text-xs">
-            <span className="text-gray-500">カウンターキャラ</span>
+            <span className="text-gray-500">カウンターキャラ計</span>
             <span className={(eventAsCtr ? charCounterCards >= 10 : charCounterCards >= 14) ? 'text-yellow-300 font-bold' : 'text-gray-300'}>
               {charCounterCards}枚
             </span>
           </div>
-          <div className="flex justify-between text-xs">
+          <div className="flex justify-between text-xs col-span-2 border-t border-gray-700/40 pt-1 mt-0.5">
+            <span className="text-gray-500 pl-2">うち +2000</span>
+            <span className={charCounter2000Cards >= 8 ? 'text-yellow-300 font-bold' : 'text-gray-300'}>
+              {charCounter2000Cards ?? 0}枚
+            </span>
+          </div>
+          <div className="flex justify-between text-xs col-span-2">
+            <span className="text-gray-500 pl-2">うち +1000</span>
+            <span className="text-gray-300">
+              {charCounter1000Cards ?? 0}枚
+            </span>
+          </div>
+          <div className="flex justify-between text-xs border-t border-gray-700/40 pt-1 mt-0.5">
             <span className="text-gray-500">カウンターイベント</span>
             <span className={eventCounterCards >= 3 ? 'text-yellow-300 font-bold' : 'text-gray-300'}>
               {eventCounterCards}枚
             </span>
           </div>
-          <div className="flex justify-between text-xs">
+          <div className="flex justify-between text-xs border-t border-gray-700/40 pt-1 mt-0.5">
             <span className="text-gray-500">メインイベント</span>
             <span className={mainEventCards >= 2 ? 'text-yellow-300 font-bold' : 'text-gray-300'}>
               {mainEventCards}枚
@@ -392,35 +405,6 @@ function MatchupTab({ matchups }) {
 }
 
 // ── 立ち回りタブ ──────────────────────────────────────
-// 上位プレイヤー記事から収集した勝負の鉄則
-// 出典: LaughTale攻略記事 / note各記事 / onehappy.co.jp / tcg-portal.jp
-const PRO_TIPS = [
-  {
-    icon: '⚔️',
-    title: 'アタック順序の原則',
-    body: '弱→強の順でアタック。最初の攻撃でカウンターを消耗させ、本命アタックを通す。同値アタックを複数仕掛けて「守るか捨てるか」の選択を強制するのが上位プレイヤーの定石。',
-  },
-  {
-    icon: '🛡',
-    title: 'カウンターを切るタイミング',
-    body: '相手ライフ4枚以下まで原則温存。「この攻撃を通すと盤面が崩壊する」局面のみ優先防御。リーダーの最終アタックは全力で守ること。終盤に向けてカウンター手札を厚く保つのが勝率を上げる最重要習慣。',
-  },
-  {
-    icon: '🎯',
-    title: 'ライフ受けの判断基準',
-    body: 'リーダー5000等の低要求アタックはカウンターを切らずライフで受ける。トリガーが発動する可能性があり、むしろ有利になることも。手札温存で終盤の守りを厚くすることを最優先に。',
-  },
-  {
-    icon: '💡',
-    title: 'ドン!!配分の原則',
-    body: '序盤はキャラ展開コスト優先。盤面が安定したら余剰ドンをアタッカーへ付与する。毎ターン余ったドンを付与するだけでプレッシャーが大幅に上昇。ドンマイナス系カードはテンポロスに直結するため採用は慎重に。',
-  },
-  {
-    icon: '🔮',
-    title: '盤面制圧が最大の防御',
-    body: 'こちらの盤面にアタッカーが多いほど相手は守りにドンを使わざるを得ず攻撃力が落ちる。「除去より展開」を意識して盤面の圧力を維持することが、実質的な防御にもなる。盤面優位が確立したら一気に詰めに転じよう。',
-  },
-];
 
 function TurnCardBadges({ charCards, eventCards }) {
   const counterEvts = eventCards.filter(c => c.isCounter);
@@ -473,27 +457,30 @@ function StrategyTab({ strategy, leader, deck }) {
   if (!strategy || !leader) return <EmptyState text="リーダーとカードを追加すると定石が表示されます" />;
   const { turns, generalTips } = strategy;
   const leaderHints = getLeaderStrategyHints(leader, deck);
+  const winConditions = generateWinConditions(deck, leader);
 
   return (
     <div className="space-y-3">
-      {/* 勝利の鉄則（プロ記事より） */}
-      <div className="bg-gray-900/80 border border-gray-700 rounded-xl overflow-hidden">
-        <div className="bg-gradient-to-r from-amber-900/60 to-gray-900/60 px-3 py-2 border-b border-gray-700">
-          <div className="text-xs font-bold text-amber-300 tracking-wide">🏆 勝負の鉄則</div>
-          <div className="text-[10px] text-gray-500 mt-0.5">上位プレイヤー記事より</div>
-        </div>
-        <div className="divide-y divide-gray-800">
-          {PRO_TIPS.map((tip, i) => (
-            <div key={i} className="px-3 py-2.5">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-sm">{tip.icon}</span>
-                <span className="text-xs font-semibold text-gray-100">{tip.title}</span>
+      {/* デッキ別勝ち筋 */}
+      {winConditions.length > 0 && (
+        <div className="bg-gray-900/80 border border-gray-700 rounded-xl overflow-hidden">
+          <div className="bg-gradient-to-r from-amber-900/60 to-gray-900/60 px-3 py-2 border-b border-gray-700">
+            <div className="text-xs font-bold text-amber-300 tracking-wide">🏆 このデッキの勝ち筋</div>
+            <div className="text-[10px] text-gray-500 mt-0.5">{leader.name} デッキ特化攻略</div>
+          </div>
+          <div className="divide-y divide-gray-800">
+            {winConditions.map((tip, i) => (
+              <div key={i} className="px-3 py-2.5">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="text-sm">{tip.icon}</span>
+                  <span className="text-xs font-semibold text-gray-100">{tip.title}</span>
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed pl-5">{tip.body}</p>
               </div>
-              <p className="text-[11px] text-gray-400 leading-relaxed pl-5">{tip.body}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* リーダー固有戦略 */}
       {leaderHints.length > 0 && (
