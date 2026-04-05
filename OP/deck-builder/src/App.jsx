@@ -85,7 +85,7 @@ export default function App() {
     showToast(`リーダー「${card.name}」を選択しました`);
   };
 
-  // サンプルデッキのコピー（リーダー + デッキ一括セット）
+  // サンプルデッキの丸ごと差し替え（リセットせず1回のstateで差し替え）
   const handleLoadSampleDeck = (sampleDeck) => {
     const cardMap = {};
     allCards.forEach(c => { cardMap[c.card_number] = c; });
@@ -93,17 +93,14 @@ export default function App() {
     const leaderCard = cardMap[sampleDeck.leaderCard];
     if (!leaderCard) return;
 
-    // リセットしてからロード
-    deck.resetDeck();
-    deck.selectLeader(leaderCard);
-
-    // カードを順に追加
+    // デッキエントリを事前に組み立てて一括差し替え
+    const entries = [];
     sampleDeck.deck.forEach(({ cardNumber, count }) => {
       const card = cardMap[cardNumber];
-      if (card) {
-        for (let i = 0; i < count; i++) deck.addCard(card);
-      }
+      if (card) entries.push({ card, count });
     });
+
+    deck.replaceDeck(leaderCard, entries, sampleDeck.name);
 
     setShowSampleDecks(false);
     setMobileView('deck');

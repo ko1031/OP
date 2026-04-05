@@ -68,6 +68,13 @@ export function useDeck() {
     setDeckName('新規デッキ');
   }, []);
 
+  // ---- サンプルデッキの丸ごと差し替え（アトミックに1レンダーで完結） ----
+  const replaceDeck = useCallback((newLeader, newEntries, newName) => {
+    setLeader(newLeader);
+    setDeck(newEntries);
+    setDeckName(newName || newLeader?.name || '新規デッキ');
+  }, []);
+
   // ---- 保存 ----
   const saveDeck = useCallback(() => {
     if (!leader) return { ok: false, reason: 'リーダーを選択してください' };
@@ -98,7 +105,7 @@ export function useDeck() {
   return {
     leader, deck, deckName, setDeckName,
     total: deckTotal(deck),
-    selectLeader, addCard, removeCard, removeAllCard, resetDeck,
+    selectLeader, addCard, removeCard, removeAllCard, resetDeck, replaceDeck,
     saveDeck, loadDeck, deleteSavedDeck, loadDecks,
   };
 }
