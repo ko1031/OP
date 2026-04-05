@@ -815,6 +815,8 @@ export function evaluateDeck(deck, leader) {
   // ── カウンター評価 ──
   let charCounterValue = 0;
   let charCounterCards = 0;
+  let charCounter1000Cards = 0; // +1000カウンターキャラ枚数
+  let charCounter2000Cards = 0; // +2000カウンターキャラ枚数
   let eventCounterCards = 0;
   let mainEventCards = 0;   // 【メイン】イベント（除去・ドロー・サーチ系）
   let triggerCards = 0;
@@ -824,6 +826,8 @@ export function evaluateDeck(deck, leader) {
     if (card.card_type === 'CHARACTER' && card.counter) {
       charCounterValue += card.counter * count;
       charCounterCards += count;
+      if (card.counter === 1000) charCounter1000Cards += count;
+      else if (card.counter === 2000) charCounter2000Cards += count;
     }
     const ef = card.effect || '';
     if (card.card_type === 'EVENT') {
@@ -940,13 +944,162 @@ export function evaluateDeck(deck, leader) {
   return {
     grade, totalScore,
     counterScore, costScore, typeScore,
-    charCounterValue, charCounterCards, eventCounterCards, mainEventCards, triggerCards,
+    charCounterValue, charCounterCards,
+    charCounter1000Cards, charCounter2000Cards, // 1000/2000別内訳
+    eventCounterCards, mainEventCards, triggerCards,
     highCostEventCards,
     lowCost, midCost, highCost, lowPct,
     charCount, eventCount,
     leaderRules,
     advice,
   };
+}
+
+/**
+ * デッキ固有の勝ち筋・攻め方を生成する
+ * リーダー効果・4積みコアピース・フィニッシャーから具体的な戦略を提示する
+ */
+export function generateWinConditions(deck, leader) {
+  if (!leader || !deck.length) return [];
+  const leaderRules = getLeaderRules(leader);
+  const ef = leader.effect || '';
+  const conditions = [];
+
+  const total = deck.reduce((s, e) => s + e.count, 0);
+  const avgCost = total > 0
+    ? deck.reduce((s, e) => s + (e.card.cost ?? 0) * e.count, 0) / total
+    : 0;
+
+  // 4積みキャラ（コアピース）
+  const coreChars = deck
+    .filter(e => e.count >= 4 && e.card.card_type === 'CHARACTER')
+    .sort((a, b) => (a.card.cost ?? 0) - (b.card.cost ?? 0));
+
+  // 4積みイベント
+  const coreEvents = deck
+    .filter(e => e.count >= 4 && e.card.card_type === 'EVENT')
+    .sort((a, b) => (b.card.cost ?? 0) - (a.card.cost ?? 0));
+
+  // フィニッシャー（コスト7以上のキャラ）
+  const finishers = deck
+    .filter(e => (e.card.cost ?? 0) >= 7 && e.card.card_type === 'CHARACTER')
+    .sort((a, b) => (b.card.cost ?? 0) - (a.card.cost ?? 0));
+
+  // ブロッカー
+  const blockers = deck.filter(e =>
+    e.card.card_type === 'CHARACTER' && /【ブロッカー】/.test(e.card.effect || '')
+  );
+
+  // カウンター密度
+  const counterTotal = deck.reduce((s, e) => {
+    const has = e.card.counter || (e.card.card_type === 'EVENT' && e.card.effect?.includes('【カウンター】'));
+    return s + (has ? e.count : 0);
+  }, 0);
+  const counterDensity = counterTotal / total;
+
+  // 低コスト展開キャラ（コスト1〜2）
+  const earlyChars = coreChars.filter(e => (e.card.cost ?? 0) <= 2);
+  // 中コスト展開キャラ（コスト3〜4）
+  const midChars = coreChars.filter(e => (e.card.cost ?? 0) >= 3 && (e.card.cost ?? 0) <= 4);
+  // 高コストフィニッシャー（コスト5〜6で4積み）
+  const bigChars = coreChars.filter(e => (e.card.cost ?? 0) >= 5);
+
+  // ── 1. リーダー効果をフル活用した中核戦略 ──
+  if (leaderRules.eventIsStrength) {
+    const minCost = leaderRules.eventDrawMinCost ?? 3;
+    const hiEvts = deck
+      .filter(e => e.card.card_type === 'EVENT' && (e.card.cost ?? 0) >= minCost)
+      .sort((a, b) => b.count - a.count);
+    if (hiEvts.length > 0) {
+      conditions.push({
+        icon: '⚡',
+        title: 'リーダー効果を毎ターン発動する',
+        body: `自ターンにコスト${minCost}以上のイベントを必ず1枚発動して1ドローを確保。${hiEvts[0].card.name}などを積極的に回転させて手札を常に潤沢に保つ。「イベントを使う→ドロー→また使う」の流れを維持できれば手札差で圧倒できる。`,
+      });
+    }
+  } else if (leaderRules.eventAsCounter) {
+    const mainEvts = deck.filter(e => e.card.card_type === 'EVENT' && !e.card.effect?.includes('【カウンター】'));
+    conditions.push({
+      icon: '⚡',
+      title: 'イベントをカウンターに転用して手札効率を最大化する',
+      body: `手札のイベント・ステージを守りのカウンターとして使える。${mainEvts[0]?.card.name ?? 'イベントカード'}は「攻めに使うか守りに使うか」を都度選択できるため、相手の読みを外しながら手札消費ゼロに近い守りが可能。手札がほぼ全てカウンターとして機能する状態を維持することが最大の強み。`,
+    });
+  } else if (leaderRules.lifeDrawOnDamage) {
+    conditions.push({
+      icon: '⚡',
+      title: 'ライフを受けながら手札を充実させる',
+      body: `ライフが削られるたびにドローできるため、序盤はあえてライフで受け入れて手札を厚くする。ライフ3〜4枚が削れた時点で手札が十分充実しているはず。そのタイミングで大型キャラを一気に展開して逆転を狙う。ライフ0でも手札が豊富なら戦える。`,
+    });
+  } else if (leaderRules.maxDon != null) {
+    const maxD = leaderRules.maxDon;
+    conditions.push({
+      icon: '⚡',
+      title: `ドン${maxD}枚上限を活かした速攻展開`,
+      body: `ドン上限${maxD}枚のため、通常より早くドンが枯渇する。【起動メイン】でドンを一気に消費するタイミングを計算して「ドンが枯れる前に勝利する」プランを徹底する。序盤にドンを無駄遣いせず、フィニッシュターンに全力投入するのが鉄則。`,
+    });
+  } else if (leaderRules.donAccelerate) {
+    conditions.push({
+      icon: '⚡',
+      title: 'ドン加速で相手より2ターン早く動く',
+      body: `毎ターンのドン加速で相手より高コストキャラを先に展開できる。このテンポ差が積み重なると盤面は圧倒的優位に。加速したドンを絶対に余らせないよう、常に高コストキャラとのバランスを意識してデッキを組むこと。`,
+    });
+  } else if (leaderRules.hasBounce) {
+    conditions.push({
+      icon: '⚡',
+      title: 'バウンスで相手の展開コストを強制する',
+      body: `相手が苦労して展開した大型キャラを手札に戻すことで、再度コストを要求できる。バウンスは「除去」と異なりトラッシュに置かないため相手の手札が増える。手札が増えた相手は守りに余裕ができるため、バウンス後は即座に追撃して手札を削り切ることが重要。`,
+    });
+  }
+
+  // ── 2. フィニッシュルート ──
+  if (finishers.length > 0) {
+    const fin = finishers[0];
+    const finT = Math.ceil(fin.card.cost / 2);
+    conditions.push({
+      icon: '🏆',
+      title: `${fin.card.name}でのフィニッシュ`,
+      body: `コスト${fin.card.cost}の${fin.card.name}がフィニッシャー。T${finT}以降、相手のライフが3以下になったら投入して一気に詰める。${blockers.length >= 4 ? `${blockers[0].card.name}などブロッカーで盤面を守りながら` : 'アタッカーを複数展開しながら'}最後は全力アタックで畳み掛ける。`,
+    });
+  } else if (bigChars.length > 0) {
+    const bc = bigChars[0];
+    conditions.push({
+      icon: '🏆',
+      title: `${bc.card.name}での中盤制圧→フィニッシュ`,
+      body: `コスト${bc.card.cost}の${bc.card.name}（×${bc.count}）で中盤から盤面を制圧。4積みしているため引き込みやすく、複数体並べることで相手のカウンターを分散させて突破力を高める。`,
+    });
+  }
+
+  // ── 3. 序盤の動き ──
+  if (earlyChars.length >= 2) {
+    conditions.push({
+      icon: '🔰',
+      title: '序盤の盤面形成',
+      body: `T1〜T2は${earlyChars.slice(0, 2).map(e => `${e.card.name}（${e.card.cost}C）`).join('・')}で盤面を作る。低コストの4積みカードを早期に並べて相手より先にアタック回数を稼ぎ、カウンターリソースを削り始める。`,
+    });
+  } else if (midChars.length >= 1) {
+    conditions.push({
+      icon: '🔰',
+      title: '序盤の動き',
+      body: `T3〜T4から${midChars.slice(0, 2).map(e => `${e.card.name}（${e.card.cost}C）`).join('・')}で展開を加速。序盤はドンを貯めつつ相手の動きをカウンターで抑え、T3で一気に盤面を作るミッドレンジスタイル。`,
+    });
+  }
+
+  // ── 4. 防御戦略 ──
+  if (counterDensity >= 0.44) {
+    conditions.push({
+      icon: '🛡',
+      title: 'カウンター密度を活かした長期戦',
+      body: `カウンター密度${Math.round(counterDensity * 100)}%と非常に厚い。相手ライフが4以下になるまでカウンターを切らず、手札を溜め続ける。盤面が整ったタイミングで攻勢に転じれば、手札差で後半を制圧できる。`,
+    });
+  } else if (counterDensity < 0.3 && avgCost < 3.5) {
+    conditions.push({
+      icon: '🛡',
+      title: '守りより展開速度で圧倒する',
+      body: `カウンターは少なめだが、その分展開速度が高い。守りに手札を使わず展開に振り切ることで、相手が守りに回る前にライフを削り切るのが勝ちパターン。相手の攻撃は原則ライフで受けてカウンターを温存する。`,
+    });
+  }
+
+  return conditions.slice(0, 4);
 }
 
 // ────────────────────────────────────────────────
