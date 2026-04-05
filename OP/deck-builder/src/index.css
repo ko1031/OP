@@ -10,15 +10,34 @@
   z-index: 10;
 }
 
+/* モバイルタッチ — タップハイライトを除去しボタン感を出す */
+button, select, input {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 /* スクロールバー */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #1a1d27; }
-::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #718096; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5563; }
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: #0f1117;
   color: #e2e8f0;
+  /* iOS Safari のセーフエリア対応 */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* モバイルボトムナビのセーフエリア */
+nav.mobile-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* テキスト選択を無効化（カードグリッドの誤選択防止） */
+.card-hover {
+  user-select: none;
+  -webkit-user-select: none;
 }

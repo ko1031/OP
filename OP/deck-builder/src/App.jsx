@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Layers, AlertCircle } from 'lucide-react';
+import { Layers, AlertCircle, Search } from 'lucide-react';
 import FilterPanel from './components/FilterPanel';
 import CardGrid from './components/CardGrid';
 import DeckPanel from './components/DeckPanel';
 import { useDeck } from './hooks/useDeck';
-import { hasTrigger } from './utils/deckRules';
+import { hasTrigger, DECK_LIMIT } from './utils/deckRules';
 
 let cachedCards = null;
 async function fetchCards() {
@@ -56,6 +56,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({});
   const [toast, setToast] = useState(null);
+  const [mobileView, setMobileView] = useState('cards'); // 'cards' | 'deck'
   const deck = useDeck();
 
   useEffect(() => {
@@ -82,58 +83,136 @@ export default function App() {
     showToast(`リーダー「${card.name}」を選択しました`);
   };
 
+  const isComplete = deck.total === DECK_LIMIT;
+
   return (
     <div className="flex flex-col h-screen bg-gray-950">
-      <header className="flex-shrink-0 bg-gray-900 border-b border-gray-700 px-4 py-2 flex items-center gap-3">
-        <Layers size={22} className="text-red-500" />
-        <span className="text-white font-bold text-lg tracking-wide">ONE PIECE デッキ構築</span>
-        {!loading && <span className="text-gray-500 text-xs ml-2">{allCards.length.toLocaleString()}枚</span>}
+      {/* ヘッダー */}
+      <header className="flex-shrink-0 bg-gradient-to-r from-gray-900 via-gray-900 to-gray-800 border-b border-gray-700/80 px-4 py-2.5 flex items-center gap-3 shadow-lg">
+        <div className="flex items-center gap-2.5">
+          <Layers size={20} className="text-red-400 flex-shrink-0" />
+          <span className="text-white font-bold text-sm sm:text-base tracking-wide">
+            ONE PIECE デッキビルダー
+          </span>
+        </div>
+        {!loading && (
+          <span className="text-gray-600 text-xs hidden sm:inline">
+            {allCards.length.toLocaleString()}枚収録
+          </span>
+        )}
+        {/* デッキ枚数バッジ（ヘッダー右） */}
+        {!loading && !error && deck.total > 0 && (
+          <div className={`ml-auto flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-300
+            ${isComplete
+              ? 'bg-green-700/30 text-green-300 border-green-600/60'
+              : 'bg-gray-700/40 text-gray-400 border-gray-600/60'
+            }`}>
+            {isComplete ? '✓ 完成' : `${deck.total} / ${DECK_LIMIT}`}
+          </div>
+        )}
       </header>
 
+      {/* ローディング */}
       {loading && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <div className="text-gray-400">カードデータを読み込み中…</div>
+            <div className="text-gray-400 text-sm">カードデータを読み込み中…</div>
           </div>
         </div>
       )}
 
+      {/* エラー */}
       {error && (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center text-red-400">
             <AlertCircle size={40} className="mx-auto mb-3" />
-            <div>カードデータの読み込みに失敗しました</div>
-            <div className="text-sm text-gray-500 mt-2">scraper/data/cards.json を public/cards.json にコピーしてください</div>
+            <div className="font-medium">カードデータの読み込みに失敗しました</div>
+            <div className="text-sm text-gray-500 mt-2">
+              scraper/data/cards.json を public/cards.json にコピーしてください
+            </div>
           </div>
         </div>
       )}
 
+      {/* メインコンテンツ */}
       {!loading && !error && (
         <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-col flex-1 overflow-hidden border-r border-gray-700">
+          {/* 左: カード検索エリア — モバイルは 'cards' ビューのみ表示 */}
+          <div className={`flex-col flex-1 overflow-hidden border-r border-gray-700/80
+            ${mobileView === 'cards' ? 'flex' : 'hidden'} md:flex`}>
             <FilterPanel filters={filters} onChange={setFilters} seriesList={seriesList} />
             <div className="flex-1 overflow-hidden">
-              <CardGrid cards={filteredCards} deck={deck.deck} leader={deck.leader}
-                onAddCard={handleAddCard} onSelectLeader={handleSelectLeader} />
+              <CardGrid
+                cards={filteredCards}
+                deck={deck.deck}
+                leader={deck.leader}
+                onAddCard={handleAddCard}
+                onSelectLeader={handleSelectLeader}
+              />
             </div>
           </div>
-          <div className="w-72 flex-shrink-0 overflow-hidden">
+
+          {/* 右: デッキパネル — モバイルは 'deck' ビューのみ表示 */}
+          <div className={`flex-col overflow-hidden md:w-80 md:flex-shrink-0
+            ${mobileView === 'deck' ? 'flex w-full' : 'hidden'} md:flex`}>
             <DeckPanel
-              leader={deck.leader} deck={deck.deck} total={deck.total}
-              deckName={deck.deckName} setDeckName={deck.setDeckName}
-              onAddCard={handleAddCard} onRemoveCard={deck.removeCard}
-              onRemoveAllCard={deck.removeAllCard} onReset={deck.resetDeck}
-              onSave={deck.saveDeck} onLoad={deck.loadDeck}
-              onDeleteSaved={deck.deleteSavedDeck} loadDecks={deck.loadDecks}
+              leader={deck.leader}
+              deck={deck.deck}
+              total={deck.total}
+              deckName={deck.deckName}
+              setDeckName={deck.setDeckName}
+              onAddCard={handleAddCard}
+              onRemoveCard={deck.removeCard}
+              onRemoveAllCard={deck.removeAllCard}
+              onReset={deck.resetDeck}
+              onSave={deck.saveDeck}
+              onLoad={deck.loadDeck}
+              onDeleteSaved={deck.deleteSavedDeck}
+              loadDecks={deck.loadDecks}
             />
           </div>
         </div>
       )}
 
+      {/* モバイル用ボトムナビ */}
+      {!loading && !error && (
+        <nav className="md:hidden flex-shrink-0 flex border-t border-gray-700/80 bg-gray-900">
+          <button
+            onClick={() => setMobileView('cards')}
+            className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-xs font-medium transition-colors tap-highlight-transparent
+              ${mobileView === 'cards'
+                ? 'text-blue-400 border-t-2 border-blue-400 -mt-px bg-blue-500/5'
+                : 'text-gray-500 active:text-gray-300'}`}
+          >
+            <Search size={19} />
+            カード検索
+          </button>
+          <button
+            onClick={() => setMobileView('deck')}
+            className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-xs font-medium transition-colors relative tap-highlight-transparent
+              ${mobileView === 'deck'
+                ? 'text-blue-400 border-t-2 border-blue-400 -mt-px bg-blue-500/5'
+                : 'text-gray-500 active:text-gray-300'}`}
+          >
+            <div className="relative">
+              <Layers size={19} />
+              {deck.total > 0 && (
+                <span className={`absolute -top-1.5 -right-2.5 text-[9px] font-black px-1 min-w-[16px] h-4 flex items-center justify-center rounded-full
+                  ${isComplete ? 'bg-green-500 text-white' : 'bg-blue-600 text-white'}`}>
+                  {deck.total}
+                </span>
+              )}
+            </div>
+            デッキ
+          </button>
+        </nav>
+      )}
+
+      {/* トースト通知 */}
       {toast && (
-        <div className={`fixed bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium shadow-xl z-50
-          ${toast.type==='error' ? 'bg-red-800 text-red-100' : 'bg-gray-700 text-white'}`}>
+        <div className={`fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium shadow-xl z-50 whitespace-nowrap pointer-events-none
+          ${toast.type === 'error' ? 'bg-red-800/95 text-red-100' : 'bg-gray-700/95 text-white'}`}>
           {toast.msg}
         </div>
       )}
