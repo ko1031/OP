@@ -6,19 +6,27 @@ import ColorBadge from './ColorBadge';
 import { hasTrigger } from '../utils/deckRules';
 
 function CardItem({ card, count, onAdd, isSelected }) {
-  const [hover, setHover] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const trigger = hasTrigger(card);
   const hasCounter = card.counter || (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】'));
 
-  const handleMouseEnter = (e) => {
-    setHover(true);
+  // ─── マウスのみツールチップを表示（タッチは無視） ───
+  const handlePointerEnter = (e) => {
+    if (e.pointerType === 'touch') return;
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltipPos({ x: rect.right + 8, y: rect.top });
     setShowTooltip(true);
   };
+
+  const handlePointerLeave = (e) => {
+    if (e.pointerType === 'touch') return;
+    setShowTooltip(false);
+  };
+
+  // タッチ時は onAdd を直接呼ぶ（余計なstate更新をしない）
+  const handleClick = () => onAdd(card);
 
   return (
     <>
@@ -26,9 +34,9 @@ function CardItem({ card, count, onAdd, isSelected }) {
         className={`relative rounded-lg overflow-hidden cursor-pointer group border-2 transition-all
           ${isSelected ? 'border-yellow-400 shadow-yellow-400/40 shadow-lg' : 'border-transparent'}
           card-hover`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={() => { setHover(false); setShowTooltip(false); }}
-        onClick={() => onAdd(card)}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onClick={handleClick}
       >
         <CardImage card={card} className="w-full aspect-[63/88] object-cover" />
 
@@ -53,8 +61,10 @@ function CardItem({ card, count, onAdd, isSelected }) {
           )}
         </div>
 
-        {/* ホバーオーバーレイ */}
-        <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${hover ? 'opacity-100' : 'opacity-0'}`}>
+        {/* ホバーオーバーレイ（マウスのみ・CSS hover で制御） */}
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center
+          opacity-0 group-hover:opacity-100 transition-opacity
+          pointer-events-none touch-none">
           <Plus size={32} className="text-white" />
         </div>
 
@@ -68,11 +78,14 @@ function CardItem({ card, count, onAdd, isSelected }) {
         </div>
       </div>
 
-      {/* ツールチップ */}
+      {/* ツールチップ（マウスホバー時のみ） */}
       {showTooltip && (
         <div
           className="fixed z-50 pointer-events-none"
-          style={{ left: Math.min(tooltipPos.x, window.innerWidth - 300), top: Math.max(0, Math.min(tooltipPos.y, window.innerHeight - 400)) }}
+          style={{
+            left: Math.min(tooltipPos.x, window.innerWidth - 300),
+            top: Math.max(0, Math.min(tooltipPos.y, window.innerHeight - 400)),
+          }}
         >
           <CardTooltip card={card} />
         </div>
@@ -92,9 +105,9 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onSelectLeade
 
   const sorted = useMemo(() => {
     return [...cards].sort((a, b) => {
-      if (sortBy === 'cost') return (a.cost ?? a.life ?? 0) - (b.cost ?? b.life ?? 0);
-      if (sortBy === 'power') return (b.power || 0) - (a.power || 0);
-      if (sortBy === 'name') return a.name.localeCompare(b.name, 'ja');
+      if (sortBy === 'cost')   return (a.cost ?? a.life ?? 0) - (b.cost ?? b.life ?? 0);
+      if (sortBy === 'power')  return (b.power || 0) - (a.power || 0);
+      if (sortBy === 'name')   return a.name.localeCompare(b.name, 'ja');
       if (sortBy === 'number') return a.card_number.localeCompare(b.card_number);
       return 0;
     });
@@ -109,11 +122,14 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onSelectLeade
     <div className="flex flex-col h-full">
       {/* ソートバー */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700 bg-gray-900/50 text-xs text-gray-400 flex-shrink-0">
-        <span>{cards.length}枚</span>
+        <span className="text-gray-500">{cards.length}枚</span>
         <div className="ml-auto flex gap-1">
-          {[['cost','コスト'],['power','パワー'],['name','名前'],['number','番号']].map(([v,l]) => (
-            <button key={v} onClick={() => setSortBy(v)}
-              className={`px-2 py-1 rounded transition-colors ${sortBy === v ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-400'}`}>
+          {[['cost','コスト'],['power','パワー'],['name','名前'],['number','番号']].map(([v, l]) => (
+            <button
+              key={v}
+              onClick={() => setSortBy(v)}
+              className={`px-2 py-1 rounded transition-colors ${sortBy === v ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-400'}`}
+            >
               {l}
             </button>
           ))}
@@ -123,11 +139,14 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onSelectLeade
       {/* カードグリッド */}
       <div className="flex-1 overflow-y-auto p-2">
         {sorted.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-gray-500">
+          <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
             カードが見つかりません
           </div>
         ) : (
-          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
+          <div
+            className="grid gap-2"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))' }}
+          >
             {sorted.map(card => (
               <CardItem
                 key={card.id}
