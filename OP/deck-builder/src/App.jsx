@@ -148,6 +148,7 @@ export default function App() {
                 deck={deck.deck}
                 leader={deck.leader}
                 onAddCard={handleAddCard}
+                onRemoveCard={deck.removeCard}
                 onSelectLeader={handleSelectLeader}
               />
             </div>
