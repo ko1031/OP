@@ -6,6 +6,9 @@ import CardModal from './CardModal';
 import ColorBadge from './ColorBadge';
 import { hasTrigger } from '../utils/deckRules';
 
+// マウスが使えるデバイスかどうかを判定（スマホ・タブレットは false）
+const HAS_MOUSE = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
 function CardItem({ card, count, isSelected, onOpenModal }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -13,15 +16,15 @@ function CardItem({ card, count, isSelected, onOpenModal }) {
   const trigger    = hasTrigger(card);
   const hasCounter = card.counter || (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】'));
 
-  // マウスのみツールチップ表示（タッチは無視）
+  // マウスデバイスのみツールチップ表示
   const handlePointerEnter = (e) => {
-    if (e.pointerType === 'touch') return;
+    if (!HAS_MOUSE || e.pointerType === 'touch') return;
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltipPos({ x: rect.right + 8, y: rect.top });
     setShowTooltip(true);
   };
   const handlePointerLeave = (e) => {
-    if (e.pointerType === 'touch') return;
+    if (!HAS_MOUSE || e.pointerType === 'touch') return;
     setShowTooltip(false);
   };
 
@@ -76,8 +79,8 @@ function CardItem({ card, count, isSelected, onOpenModal }) {
         </div>
       </div>
 
-      {/* マウスホバー時のツールチップ */}
-      {showTooltip && (
+      {/* マウスホバー時のツールチップ（タッチデバイスは非表示） */}
+      {HAS_MOUSE && showTooltip && (
         <div
           className="fixed z-40 pointer-events-none"
           style={{
