@@ -80,7 +80,7 @@ export function hasTrigger(card) {
 }
 
 /**
- * リーダー効果テキストから特殊ルールを抽出する
+ * リーダー効果テキストから特殊ルール・特徴を抽出する
  * 返り値の各フラグはデッキ評価・立ち回り生成で参照する
  */
 export function getLeaderRules(leader) {
@@ -99,7 +99,7 @@ export function getLeaderRules(leader) {
     rules.eventAsCounter = true;
   }
 
-  // ── コスト3以上のイベント発動でドロー ──
+  // ── コスト指定以上のイベント発動でドロー ──
   // 例: ルーシー「元々のコスト3以上のイベントを発動している場合、カード1枚を引く」
   const evDrawMatch = ef.match(/元々のコスト(\d+)以上のイベントを発動.*引く/);
   if (evDrawMatch) {
@@ -108,23 +108,174 @@ export function getLeaderRules(leader) {
   }
 
   // ── ライフ減少時にドロー ──
-  // 例: 青黄ナミ「自分のライフが減った時、カード1枚を引く」
-  if (/ライフが減.*引く|ライフ.*ドロー/.test(ef)) {
+  // 例: 青黄ナミ「自分のライフが1枚以上減った時、カード1枚を引く」
+  if (/ライフ.*減.*カード.*引く|ライフ.*ダメージ.*引く/.test(ef)) {
     rules.lifeDrawOnDamage = true;
   }
 
-  // ── アタック時に手札からイベント捨てカウンター強化 ──
-  // 例: 赤青エース「手札1枚を捨てることができる：コスト2以下のカード1枚を登場」
+  // ── アタック時にドロー ──
+  // 例: リーダーがアタックした時にカードを引く
+  if (/アタック時.*カード.*引く|アタック時.*ドロー/.test(ef)) {
+    rules.drawOnAttack = true;
+  }
+
+  // ── アタック時に手札捨てカウンター/効果 ──
   if (/アタック時.*手札.*捨て/.test(ef)) {
     rules.attackDiscard = true;
   }
 
+  // ── ドン加速（追加でドンを得る） ──
+  if (/ドン[!！‼]+デッキからドン[!！‼]+.*アクティブ|ドン[!！‼]+.*追加.*アクティブ/.test(ef)) {
+    rules.donAccelerate = true;
+  }
+
   // ── 特定特徴を持つキャラ登場時にドン付与 ──
-  if (/登場時.*ドン[!！‼]+.*付与|ドン[!！‼]+.*付与.*登場時/.test(ef)) {
+  if (/登場した時.*ドン[!！‼]+.*付与|ドン[!！‼]+.*付与.*登場した時/.test(ef)) {
     rules.donOnPlay = true;
   }
 
+  // ── コスト軽減 ──
+  if (/コスト.*-(\d+)|コスト.*軽減|(\d+)少なくなる|コストを減らす/.test(ef)) {
+    rules.costReduction = true;
+  }
+
+  // ── バウンス効果（相手キャラを手札に戻す） ──
+  if (/手札に戻す|バウンス/.test(ef)) {
+    rules.hasBounce = true;
+  }
+
+  // ── ブロッカー付与 ──
+  if (/【ブロッカー】を得る|ブロッカーを付与/.test(ef)) {
+    rules.givesBlocker = true;
+  }
+
+  // ── ラッシュ付与 ──
+  if (/【ラッシュ】を得る|ラッシュを付与/.test(ef)) {
+    rules.givesRush = true;
+  }
+
+  // ── ライフを増やす・守る ──
+  if (/ライフ.*加える|ライフ.*上に置く|ライフ.*守る/.test(ef)) {
+    rules.lifeProtect = true;
+  }
+
+  // ── サーチ（デッキを見て手札に加える） ──
+  if (/デッキの上から.*見て.*手札|デッキから.*サーチ/.test(ef)) {
+    rules.hasDeckSearch = true;
+  }
+
+  // ── KO/除去効果 ──
+  if (/KO.*する|トラッシュに置く/.test(ef)) {
+    rules.hasRemoval = true;
+  }
+
+  // ── 相手ターン発動 ──
+  if (/相手のターン中|相手のアタック時/.test(ef)) {
+    rules.activeDuringOpponentTurn = true;
+  }
+
+  // ── 自分ターン終了時発動 ──
+  if (/自分のターン.*終了時|ターン終了時/.test(ef)) {
+    rules.activeOnTurnEnd = true;
+  }
+
+  // ── 登場時発動（特定キャラが場に出た時） ──
+  if (/登場した時.*発動|登場時.*できる/.test(ef)) {
+    rules.activeOnPlay = true;
+  }
+
   return rules;
+}
+
+/**
+ * リーダー固有の立ち回りヒントを生成する（全リーダー対応）
+ * generateStrategy の generalTips に追加される形で使用
+ */
+export function getLeaderStrategyHints(leader, deck) {
+  if (!leader) return [];
+  const rules = getLeaderRules(leader);
+  const hints = [];
+  const ef = leader.effect || '';
+
+  // ── ドン上限制限 ──
+  if (rules.maxDon != null) {
+    hints.push(`⚡ ドン!!上限${rules.maxDon}枚 — 通常より早くドンが枯れる。【起動メイン】で一気に展開するのがこのリーダーの勝ちパターン`);
+  }
+
+  // ── イベントドロー ──
+  if (rules.eventIsStrength) {
+    const minCost = rules.eventDrawMinCost ?? 3;
+    const ev = deck?.find(e => e.card.card_type === 'EVENT' && (e.card.cost ?? 0) >= minCost);
+    hints.push(`📖 コスト${minCost}以上のイベントを自ターンに使うと1ドロー — ${ev?.card.name ?? 'イベントカード'}を積極的に発動してアドを稼ごう`);
+  }
+
+  // ── イベント/ステージがカウンターとして使える ──
+  if (rules.eventAsCounter) {
+    hints.push(`🛡 手札のイベント・ステージを防御時にカウンターとして使える — 攻撃時に捨てて+1000。手札を守りにも攻めにも使えるのがこのリーダーの強さ`);
+  }
+
+  // ── ライフ減少時ドロー ──
+  if (rules.lifeDrawOnDamage) {
+    hints.push(`🃏 ライフが削られるたびにドロー — 受け身でも手札が増える。ライフを盾に使いながら手札を充実させる「受け」のプランが強力`);
+  }
+
+  // ── アタック時ドロー ──
+  if (rules.drawOnAttack && !rules.eventIsStrength) {
+    hints.push(`⚔️ リーダーアタック時にドロー — 毎ターン必ずリーダーでアタックして手札を切らさないようにしよう`);
+  }
+
+  // ── ドン加速 ──
+  if (rules.donAccelerate) {
+    hints.push(`💨 ドン加速リーダー — 早いターンに高コストキャラを展開できる。ドン加速を毎ターン確実に行い、テンポアドバンテージを取り続けよう`);
+  }
+
+  // ── キャラ登場時にドン付与 ──
+  if (rules.donOnPlay) {
+    hints.push(`🎯 キャラ登場時にドン!!を付与 — キャラを展開するほどドンが増える。序盤から積極的にキャラを並べてドンを溜め、大型フィニッシャーへつなげよう`);
+  }
+
+  // ── コスト軽減 ──
+  if (rules.costReduction) {
+    hints.push(`💰 コスト軽減リーダー — 本来より安くキャラを出せる。軽減の恩恵を最大限に受ける中〜高コストキャラを中心に構成しよう`);
+  }
+
+  // ── バウンス ──
+  if (rules.hasBounce) {
+    hints.push(`↩️ バウンス効果持ち — 相手キャラを手札に戻すことで盤面を整理できる。相手の大型キャラが出た時に使うと特に効果的`);
+  }
+
+  // ── ブロッカー付与 ──
+  if (rules.givesBlocker) {
+    hints.push(`🛡 ブロッカー付与リーダー — 展開したキャラがブロッカーになれる。アタッカーとブロッカーを兼用させて手数を増やそう`);
+  }
+
+  // ── ラッシュ付与 ──
+  if (rules.givesRush) {
+    hints.push(`⚡ ラッシュ付与リーダー — 登場したターンからアタックできる。高コストキャラを出してすぐにアタックする速攻プランが使える`);
+  }
+
+  // ── ライフ保護 ──
+  if (rules.lifeProtect) {
+    hints.push(`❤️ ライフを増やせるリーダー — ライフを盾に時間を稼ぐプランが使える。序盤の守りを固めながら盤面を整え、手札が充実してから攻めに転じよう`);
+  }
+
+  // ── 相手ターン発動 ──
+  if (rules.activeDuringOpponentTurn && !rules.eventAsCounter) {
+    hints.push(`⏰ 相手ターン中に発動する効果あり — 相手のアタック時に合わせて使うことで最大の効果を発揮。タイミングを見極めよう`);
+  }
+
+  // ── KO/除去 ──
+  if (rules.hasRemoval) {
+    hints.push(`💥 除去効果持ちリーダー — 相手の厄介なキャラを処理しながら展開できる。相手のブロッカーや大型キャラを狙い撃ちしよう`);
+  }
+
+  // ── デッキサーチ ──
+  if (rules.hasDeckSearch) {
+    hints.push(`🔍 サーチ効果持ちリーダー — デッキから必要なカードを引き込める。サーチで軸となるカードをそろえることを最優先にしよう`);
+  }
+
+  // リーダー効果の種類が多すぎる場合は主要なものに絞る（最大3つ）
+  return hints.slice(0, 3);
 }
 
 // ────────────────────────────────────────────────
@@ -627,29 +778,9 @@ export function generateStrategy(deck, leader) {
   // ── 汎用アドバイス ──
   const generalTips = [];
 
-  // リーダー固有の強み説明（最優先）
-  if (isLimitedDon) {
-    generalTips.push(
-      `⚡ ドン!!上限が${maxDon}枚のリーダー — 通常の10枚デッキとは異なり、ドンが早期に枯れる。【起動メイン】でドン!!を一気に展開して高コストカードを連打するのがこのリーダーの勝ちパターン`
-    );
-  }
-  if (leaderRules.eventIsStrength) {
-    const minCost = leaderRules.eventDrawMinCost ?? 3;
-    const evName = highCostEvents[0]?.card.name ?? 'イベントカード';
-    generalTips.push(
-      `📖 コスト${minCost}以上のイベントを自ターンに使うと1ドロー — ${evName}などを積極的に発動してアドバンテージを稼ごう`
-    );
-  }
-  if (leaderRules.eventAsCounter) {
-    generalTips.push(
-      `🛡 手札のイベント・ステージは防御時にカウンターとして使える — 相手のアタック時に捨てることでリーダーパワーを+1000。コスト0のイベントも実質2000カウンターとして機能する`
-    );
-  }
-  if (leaderRules.lifeDrawOnDamage) {
-    generalTips.push(
-      `🃏 ライフが削られるたびにドロー — 相手に攻めさせてドローアドバンテージを取る「受け」のゲームプランが有効。ライフ管理を意識して戦おう`
-    );
-  }
+  // リーダー固有の強み説明（全リーダー対応・最優先）
+  const leaderHints = getLeaderStrategyHints(leader, deck);
+  generalTips.push(...leaderHints);
 
   if (counterCards.length > 0 && !leaderRules.eventAsCounter) {
     generalTips.push(`手札の${counterCards[0].card.name}などカウンターカードは終盤まで温存が基本`);
@@ -664,7 +795,8 @@ export function generateStrategy(deck, leader) {
       generalTips.push(`除去・ドローイベント（例:${actionEvent.card.name}）は自分のメインフェイズで使い盤面有利を作る`);
     }
   }
-  if (leaderTip && !isLimitedDon && !leaderRules.eventIsStrength) generalTips.push(leaderTip);
+  // leaderHints がない場合のみ基本ヒントを表示
+  if (leaderHints.length === 0 && leaderTip) generalTips.push(leaderTip);
   generalTips.push('相手のライフが3以下になったら一気に攻めるチャンス — カウンターを警戒しながらアタック宣言を工夫しよう');
 
   return { turns, generalTips };

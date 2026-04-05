@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { evaluateDeck, analyzeLeaderSynergy, analyzeMatchups, generateStrategy } from '../utils/deckRules';
+import { evaluateDeck, analyzeLeaderSynergy, analyzeMatchups, generateStrategy, getLeaderStrategyHints } from '../utils/deckRules';
 
 // ── スコアタブ ──────────────────────────────────
 const GRADE_COLOR = {
@@ -58,6 +58,59 @@ function CostMiniBar({ lowCost, midCost, highCost }) {
   );
 }
 
+/** 全リーダーの特徴をバッジ形式で表示するバナー */
+function LeaderRulesBanner({ leaderRules = {} }) {
+  const badges = [];
+
+  if (leaderRules.maxDon != null)
+    badges.push({ icon: '⚡', text: `ドン!!上限 ${leaderRules.maxDon}枚`, color: 'bg-yellow-800/60 border-yellow-600 text-yellow-300' });
+  if (leaderRules.eventIsStrength)
+    badges.push({ icon: '📖', text: `C${leaderRules.eventDrawMinCost ?? 3}+イベントで1ドロー`, color: 'bg-blue-800/60 border-blue-600 text-blue-300' });
+  if (leaderRules.eventAsCounter)
+    badges.push({ icon: '🛡', text: 'イベント/ステージ → カウンター', color: 'bg-green-800/60 border-green-600 text-green-300' });
+  if (leaderRules.lifeDrawOnDamage)
+    badges.push({ icon: '🃏', text: 'ライフ減少時ドロー', color: 'bg-cyan-800/60 border-cyan-600 text-cyan-300' });
+  if (leaderRules.drawOnAttack)
+    badges.push({ icon: '⚔️', text: 'アタック時ドロー', color: 'bg-blue-800/60 border-blue-600 text-blue-300' });
+  if (leaderRules.donAccelerate)
+    badges.push({ icon: '💨', text: 'ドン加速', color: 'bg-orange-800/60 border-orange-600 text-orange-300' });
+  if (leaderRules.donOnPlay)
+    badges.push({ icon: '🎯', text: '登場時ドン付与', color: 'bg-orange-800/60 border-orange-600 text-orange-300' });
+  if (leaderRules.costReduction)
+    badges.push({ icon: '💰', text: 'コスト軽減', color: 'bg-purple-800/60 border-purple-600 text-purple-300' });
+  if (leaderRules.hasBounce)
+    badges.push({ icon: '↩️', text: 'バウンス', color: 'bg-indigo-800/60 border-indigo-600 text-indigo-300' });
+  if (leaderRules.givesBlocker)
+    badges.push({ icon: '🛡', text: 'ブロッカー付与', color: 'bg-gray-700/60 border-gray-500 text-gray-300' });
+  if (leaderRules.givesRush)
+    badges.push({ icon: '⚡', text: 'ラッシュ付与', color: 'bg-red-800/60 border-red-600 text-red-300' });
+  if (leaderRules.lifeProtect)
+    badges.push({ icon: '❤️', text: 'ライフ保護', color: 'bg-pink-800/60 border-pink-600 text-pink-300' });
+  if (leaderRules.hasDeckSearch)
+    badges.push({ icon: '🔍', text: 'サーチ', color: 'bg-teal-800/60 border-teal-600 text-teal-300' });
+  if (leaderRules.hasRemoval)
+    badges.push({ icon: '💥', text: 'KO/除去', color: 'bg-red-800/60 border-red-600 text-red-300' });
+  if (leaderRules.activeDuringOpponentTurn)
+    badges.push({ icon: '⏰', text: '相手ターン発動', color: 'bg-violet-800/60 border-violet-600 text-violet-300' });
+  if (leaderRules.attackDiscard)
+    badges.push({ icon: '🔄', text: 'アタック時手札捨て', color: 'bg-amber-800/60 border-amber-600 text-amber-300' });
+
+  if (badges.length === 0) return null;
+
+  return (
+    <div className="bg-gray-800/40 border border-gray-700 rounded-lg p-2">
+      <div className="text-xs text-gray-400 mb-1.5 font-medium">🌟 リーダー効果の特徴</div>
+      <div className="flex flex-wrap gap-1.5">
+        {badges.map((b, i) => (
+          <span key={i} className={`text-xs px-2 py-0.5 rounded-full border font-medium ${b.color}`}>
+            {b.icon} {b.text}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ScoreTab({ result }) {
   if (!result) return <EmptyState />;
   const { grade, totalScore, counterScore, costScore, typeScore,
@@ -71,22 +124,8 @@ function ScoreTab({ result }) {
   const eventAsCounter  = !!leaderRules.eventAsCounter;
   return (
     <div className="space-y-3">
-      {/* リーダー特殊ルールバナー */}
-      {isLimitedDon && (
-        <div className="bg-yellow-900/40 border border-yellow-700 rounded-lg p-2 text-xs text-yellow-300">
-          ⚡ ドン!!上限 <strong>{leaderRules.maxDon}枚</strong>のリーダー — コスト曲線の基準が通常と異なります
-        </div>
-      )}
-      {eventIsStrength && (
-        <div className="bg-blue-900/40 border border-blue-700 rounded-lg p-2 text-xs text-blue-300">
-          📖 コスト{leaderRules.eventDrawMinCost ?? 3}以上のイベントを使うと<strong>1ドロー</strong> — イベント多積みが強みのリーダーです
-        </div>
-      )}
-      {eventAsCounter && (
-        <div className="bg-green-900/40 border border-green-700 rounded-lg p-2 text-xs text-green-300">
-          🛡 イベント・ステージを<strong>カウンター</strong>として使用可能 — イベント枚数がそのまま防御力になります
-        </div>
-      )}
+      {/* リーダー特殊ルールバナー（全リーダー対応） */}
+      <LeaderRulesBanner leaderRules={leaderRules} />
       <div className="flex items-center gap-3">
         <div className={`w-16 h-16 rounded-xl border-2 flex items-center justify-center flex-shrink-0 ${gradeStyle}`}>
           <span className="text-3xl font-black">{grade}</span>
@@ -326,11 +365,25 @@ function TurnCardBadges({ charCards, eventCards }) {
   );
 }
 
-function StrategyTab({ strategy, leader }) {
+function StrategyTab({ strategy, leader, deck }) {
   if (!strategy || !leader) return <EmptyState text="リーダーとカードを追加すると定石が表示されます" />;
   const { turns, generalTips } = strategy;
+  const leaderHints = getLeaderStrategyHints(leader, deck);
   return (
     <div className="space-y-3">
+      {/* リーダー固有戦略バナー（全リーダー対応） */}
+      {leaderHints.length > 0 && (
+        <div className="bg-indigo-900/40 border border-indigo-700 rounded-lg p-2.5">
+          <div className="text-xs font-bold text-indigo-300 mb-1.5">🌟 {leader.name} の立ち回りポイント</div>
+          <ul className="space-y-1.5">
+            {leaderHints.map((hint, i) => (
+              <li key={i} className="text-xs text-indigo-200 flex gap-1.5">
+                <span className="flex-shrink-0">→</span><span>{hint}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {turns.map(t => (
         <div key={t.turn} className="bg-gray-800/60 rounded-lg p-2.5">
           <div className="flex items-center gap-1.5 mb-1.5">
@@ -407,7 +460,7 @@ export default function DeckEvaluator({ deck, leader }) {
             {tab === 'score'    && <ScoreTab    result={result} />}
             {tab === 'synergy'  && <SynergyTab  synergy={synergy} leader={leader} />}
             {tab === 'matchup'  && <MatchupTab  matchups={matchups} />}
-            {tab === 'strategy' && <StrategyTab strategy={strategy} leader={leader} />}
+            {tab === 'strategy' && <StrategyTab strategy={strategy} leader={leader} deck={deck} />}
           </>
         )}
       </div>

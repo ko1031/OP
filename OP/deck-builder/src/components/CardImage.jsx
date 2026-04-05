@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const OFFICIAL_BASE = 'https://www.onepiece-cardgame.com/images/cardlist/card';
 const PROXY_BASE    = '/card-img';
@@ -22,6 +22,12 @@ function resolveUrl(imageUrl) {
 export default function CardImage({ card, className = '', style = {} }) {
   const [src, setSrc] = useState(() => resolveUrl(card?.image_url));
   const [errored, setErrored] = useState(false);
+
+  // card が差し替わった（リーダー変更など）ときに画像を更新する
+  useEffect(() => {
+    setSrc(resolveUrl(card?.image_url));
+    setErrored(false);
+  }, [card?.image_url]);
 
   const handleError = () => {
     if (!errored) {
