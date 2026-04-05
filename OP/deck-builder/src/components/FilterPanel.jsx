@@ -1,4 +1,4 @@
-import { Search, X } from 'lucide-react';
+import { Search, X, Zap } from 'lucide-react';
 
 const COLORS = ['赤', '緑', '青', '紫', '黒', '黄'];
 const TYPES  = ['LEADER', 'CHARACTER', 'EVENT', 'STAGE'];
@@ -65,6 +65,25 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* 特殊フィルター */}
+        <div>
+          <div className="text-xs text-gray-500 mb-1 font-medium">特殊</div>
+          <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => onChange({ ...filters, counterOnly: !filters.counterOnly })}
+              className={`px-3 py-1 rounded text-xs font-medium border transition-all flex items-center gap-1
+                ${filters.counterOnly ? 'bg-orange-600 border-orange-400 text-white' : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-400'}`}>
+              🛡 カウンター
+            </button>
+            <button
+              onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
+              className={`px-3 py-1 rounded text-xs font-medium border transition-all flex items-center gap-1
+                ${filters.triggerOnly ? 'bg-yellow-500 border-yellow-300 text-gray-900' : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-400'}`}>
+              ⚡ トリガー
+            </button>
           </div>
         </div>
 

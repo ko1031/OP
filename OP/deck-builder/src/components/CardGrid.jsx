@@ -3,11 +3,15 @@ import { Plus } from 'lucide-react';
 import CardImage from './CardImage';
 import CardTooltip from './CardTooltip';
 import ColorBadge from './ColorBadge';
+import { hasTrigger } from '../utils/deckRules';
 
-function CardItem({ card, count, onAdd, onSelect, isLeader, isSelected }) {
+function CardItem({ card, count, onAdd, isSelected }) {
   const [hover, setHover] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
+
+  const trigger = hasTrigger(card);
+  const hasCounter = card.counter || (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】'));
 
   const handleMouseEnter = (e) => {
     setHover(true);
@@ -28,14 +32,28 @@ function CardItem({ card, count, onAdd, onSelect, isLeader, isSelected }) {
       >
         <CardImage card={card} className="w-full aspect-[63/88] object-cover" />
 
-        {/* カード枚数バッジ */}
+        {/* カード枚数バッジ（右上） */}
         {count > 0 && (
           <div className="absolute top-1 right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
             {count}
           </div>
         )}
 
-        {/* ホバー時のオーバーレイ */}
+        {/* トリガー・カウンターバッジ（左上） */}
+        <div className="absolute top-1 left-1 flex flex-col gap-0.5">
+          {trigger && (
+            <span className="bg-yellow-400 text-gray-900 text-[9px] font-bold px-1 rounded leading-tight shadow">
+              TRG
+            </span>
+          )}
+          {hasCounter && (
+            <span className="bg-orange-500 text-white text-[9px] font-bold px-1 rounded leading-tight shadow">
+              {card.counter ? `+${card.counter / 1000}K` : 'CNT'}
+            </span>
+          )}
+        </div>
+
+        {/* ホバーオーバーレイ */}
         <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${hover ? 'opacity-100' : 'opacity-0'}`}>
           <Plus size={32} className="text-white" />
         </div>
@@ -45,9 +63,7 @@ function CardItem({ card, count, onAdd, onSelect, isLeader, isSelected }) {
           <div className="text-white text-xs font-bold truncate leading-tight">{card.name}</div>
           <div className="flex items-center gap-1 mt-0.5">
             {(card.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
-            {card.cost != null && (
-              <span className="text-gray-300 text-xs ml-auto">C:{card.cost}</span>
-            )}
+            {card.cost != null && <span className="text-gray-300 text-xs ml-auto">C:{card.cost}</span>}
           </div>
         </div>
       </div>
@@ -85,14 +101,8 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onSelectLeade
   }, [cards, sortBy]);
 
   const handleAdd = (card) => {
-    if (card.card_type === 'LEADER') {
-      onSelectLeader(card);
-    } else {
-      const result = onAddCard(card);
-      if (result && !result.ok) {
-        // エラーは無視（UIで表現済み）
-      }
-    }
+    if (card.card_type === 'LEADER') onSelectLeader(card);
+    else onAddCard(card);
   };
 
   return (
@@ -124,7 +134,6 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onSelectLeade
                 card={card}
                 count={deckMap[card.card_number] || 0}
                 onAdd={handleAdd}
-                onSelect={onSelectLeader}
                 isSelected={leader?.card_number === card.card_number}
               />
             ))}
