@@ -62,10 +62,31 @@ function ScoreTab({ result }) {
   if (!result) return <EmptyState />;
   const { grade, totalScore, counterScore, costScore, typeScore,
     charCounterValue, charCounterCards, eventCounterCards, mainEventCards, triggerCards,
-    lowCost, midCost, highCost, lowPct, charCount, eventCount, advice } = result;
+    highCostEventCards,
+    lowCost, midCost, highCost, lowPct, charCount, eventCount,
+    leaderRules = {}, advice } = result;
   const gradeStyle = GRADE_COLOR[grade] || 'text-gray-300 border-gray-500 bg-gray-700/20';
+  const isLimitedDon   = (leaderRules.maxDon ?? 10) < 10;
+  const eventIsStrength = !!leaderRules.eventIsStrength;
+  const eventAsCounter  = !!leaderRules.eventAsCounter;
   return (
     <div className="space-y-3">
+      {/* リーダー特殊ルールバナー */}
+      {isLimitedDon && (
+        <div className="bg-yellow-900/40 border border-yellow-700 rounded-lg p-2 text-xs text-yellow-300">
+          ⚡ ドン!!上限 <strong>{leaderRules.maxDon}枚</strong>のリーダー — コスト曲線の基準が通常と異なります
+        </div>
+      )}
+      {eventIsStrength && (
+        <div className="bg-blue-900/40 border border-blue-700 rounded-lg p-2 text-xs text-blue-300">
+          📖 コスト{leaderRules.eventDrawMinCost ?? 3}以上のイベントを使うと<strong>1ドロー</strong> — イベント多積みが強みのリーダーです
+        </div>
+      )}
+      {eventAsCounter && (
+        <div className="bg-green-900/40 border border-green-700 rounded-lg p-2 text-xs text-green-300">
+          🛡 イベント・ステージを<strong>カウンター</strong>として使用可能 — イベント枚数がそのまま防御力になります
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <div className={`w-16 h-16 rounded-xl border-2 flex items-center justify-center flex-shrink-0 ${gradeStyle}`}>
           <span className="text-3xl font-black">{grade}</span>
@@ -82,7 +103,7 @@ function ScoreTab({ result }) {
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-orange-300 mb-1.5">🛡 カウンター</div>
         <StatRow label="キャラカウンター合計" value={`${(charCounterValue/1000).toFixed(0)}K`} highlight={charCounterValue >= 20000} />
-        <StatRow label="カウンターキャラ枚数" value={`${charCounterCards}枚`} highlight={charCounterCards >= 14} />
+        <StatRow label="カウンターキャラ枚数" value={`${charCounterCards}枚`} highlight={eventAsCounter ? charCounterCards >= 10 : charCounterCards >= 14} />
         <StatRow label="🛡 カウンターイベント" value={`${eventCounterCards}枚`} highlight={eventCounterCards >= 3} />
         <StatRow label="📜 メインイベント" value={`${mainEventCards}枚`} sub="(除去/ドロー/サーチ)" highlight={mainEventCards >= 2} />
         <StatRow label="⚡ トリガー" value={`${triggerCards}枚`} />
@@ -91,15 +112,37 @@ function ScoreTab({ result }) {
         <div className="text-xs font-bold text-green-300 mb-1.5">📊 コスト曲線</div>
         <CostMiniBar lowCost={lowCost} midCost={midCost} highCost={highCost} />
         <div className="mt-1.5">
-          <StatRow label="低コスト比率" value={`${Math.round(lowPct*100)}%`} highlight={lowPct >= 0.55} />
+          <StatRow
+            label="低コスト比率"
+            value={`${Math.round(lowPct*100)}%`}
+            highlight={isLimitedDon ? lowPct >= 0.30 : lowPct >= 0.55}
+          />
         </div>
       </div>
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-blue-300 mb-1.5">⚖️ タイプ比率</div>
-        <StatRow label="キャラ" value={`${charCount}枚`} sub="(目安30-44)" highlight={charCount >= 30 && charCount <= 44} />
-        <StatRow label="イベント合計" value={`${eventCount}枚`} sub="(目安6-18)" highlight={eventCount >= 6 && eventCount <= 18} />
+        <StatRow
+          label="キャラ"
+          value={`${charCount}枚`}
+          sub={eventIsStrength ? '(目安20-40)' : '(目安30-44)'}
+          highlight={eventIsStrength ? (charCount >= 20 && charCount <= 40) : (charCount >= 30 && charCount <= 44)}
+        />
+        <StatRow
+          label="イベント合計"
+          value={`${eventCount}枚`}
+          sub={eventIsStrength ? '(多いほど強い！)' : '(目安6-18)'}
+          highlight={eventIsStrength ? eventCount >= 10 : (eventCount >= 6 && eventCount <= 18)}
+        />
         <StatRow label="└ カウンター" value={`${eventCounterCards}枚`} />
         <StatRow label="└ メイン" value={`${mainEventCards}枚`} />
+        {eventIsStrength && highCostEventCards != null && (
+          <StatRow
+            label={`└ C${leaderRules.eventDrawMinCost ?? 3}以上(ドロー)`}
+            value={`${highCostEventCards}枚`}
+            sub="(目安8枚以上)"
+            highlight={highCostEventCards >= 8}
+          />
+        )}
       </div>
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-purple-300 mb-1.5">💡 アドバイス</div>

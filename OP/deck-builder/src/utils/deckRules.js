@@ -64,15 +64,67 @@ export function deckStats(deck) {
 
 /**
  * カードが【トリガー】能力を自身で持つか判定
- * （バニッシュ説明文や「〜を持つ」参照は除く）
+ * スクレイパーが取得した trigger フィールド（div.trigger）を優先チェックし、
+ * 旧形式の effect 内記述にもフォールバック対応する
  */
 export function hasTrigger(card) {
+  // 新形式: div.trigger から取得したフィールドが存在する場合
+  if (card.trigger) return true;
+  // 旧形式フォールバック: effect 内に【トリガー】が書かれているケース
   const effect = card.effect || '';
   const cleaned = effect.replace(
     /\(このカードがダメージを与えた場合、トリガーは発動せずそのカードはトラッシュに置かれる\)/g,
     ''
   );
   return /【トリガー】(?!.{0,6}(を持|が発動|を発動))/.test(cleaned);
+}
+
+/**
+ * リーダー効果テキストから特殊ルールを抽出する
+ * 返り値の各フラグはデッキ評価・立ち回り生成で参照する
+ */
+export function getLeaderRules(leader) {
+  if (!leader) return {};
+  const ef = leader.effect || '';
+  const rules = {};
+
+  // ── ドン上限制限 ──
+  // 例: エネル「ルール上、自分のドン‼デッキは6枚になる」
+  const donMatch = ef.match(/ドン[!！‼]+デッキは(\d+)枚/);
+  if (donMatch) rules.maxDon = parseInt(donMatch[1]);
+
+  // ── イベント/ステージをカウンターとして使える ──
+  // 例: ルーシー「イベントかステージカードを任意の枚数捨ててもよい」
+  if (/イベントかステージカードを.*捨て.*パワー/.test(ef)) {
+    rules.eventAsCounter = true;
+  }
+
+  // ── コスト3以上のイベント発動でドロー ──
+  // 例: ルーシー「元々のコスト3以上のイベントを発動している場合、カード1枚を引く」
+  const evDrawMatch = ef.match(/元々のコスト(\d+)以上のイベントを発動.*引く/);
+  if (evDrawMatch) {
+    rules.eventDrawMinCost = parseInt(evDrawMatch[1]);
+    rules.eventIsStrength = true; // イベント多積みが強みになる
+  }
+
+  // ── ライフ減少時にドロー ──
+  // 例: 青黄ナミ「自分のライフが減った時、カード1枚を引く」
+  if (/ライフが減.*引く|ライフ.*ドロー/.test(ef)) {
+    rules.lifeDrawOnDamage = true;
+  }
+
+  // ── アタック時に手札からイベント捨てカウンター強化 ──
+  // 例: 赤青エース「手札1枚を捨てることができる：コスト2以下のカード1枚を登場」
+  if (/アタック時.*手札.*捨て/.test(ef)) {
+    rules.attackDiscard = true;
+  }
+
+  // ── 特定特徴を持つキャラ登場時にドン付与 ──
+  if (/登場時.*ドン[!！‼]+.*付与|ドン[!！‼]+.*付与.*登場時/.test(ef)) {
+    rules.donOnPlay = true;
+  }
+
+  return rules;
 }
 
 // ────────────────────────────────────────────────
@@ -422,11 +474,13 @@ export function analyzeMatchups(deck, leader) {
 /**
  * デッキの立ち回り定石をターン別に生成する
  * キャラカード（自分ターンに展開）とイベントカード（タイミング別）を分離して返す
+ * リーダー効果による特殊ルールを考慮する
  */
 export function generateStrategy(deck, leader) {
   if (!deck.length || !leader) return null;
 
   const leaderEffect = leader.effect || '';
+  const leaderRules  = getLeaderRules(leader);
 
   // コスト帯・タイプ別にカードを抽出（枚数多い順）
   const byBracketAndType = (minCost, maxCost, type) =>
@@ -459,6 +513,9 @@ export function generateStrategy(deck, leader) {
   const t3Event  = byBracketAndType(5, 6, 'EVENT');
   const finEvent = byBracketAndType(7, 99, 'EVENT');
 
+  // コスト3以上のイベント（イベントドローリーダー用）
+  const highCostEvents = byBracketAndType(3, 99, 'EVENT');
+
   // 全イベント・カウンターカード（generalTips用）
   const allEvents = deck
     .filter(e => e.card.card_type === 'EVENT')
@@ -467,80 +524,147 @@ export function generateStrategy(deck, leader) {
     .filter(e => e.card.counter || (e.card.card_type === 'EVENT' && e.card.effect?.includes('【カウンター】')))
     .sort((a, b) => b.count - a.count);
 
-  // リーダー効果発動条件
+  // ── リーダー効果発動条件の基本ヒント ──
   let leaderTip = '';
   if (/アタック時/.test(leaderEffect)) leaderTip = 'リーダーアタック時に効果が発動 — 積極的にアタックを狙おう';
   else if (/自分のターン.*終了時|ターン終了時/.test(leaderEffect)) leaderTip = 'ターン終了時に効果が発動 — プレイ後に忘れず確認';
   else if (/登場時/.test(leaderEffect)) leaderTip = '特定カードの登場時効果 — タイミングに注意';
   else if (/ブロック時/.test(leaderEffect)) leaderTip = 'ブロック時に効果が発動 — 防御も積極的に';
 
-  const turns = [
-    {
-      turn: 'T1〜T2',
-      don: '1〜2ドン',
-      icon: '🔰',
-      phase: '序盤：盤面形成',
-      charCards:  toCardInfo(t1Char, 3),
-      eventCards: toCardInfo(t1Event, 2),
-      advice:
-        t1Char.length >= 2
-          ? `${t1Char[0].card.name}・${t1Char[1]?.card.name ?? ''}などを展開して序盤の盤面を作る。リーダーアタックも忘れずに。`
-          : 'ドン!!を貯め、T3以降の大きな動きに備える。手札交換を活用して手札の質を上げる。',
-    },
-    {
-      turn: 'T3〜T4',
-      don: '3〜4ドン',
-      icon: '⚔️',
-      phase: '中盤前半：展開加速',
-      charCards:  toCardInfo(t2Char, 3),
-      eventCards: toCardInfo(t2Event, 2),
-      advice:
-        t2Char.length >= 1
-          ? `${t2Char[0].card.name}など主力3〜4コストを展開。カウンターイベントは安易に使わず手札に温存しながら攻守のバランスを取る。`
-          : 'イベント・カウンターを手札に温存しつつ低コストカードで横展開を続ける。',
-    },
-    {
-      turn: 'T5〜T6',
-      don: '5〜6ドン',
-      icon: '💥',
-      phase: '中盤後半：盤面制圧',
-      charCards:  toCardInfo(t3Char, 3),
-      eventCards: toCardInfo(t3Event, 2),
-      advice:
-        t3Char.length >= 1
-          ? `${t3Char[0].card.name}など強力なカードで盤面を制圧。除去イベントで相手の盤面を崩してから攻めよう。`
-          : 'ここまでの盤面優位を活かし、ライフへの攻撃を集中させる。カウンターは最終局面まで温存。',
-    },
-    {
-      turn: 'T7以降',
-      don: '7ドン以上',
-      icon: '🏆',
-      phase: '終盤：フィニッシュ',
-      charCards:  toCardInfo(finChar, 2),
-      eventCards: toCardInfo(finEvent, 2),
-      advice:
-        finChar.length >= 1
-          ? `${finChar[0].card.name}がフィニッシャー。相手の手札が少ない・カウンターが尽きたタイミングを見計らって叩き込む。`
-          : 'リーダーアタックと盤面カードのアタックを組み合わせ、手札のカウンターが尽きたところで一気に削り切る。',
-    },
-  ];
+  // ── ドン上限制限があるリーダー（例：エネル）のターン構成変更 ──
+  const maxDon = leaderRules.maxDon ?? 10;
+  const isLimitedDon = maxDon < 10;
 
-  // 汎用アドバイス
+  // エネルの場合はT5〜T6が実質フィニッシュターン（最大6ドン）
+  const turns = isLimitedDon
+    ? [
+        {
+          turn: 'T1',
+          don: '1ドン',
+          icon: '🔰',
+          phase: '序盤：手札整備',
+          charCards:  toCardInfo(t1Char, 2),
+          eventCards: toCardInfo(t1Event, 1),
+          advice: 'ドン!!デッキは最大6枚のため通常より早くドンが枯れる。T1はリーダーアタックと低コストカードで盤面を始動させる。',
+        },
+        {
+          turn: 'T2（リーダー起動後）',
+          don: `最大${maxDon}ドン`,
+          icon: '⚡',
+          phase: '中盤：一気に展開',
+          charCards:  [...toCardInfo(t2Char, 3), ...toCardInfo(t3Char, 2)].slice(0, 3),
+          eventCards: toCardInfo([...t2Event, ...t3Event], 2),
+          advice: leaderEffect.includes('起動メイン')
+            ? `T2以降【起動メイン】でドン!!を一気に加速。最大${maxDon}ドン全てを活用して高コストキャラを一気に展開しよう。ドン!!が枯れる前に攻撃を仕掛けることが重要。`
+            : `最大${maxDon}ドンをフル活用。高コストキャラを並べてプレッシャーをかける。`,
+        },
+        {
+          turn: 'T3〜（フィニッシュ）',
+          don: `最大${maxDon}ドン（再加速後）`,
+          icon: '🏆',
+          phase: '終盤：畳み掛け',
+          charCards:  toCardInfo(finChar, 2),
+          eventCards: toCardInfo(finEvent, 2),
+          advice:
+            finChar.length >= 1
+              ? `${finChar[0].card.name}でフィニッシュを狙う。ドン!!上限が${maxDon}のため、再加速のタイミングを計算して攻め続ける。`
+              : `ドン!!が再加速したターンに一気に畳み掛ける。相手の手札が尽きたら全力アタック。`,
+        },
+      ]
+    : [
+        {
+          turn: 'T1〜T2',
+          don: '1〜2ドン',
+          icon: '🔰',
+          phase: '序盤：盤面形成',
+          charCards:  toCardInfo(t1Char, 3),
+          eventCards: toCardInfo(t1Event, 2),
+          advice:
+            t1Char.length >= 2
+              ? `${t1Char[0].card.name}・${t1Char[1]?.card.name ?? ''}などを展開して序盤の盤面を作る。リーダーアタックも忘れずに。`
+              : 'ドン!!を貯め、T3以降の大きな動きに備える。手札交換を活用して手札の質を上げる。',
+        },
+        {
+          turn: 'T3〜T4',
+          don: '3〜4ドン',
+          icon: '⚔️',
+          phase: '中盤前半：展開加速',
+          charCards:  toCardInfo(t2Char, 3),
+          eventCards: toCardInfo(t2Event, 2),
+          advice: leaderRules.eventIsStrength
+            ? `${highCostEvents[0]?.card.name ?? 'コスト3+イベント'}を使ってリーダー効果でドロー。毎ターンイベントを発動しながら手札を補充しつつ攻める。`
+            : t2Char.length >= 1
+              ? `${t2Char[0].card.name}など主力3〜4コストを展開。カウンターイベントは安易に使わず手札に温存しながら攻守のバランスを取る。`
+              : 'イベント・カウンターを手札に温存しつつ低コストカードで横展開を続ける。',
+        },
+        {
+          turn: 'T5〜T6',
+          don: '5〜6ドン',
+          icon: '💥',
+          phase: '中盤後半：盤面制圧',
+          charCards:  toCardInfo(t3Char, 3),
+          eventCards: toCardInfo(t3Event, 2),
+          advice: leaderRules.eventIsStrength
+            ? `コスト3+イベントを毎ターン発動してドローを継続。${t3Char[0]?.card.name ?? '主力キャラ'}を展開しながら手札をイベントで補充し続ける。`
+            : t3Char.length >= 1
+              ? `${t3Char[0].card.name}など強力なカードで盤面を制圧。除去イベントで相手の盤面を崩してから攻めよう。`
+              : 'ここまでの盤面優位を活かし、ライフへの攻撃を集中させる。カウンターは最終局面まで温存。',
+        },
+        {
+          turn: 'T7以降',
+          don: '7ドン以上',
+          icon: '🏆',
+          phase: '終盤：フィニッシュ',
+          charCards:  toCardInfo(finChar, 2),
+          eventCards: toCardInfo(finEvent, 2),
+          advice:
+            finChar.length >= 1
+              ? `${finChar[0].card.name}がフィニッシャー。相手の手札が少ない・カウンターが尽きたタイミングを見計らって叩き込む。`
+              : 'リーダーアタックと盤面カードのアタックを組み合わせ、手札のカウンターが尽きたところで一気に削り切る。',
+        },
+      ];
+
+  // ── 汎用アドバイス ──
   const generalTips = [];
-  if (counterCards.length > 0) {
+
+  // リーダー固有の強み説明（最優先）
+  if (isLimitedDon) {
+    generalTips.push(
+      `⚡ ドン!!上限が${maxDon}枚のリーダー — 通常の10枚デッキとは異なり、ドンが早期に枯れる。【起動メイン】でドン!!を一気に展開して高コストカードを連打するのがこのリーダーの勝ちパターン`
+    );
+  }
+  if (leaderRules.eventIsStrength) {
+    const minCost = leaderRules.eventDrawMinCost ?? 3;
+    const evName = highCostEvents[0]?.card.name ?? 'イベントカード';
+    generalTips.push(
+      `📖 コスト${minCost}以上のイベントを自ターンに使うと1ドロー — ${evName}などを積極的に発動してアドバンテージを稼ごう`
+    );
+  }
+  if (leaderRules.eventAsCounter) {
+    generalTips.push(
+      `🛡 手札のイベント・ステージは防御時にカウンターとして使える — 相手のアタック時に捨てることでリーダーパワーを+1000。コスト0のイベントも実質2000カウンターとして機能する`
+    );
+  }
+  if (leaderRules.lifeDrawOnDamage) {
+    generalTips.push(
+      `🃏 ライフが削られるたびにドロー — 相手に攻めさせてドローアドバンテージを取る「受け」のゲームプランが有効。ライフ管理を意識して戦おう`
+    );
+  }
+
+  if (counterCards.length > 0 && !leaderRules.eventAsCounter) {
     generalTips.push(`手札の${counterCards[0].card.name}などカウンターカードは終盤まで温存が基本`);
   }
   if (allEvents.length > 0) {
     const counterEvent = allEvents.find(e => e.card.effect?.includes('【カウンター】'));
     const actionEvent  = allEvents.find(e => !e.card.effect?.includes('【カウンター】'));
-    if (counterEvent) {
+    if (counterEvent && !leaderRules.eventAsCounter) {
       generalTips.push(`【カウンター】イベント（例:${counterEvent.card.name}）は相手のアタック宣言後に使う — 自分のターンには使えない`);
     }
     if (actionEvent) {
       generalTips.push(`除去・ドローイベント（例:${actionEvent.card.name}）は自分のメインフェイズで使い盤面有利を作る`);
     }
   }
-  if (leaderTip) generalTips.push(leaderTip);
+  if (leaderTip && !isLimitedDon && !leaderRules.eventIsStrength) generalTips.push(leaderTip);
   generalTips.push('相手のライフが3以下になったら一気に攻めるチャンス — カウンターを警戒しながらアタック宣言を工夫しよう');
 
   return { turns, generalTips };
@@ -548,10 +672,13 @@ export function generateStrategy(deck, leader) {
 
 /**
  * デッキ全体を評価してスコアとアドバイスを返す
+ * leader が渡された場合はリーダー効果による特殊ルールを考慮する
  */
 export function evaluateDeck(deck, leader) {
   const total = deck.reduce((s, e) => s + e.count, 0);
   if (total === 0) return null;
+
+  const leaderRules = getLeaderRules(leader);
 
   // ── カウンター評価 ──
   let charCounterValue = 0;
@@ -559,6 +686,7 @@ export function evaluateDeck(deck, leader) {
   let eventCounterCards = 0;
   let mainEventCards = 0;   // 【メイン】イベント（除去・ドロー・サーチ系）
   let triggerCards = 0;
+  let highCostEventCards = 0; // コスト3以上のイベント（ドローリーダー用）
 
   deck.forEach(({ card, count }) => {
     if (card.card_type === 'CHARACTER' && card.counter) {
@@ -568,14 +696,21 @@ export function evaluateDeck(deck, leader) {
     const ef = card.effect || '';
     if (card.card_type === 'EVENT') {
       if (ef.includes('【カウンター】')) eventCounterCards += count;
-      // 【メイン】を含み、かつカウンターのみでないイベント = メインイベント
+      // 【メイン】を含むイベント = メインイベント（除去・ドロー・サーチ系）
       if (ef.includes('【メイン】')) mainEventCards += count;
+      // コスト3以上のイベント（ルーシー等のドロートリガーに使用）
+      if ((card.cost ?? 0) >= (leaderRules.eventDrawMinCost ?? 3)) highCostEventCards += count;
     }
     if (hasTrigger(card)) triggerCards += count;
   });
 
+  // ── カウンタースコア ──
+  // イベントをカウンターとして使えるリーダー（ルーシー等）はイベント枚数もカウンターとして加算
+  const effectiveEventCounter = leaderRules.eventAsCounter
+    ? eventCounterCards + Math.floor(mainEventCards * 0.5) // メインイベントも半分はカウンターとして機能
+    : eventCounterCards;
   const counterScore = Math.min(40,
-    Math.round((charCounterValue / 1000) * 1.2 + eventCounterCards * 2)
+    Math.round((charCounterValue / 1000) * 1.2 + effectiveEventCounter * 2)
   );
 
   // ── コスト曲線評価 ──
@@ -587,23 +722,27 @@ export function evaluateDeck(deck, leader) {
     else highCost += count;
   });
   const lowPct = total > 0 ? lowCost / total : 0;
+  // ドン上限制限リーダー（エネル等）は高コストに振り切るので評価基準を緩める
+  const isLimitedDon = (leaderRules.maxDon ?? 10) < 10;
   const costScore = Math.min(30, Math.round(
-    lowPct >= 0.65 ? 30 :
-    lowPct >= 0.55 ? 24 :
-    lowPct >= 0.45 ? 18 :
-    lowPct >= 0.35 ? 12 : 6
+    isLimitedDon
+      ? (lowPct >= 0.40 ? 30 : lowPct >= 0.30 ? 24 : lowPct >= 0.20 ? 18 : 12)
+      : (lowPct >= 0.65 ? 30 : lowPct >= 0.55 ? 24 : lowPct >= 0.45 ? 18 : lowPct >= 0.35 ? 12 : 6)
   ));
 
   // ── タイプバランス評価 ──
   const charCount = deck.filter(e => e.card.card_type === 'CHARACTER').reduce((s,e)=>s+e.count,0);
   const eventCount = deck.filter(e => e.card.card_type === 'EVENT').reduce((s,e)=>s+e.count,0);
-  const charOk = charCount >= 30 && charCount <= 44;
-  // メインイベント込みで評価: メイン2枚以上あればイベント枚数の下限を緩める
-  const eventOk = mainEventCards >= 2
-    ? (eventCount >= 6 && eventCount <= 18)
-    : (eventCount >= 6 && eventCount <= 14);
+
+  // イベントが強みになるリーダー（ルーシー等）は上限を20枚に緩和し、高枚数をポジティブ評価
+  const eventUpperLimit = leaderRules.eventIsStrength ? 24 : (mainEventCards >= 2 ? 18 : 14);
+  const charOk = leaderRules.eventIsStrength
+    ? (charCount >= 20 && charCount <= 40) // イベント型は少し少なめでもOK
+    : (charCount >= 30 && charCount <= 44);
+  const eventOk = eventCount >= 6 && eventCount <= eventUpperLimit;
+
   const typeScore = Math.min(30,
-    (charOk ? 15 : charCount >= 24 ? 8 : 3) +
+    (charOk ? 15 : charCount >= 20 ? 8 : 3) +
     (eventOk ? 15 : eventCount >= 3 ? 8 : 2)
   );
 
@@ -615,22 +754,54 @@ export function evaluateDeck(deck, leader) {
     totalScore >= 40 ? 'C' : 'D';
 
   const advice = [];
-  if (charCounterCards < 14)
-    advice.push(`カウンターキャラが${charCounterCards}枚と少なめです。14枚以上を目安に増やしましょう。`);
-  if (charCounterValue < 18000)
-    advice.push(`カウンター合計値が${(charCounterValue/1000).toFixed(0)}K。20K以上を目標に守りを固めましょう。`);
-  if (eventCounterCards < 3 && mainEventCards < 4)
-    advice.push(`【カウンター】イベントが${eventCounterCards}枚のみ。3〜5枚で防御力が大幅アップします。`);
-  if (mainEventCards === 0)
+
+  // ── リーダー固有のアドバイス ──
+  if (isLimitedDon) {
+    if (highCost > 12)
+      advice.push(`ドン上限${leaderRules.maxDon}のリーダーでは高コスト多めでも問題なし。フィニッシャーを増やして速攻を狙おう。`);
+    // ドン上限リーダーは低コスト率の基準が下がる → 低コスト警告を出さない
+  } else {
+    if (lowPct < 0.55 && mainEventCards < 4)
+      advice.push(`低コスト(0〜3)が${Math.round(lowPct*100)}%と少なめ。序盤安定のため60%以上を推奨します。`);
+    if (highCost > 8)
+      advice.push(`高コスト(7+)が${highCost}枚。事故防止のために6枚以下を推奨します。`);
+  }
+
+  if (leaderRules.eventIsStrength) {
+    // ルーシー等: イベント多積みはむしろ強み
+    if (eventCount < 10)
+      advice.push(`このリーダーはイベントを発動するほど強い！コスト${leaderRules.eventDrawMinCost ?? 3}以上のイベントを10〜20枚入れてドローアドを最大化しましょう。`);
+    else if (highCostEventCards < 8)
+      advice.push(`コスト${leaderRules.eventDrawMinCost ?? 3}以上のイベントが${highCostEventCards}枚。ドロー効果を毎ターン活かすには8枚以上が理想です。`);
+    else
+      advice.push(`✅ イベント構成が良好！コスト${leaderRules.eventDrawMinCost ?? 3}以上が${highCostEventCards}枚確保されており、毎ターンのドロー効果を安定発動できます。`);
+    // キャラカードが少なくてもイベント型は評価しない
+    if (charCount < 20)
+      advice.push(`キャラカードが${charCount}枚と少なめです。最低限のアタック要員（20枚以上）は確保しましょう。`);
+  } else {
+    if (charCount < 30 && mainEventCards < 6)
+      advice.push(`キャラカードが${charCount}枚と少なめ。30〜40枚が標準的な構成です。`);
+    if (eventCount < 6 && mainEventCards === 0)
+      advice.push(`イベントが${eventCount}枚のみ。6〜10枚でコンボ・防御の幅が広がります。`);
+  }
+
+  // ── カウンター関連アドバイス ──
+  if (leaderRules.eventAsCounter) {
+    // ルーシー等: イベントがカウンターとして機能するのでカウンターキャラの基準を緩める
+    if (charCounterCards < 10 && eventCount < 8)
+      advice.push(`カウンターキャラ${charCounterCards}枚・イベント${eventCount}枚。このリーダーはイベントもカウンターに使えるので合計20枚以上を目安に。`);
+  } else {
+    if (charCounterCards < 14)
+      advice.push(`カウンターキャラが${charCounterCards}枚と少なめです。14枚以上を目安に増やしましょう。`);
+    if (charCounterValue < 18000)
+      advice.push(`カウンター合計値が${(charCounterValue/1000).toFixed(0)}K。20K以上を目標に守りを固めましょう。`);
+    if (eventCounterCards < 3 && mainEventCards < 4)
+      advice.push(`【カウンター】イベントが${eventCounterCards}枚のみ。3〜5枚で防御力が大幅アップします。`);
+  }
+
+  if (mainEventCards === 0 && !leaderRules.eventIsStrength)
     advice.push('【メイン】イベント（除去・ドロー・サーチ）がありません。2〜6枚入れると盤面干渉力が上がります。');
-  if (lowPct < 0.55 && mainEventCards < 4)
-    advice.push(`低コスト(0〜3)が${Math.round(lowPct*100)}%と少なめ。序盤安定のため60%以上を推奨します。`);
-  if (highCost > 8)
-    advice.push(`高コスト(7+)が${highCost}枚。事故防止のために6枚以下を推奨します。`);
-  if (charCount < 30 && mainEventCards < 6)
-    advice.push(`キャラカードが${charCount}枚と少なめ。30〜40枚が標準的な構成です。`);
-  if (eventCount < 6 && mainEventCards === 0)
-    advice.push(`イベントが${eventCount}枚のみ。6〜10枚でコンボ・防御の幅が広がります。`);
+
   if (advice.length === 0)
     advice.push('バランスの良いデッキです！対戦でぜひ試してみましょう。');
 
@@ -638,8 +809,10 @@ export function evaluateDeck(deck, leader) {
     grade, totalScore,
     counterScore, costScore, typeScore,
     charCounterValue, charCounterCards, eventCounterCards, mainEventCards, triggerCards,
+    highCostEventCards,
     lowCost, midCost, highCost, lowPct,
     charCount, eventCount,
+    leaderRules,
     advice,
   };
 }
