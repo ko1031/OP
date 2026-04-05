@@ -63,6 +63,13 @@ function SampleDeckCard({ sample, cardMap, onCopy }) {
     ? 'text-red-400 bg-red-900/30 border-red-700/50'
     : 'text-orange-400 bg-orange-900/30 border-orange-700/50';
 
+  // 大会種別バッジの色
+  const eventBadge = sample.eventType === 'flagship'
+    ? { label: '公認', cls: 'text-yellow-300 bg-yellow-900/40 border-yellow-600/60' }
+    : sample.eventType === 'nonofficial'
+    ? { label: '非公認', cls: 'text-sky-300 bg-sky-900/40 border-sky-600/60' }
+    : { label: 'CS', cls: 'text-purple-300 bg-purple-900/40 border-purple-600/60' };
+
   return (
     <div className="bg-gray-800/60 rounded-xl border border-gray-700/60 overflow-hidden">
       {/* ヘッダー */}
@@ -79,16 +86,21 @@ function SampleDeckCard({ sample, cardMap, onCopy }) {
               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${tierColor}`}>
                 Tier{sample.tier}
               </span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${eventBadge.cls}`}>
+                {eventBadge.label}
+              </span>
               <div className="flex gap-1">
                 {sample.colors.map(c => <ColorDot key={c} color={c} />)}
               </div>
             </div>
             <div className="text-sm font-bold text-white">{sample.name}</div>
-            <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1">
-              <Trophy size={9} />
-              {sample.event}
-              <span className="text-gray-600">·</span>
-              {sample.date}
+            {/* 大会名と日付を2行で明示 */}
+            <div className="mt-1 space-y-0.5">
+              <div className="flex items-center gap-1 text-[10px] text-yellow-200/80">
+                <Trophy size={9} className="flex-shrink-0" />
+                <span className="font-medium truncate">{sample.event}</span>
+              </div>
+              <div className="text-[10px] text-gray-400 pl-3.5">{sample.date}</div>
             </div>
             <div className="text-[10px] text-gray-400 mt-1 leading-relaxed line-clamp-2">{sample.description}</div>
           </div>
