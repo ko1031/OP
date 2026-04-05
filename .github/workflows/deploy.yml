@@ -20,22 +20,62 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: OP/deck-builder/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Cache card images
+        id: cache-images
+        uses: actions/cache@v4
+        with:
+          path: OP/deck-builder/public/images
+          key: card-images-${{ hashFiles('OP/scraper/data/cards.json') }}
+
+      - name: Download cardback image
+        if: steps.cache-images.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p OP/deck-builder/public/images
+          curl -L -o OP/deck-builder/public/images/cardback.png \
+            "https://www.onepiece-cardgame.com/images/cardlist/cardback.png" \
+            -H "Referer: https://www.onepiece-cardgame.com/cardlist/" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+
+      - name: Download card images
+        if: steps.cache-images.outputs.cache-hit != 'true'
+        run: python OP/scraper/download_images.py
+
       - name: Install dependencies
         run: npm ci
         working-directory: OP/deck-builder
+
       - name: Build
         run: npm run build
         working-directory: OP/deck-builder
-      - uses: actions/configure-pages@v4
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: OP/deck-builder/dist
-      - id: deployment
+
+      - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
