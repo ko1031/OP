@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  base: '/OP/', // リポジトリ名に合わせて設定,
   server: {
     proxy: {
       // カード画像を公式サイトからプロキシ（Refererヘッダーを付与してホットリンク制限を回避）
