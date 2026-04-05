@@ -3,6 +3,7 @@ import { Trash2, Save, FolderOpen, RotateCcw, ChevronDown, ChevronUp, Minus, Plu
 import CardImage from './CardImage';
 import ColorBadge from './ColorBadge';
 import DeckEvaluator from './DeckEvaluator';
+import CardModal from './CardModal';
 import { DECK_LIMIT, deckStats } from '../utils/deckRules';
 
 function CostBar({ distribution }) {
@@ -24,20 +25,26 @@ function CostBar({ distribution }) {
   );
 }
 
-function DeckEntry({ entry, onAdd, onRemove, onRemoveAll }) {
+function DeckEntry({ entry, onAdd, onRemove, onRemoveAll, onOpenModal }) {
   const { card, count } = entry;
   return (
     <div className="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-800 group">
-      <CardImage card={card} className="w-8 h-11 object-cover rounded flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="text-xs font-medium text-white truncate">{card.name}</div>
-        <div className="flex gap-1 mt-0.5">
-          {(card.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
-          {card.cost != null && <span className="text-gray-500 text-xs">C{card.cost}</span>}
-          {card.power != null && <span className="text-gray-500 text-xs">{card.power?.toLocaleString()}</span>}
+      {/* カード画像＋名前エリア: クリックでモーダルを開く */}
+      <button
+        onClick={() => onOpenModal(card)}
+        className="flex items-center gap-2 flex-1 min-w-0 text-left"
+      >
+        <CardImage card={card} className="w-8 h-11 object-cover rounded flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-medium text-white truncate">{card.name}</div>
+          <div className="flex gap-1 mt-0.5">
+            {(card.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
+            {card.cost != null && <span className="text-gray-500 text-xs">C{card.cost}</span>}
+            {card.power != null && <span className="text-gray-500 text-xs">{card.power?.toLocaleString()}</span>}
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-1">
+      </button>
+      <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => onRemove(card.card_number)}
           className="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300">
           <Minus size={10} />
@@ -78,12 +85,13 @@ function SavedDeckItem({ saved, onLoad, onDelete }) {
 export default function DeckPanel({
   leader, deck, total, deckName, setDeckName,
   onAddCard, onRemoveCard, onRemoveAllCard, onReset,
-  onSave, onLoad, onDeleteSaved, loadDecks,
+  onSave, onLoad, onDeleteSaved, loadDecks, onSelectLeader,
 }) {
   const [showSaved, setShowSaved] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [savedDecks, setSavedDecks] = useState({});
   const [activeTab, setActiveTab] = useState('deck'); // 'deck' | 'eval'
+  const [modalCard, setModalCard] = useState(null);
   const stats = deckStats(deck);
 
   const progress = Math.min((total / DECK_LIMIT) * 100, 100);
@@ -240,6 +248,7 @@ export default function DeckPanel({
                   onAdd={onAddCard}
                   onRemove={onRemoveCard}
                   onRemoveAll={onRemoveAllCard}
+                  onOpenModal={setModalCard}
                 />
               ))}
             </div>
@@ -248,6 +257,19 @@ export default function DeckPanel({
           <DeckEvaluator deck={deck} leader={leader} />
         )}
       </div>
+
+      {/* カード詳細モーダル */}
+      {modalCard && (
+        <CardModal
+          card={modalCard}
+          count={deck.find(e => e.card.card_number === modalCard.card_number)?.count ?? 0}
+          isSelectedLeader={leader?.card_number === modalCard.card_number}
+          onAdd={onAddCard}
+          onRemove={onRemoveCard}
+          onSelectLeader={onSelectLeader ?? (() => {})}
+          onClose={() => setModalCard(null)}
+        />
+      )}
     </div>
   );
 }

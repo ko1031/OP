@@ -210,6 +210,7 @@ export default function App() {
               onLoad={deck.loadDeck}
               onDeleteSaved={deck.deleteSavedDeck}
               loadDecks={deck.loadDecks}
+              onSelectLeader={handleSelectLeader}
             />
           </div>
         </div>
