@@ -1,21 +1,22 @@
 import { useState } from 'react';
 
-const OFFICIAL_BASE  = 'https://www.onepiece-cardgame.com/images/cardlist/card';
-const PROXY_BASE     = '/card-img';
-const FALLBACK_DIRECT = 'https://www.onepiece-cardgame.com/images/cardlist/cardback.png';
-const FALLBACK_PROXY  = '/card-img/cardback.png';
+const OFFICIAL_BASE = 'https://www.onepiece-cardgame.com/images/cardlist/card';
+const PROXY_BASE    = '/card-img';
 
-// 開発中はViteプロキシ経由、本番（GitHub Pages等）は公式URLを直接参照
-const isDev = import.meta.env.DEV;
+// 開発中はViteプロキシ経由、本番（GitHub Pages）はビルド時にダウンロードしたローカル画像を使用
+const isDev    = import.meta.env.DEV;
+const BASE_URL = import.meta.env.BASE_URL; // dev: '/'  /  prod: '/OP/'
 
 function resolveUrl(imageUrl) {
-  if (!imageUrl) return isDev ? FALLBACK_PROXY : FALLBACK_DIRECT;
   if (isDev) {
-    // dev: プロキシ経由で Referer ヘッダーを付与
+    // dev: Viteプロキシ経由（Refererヘッダーを自動付与）
+    if (!imageUrl) return `${PROXY_BASE}/cardback.png`;
     return imageUrl.replace(OFFICIAL_BASE, PROXY_BASE);
   }
-  // prod: 公式URLをそのまま使用。referrerpolicy="no-referrer" で送信元を隠す
-  return imageUrl;
+  // prod: GitHub Actions でダウンロード済みのローカル画像を使用
+  if (!imageUrl) return `${BASE_URL}images/cardback.png`;
+  const filename = imageUrl.split('/').pop().split('?')[0];
+  return `${BASE_URL}images/${filename}`;
 }
 
 export default function CardImage({ card, className = '', style = {} }) {
@@ -25,7 +26,7 @@ export default function CardImage({ card, className = '', style = {} }) {
   const handleError = () => {
     if (!errored) {
       setErrored(true);
-      setSrc(isDev ? FALLBACK_PROXY : FALLBACK_DIRECT);
+      setSrc(isDev ? `${PROXY_BASE}/cardback.png` : `${BASE_URL}images/cardback.png`);
     }
   };
 
@@ -37,7 +38,6 @@ export default function CardImage({ card, className = '', style = {} }) {
       style={style}
       onError={handleError}
       loading="lazy"
-      referrerPolicy="no-referrer"
     />
   );
 }

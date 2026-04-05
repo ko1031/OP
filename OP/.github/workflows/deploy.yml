@@ -32,6 +32,35 @@ jobs:
           cache: 'npm'
           cache-dependency-path: deck-builder/package-lock.json
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      # cards.json が変わらない限りキャッシュを再利用（初回のみダウンロード）
+      - name: Cache card images
+        id: cache-images
+        uses: actions/cache@v4
+        with:
+          path: deck-builder/public/images
+          key: card-images-${{ hashFiles('scraper/data/cards.json') }}
+
+      - name: Download cardback image
+        if: steps.cache-images.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p deck-builder/public/images
+          curl -L -o deck-builder/public/images/cardback.png \
+            "https://www.onepiece-cardgame.com/images/cardlist/cardback.png" \
+            -H "Referer: https://www.onepiece-cardgame.com/cardlist/" \
+            -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+
+      - name: Download card images
+        if: steps.cache-images.outputs.cache-hit != 'true'
+        run: python scraper/download_images.py
+
       - name: Install dependencies
         run: npm ci
         working-directory: deck-builder
