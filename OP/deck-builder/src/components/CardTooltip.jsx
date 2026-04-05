@@ -1,8 +1,12 @@
 import CardImage from './CardImage';
 import ColorBadge from './ColorBadge';
+import { hasTrigger } from '../utils/deckRules';
 
 export default function CardTooltip({ card }) {
   if (!card) return null;
+  const trigger = hasTrigger(card);
+  const hasCounter = card.counter || (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】'));
+
   return (
     <div className="w-72 bg-gray-900 border border-gray-600 rounded-xl shadow-2xl p-3 text-sm text-left">
       <div className="flex gap-3">
@@ -18,12 +22,20 @@ export default function CardTooltip({ card }) {
                : card.card_type === 'LEADER' ? 'リーダー' : card.card_type}
             </span>
             <span className="text-xs px-1.5 py-0.5 bg-gray-700 rounded text-gray-300">{card.rarity}</span>
+            {trigger && (
+              <span className="text-xs px-1.5 py-0.5 bg-yellow-400 text-gray-900 rounded font-bold">⚡ TRG</span>
+            )}
+            {hasCounter && (
+              <span className="text-xs px-1.5 py-0.5 bg-orange-500 text-white rounded font-bold">
+                🛡 {card.counter ? `+${(card.counter/1000).toFixed(0)}K` : 'CNT'}
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-gray-300 text-xs mb-2">
             {card.cost != null && <><span className="text-gray-500">コスト</span><span>{card.cost}</span></>}
             {card.life != null && <><span className="text-gray-500">ライフ</span><span>{card.life}</span></>}
             {card.power != null && <><span className="text-gray-500">パワー</span><span>{card.power?.toLocaleString()}</span></>}
-            {card.counter != null && <><span className="text-gray-500">カウンター</span><span>+{card.counter?.toLocaleString()}</span></>}
+            {card.counter != null && <><span className="text-gray-500">カウンター</span><span className="text-orange-400 font-bold">+{card.counter?.toLocaleString()}</span></>}
           </div>
           {card.traits?.length > 0 && (
             <div className="text-xs text-gray-400 mb-1">《{card.traits.join(' / ')}》</div>

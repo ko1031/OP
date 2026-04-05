@@ -4,6 +4,7 @@ import FilterPanel from './components/FilterPanel';
 import CardGrid from './components/CardGrid';
 import DeckPanel from './components/DeckPanel';
 import { useDeck } from './hooks/useDeck';
+import { hasTrigger } from './utils/deckRules';
 
 let cachedCards = null;
 async function fetchCards() {
@@ -37,6 +38,13 @@ function applyFilters(cards, filters) {
     const cost = card.cost ?? card.life ?? null;
     if (filters.costMin !== '' && filters.costMin != null && cost != null && cost < filters.costMin) return false;
     if (filters.costMax !== '' && filters.costMax != null && cost != null && cost > filters.costMax) return false;
+    if (filters.counterOnly) {
+      const hasCounter = card.counter || (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】'));
+      if (!hasCounter) return false;
+    }
+    if (filters.triggerOnly) {
+      if (!hasTrigger(card)) return false;
+    }
     return true;
   });
 }

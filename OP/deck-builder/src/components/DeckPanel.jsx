@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Trash2, Save, FolderOpen, RotateCcw, ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react';
+import { Trash2, Save, FolderOpen, RotateCcw, ChevronDown, ChevronUp, Minus, Plus, BarChart2, List } from 'lucide-react';
 import CardImage from './CardImage';
 import ColorBadge from './ColorBadge';
+import DeckEvaluator from './DeckEvaluator';
 import { DECK_LIMIT, deckStats } from '../utils/deckRules';
 
 function CostBar({ distribution }) {
@@ -82,6 +83,7 @@ export default function DeckPanel({
   const [showSaved, setShowSaved] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const [savedDecks, setSavedDecks] = useState({});
+  const [activeTab, setActiveTab] = useState('deck'); // 'deck' | 'eval'
   const stats = deckStats(deck);
 
   const progress = Math.min((total / DECK_LIMIT) * 100, 100);
@@ -195,8 +197,24 @@ export default function DeckPanel({
         )}
       </div>
 
-      {/* コスト分布 */}
-      {deck.length > 0 && (
+      {/* タブ切り替え */}
+      <div className="flex-shrink-0 flex border-b border-gray-700">
+        <button
+          onClick={() => setActiveTab('deck')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
+            ${activeTab === 'deck' ? 'text-white border-b-2 border-blue-500 bg-gray-800/50' : 'text-gray-500 hover:text-gray-300'}`}>
+          <List size={12} /> デッキ内容
+        </button>
+        <button
+          onClick={() => setActiveTab('eval')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
+            ${activeTab === 'eval' ? 'text-white border-b-2 border-purple-500 bg-gray-800/50' : 'text-gray-500 hover:text-gray-300'}`}>
+          <BarChart2 size={12} /> デッキ評価
+        </button>
+      </div>
+
+      {/* コスト分布（デッキタブのみ） */}
+      {activeTab === 'deck' && deck.length > 0 && (
         <div className="flex-shrink-0 px-3 py-2 border-b border-gray-700">
           <div className="text-xs text-gray-500 mb-1">コスト分布</div>
           <CostBar distribution={stats.costDistribution} />
@@ -206,24 +224,28 @@ export default function DeckPanel({
         </div>
       )}
 
-      {/* デッキ内容 */}
+      {/* タブコンテンツ */}
       <div className="flex-1 overflow-y-auto">
-        {deck.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-600 text-sm">
-            カードをクリックして追加
-          </div>
+        {activeTab === 'deck' ? (
+          deck.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-600 text-sm">
+              カードをクリックして追加
+            </div>
+          ) : (
+            <div className="py-1">
+              {sortedDeck.map(entry => (
+                <DeckEntry
+                  key={entry.card.card_number}
+                  entry={entry}
+                  onAdd={onAddCard}
+                  onRemove={onRemoveCard}
+                  onRemoveAll={onRemoveAllCard}
+                />
+              ))}
+            </div>
+          )
         ) : (
-          <div className="py-1">
-            {sortedDeck.map(entry => (
-              <DeckEntry
-                key={entry.card.card_number}
-                entry={entry}
-                onAdd={onAddCard}
-                onRemove={onRemoveCard}
-                onRemoveAll={onRemoveAllCard}
-              />
-            ))}
-          </div>
+          <DeckEvaluator deck={deck} leader={leader} />
         )}
       </div>
     </div>
