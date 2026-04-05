@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Layers, AlertCircle, Search, Trophy } from 'lucide-react';
+import { Layers, AlertCircle, Search, Trophy, BarChart2 } from 'lucide-react';
 import FilterPanel from './components/FilterPanel';
 import CardGrid from './components/CardGrid';
 import DeckPanel from './components/DeckPanel';
 import SampleDeckPanel from './components/SampleDeckPanel';
+import TournamentPanel from './components/TournamentPanel';
 import { useDeck } from './hooks/useDeck';
 import { hasTrigger, DECK_LIMIT } from './utils/deckRules';
 
@@ -59,6 +60,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [mobileView, setMobileView] = useState('cards'); // 'cards' | 'deck'
   const [showSampleDecks, setShowSampleDecks] = useState(false);
+  const [showTournament, setShowTournament] = useState(false);
   const deck = useDeck();
 
   useEffect(() => {
@@ -125,6 +127,16 @@ export default function App() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          {/* 大会統計ボタン */}
+          {!loading && !error && (
+            <button
+              onClick={() => setShowTournament(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-600/50 bg-blue-700/20 text-blue-300 hover:bg-blue-700/30 transition-colors"
+            >
+              <BarChart2 size={12} />
+              <span className="hidden sm:inline">大会統計</span>
+            </button>
+          )}
           {/* サンプルデッキボタン */}
           {!loading && !error && (
             <button
@@ -254,6 +266,11 @@ export default function App() {
           onCopy={handleLoadSampleDeck}
           onClose={() => setShowSampleDecks(false)}
         />
+      )}
+
+      {/* 大会統計パネル */}
+      {showTournament && (
+        <TournamentPanel onClose={() => setShowTournament(false)} />
       )}
 
       {/* トースト通知 */}

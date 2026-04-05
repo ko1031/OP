@@ -1,0 +1,41 @@
+name: Update Tournament Meta Data
+
+on:
+  schedule:
+    # 毎週月曜 午前3時（JST） = 日曜 18:00 UTC
+    - cron: '0 18 * * 0'
+  workflow_dispatch: # 手動実行も可能
+
+permissions:
+  contents: write
+
+jobs:
+  update-meta:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Fetch tournament data
+        run: python deck-builder/scripts/fetch_tournament_data.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deck-builder/public/tournament_stats.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update tournament stats $(date '+%Y-%m-%d')"
+            git push
+          fi

@@ -1,0 +1,245 @@
+{
+  "lastUpdated": "2026-04-06T00:59:26+09:00",
+  "fetchedDays": 14,
+  "recentWinners": [
+    {
+      "id": 1225,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1225"
+    },
+    {
+      "id": 1229,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "あかなし杯",
+      "result": "準優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1229"
+    },
+    {
+      "id": 1228,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "あかなし杯",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1228"
+    },
+    {
+      "id": 1227,
+      "leaderName": "赤青ルーシー",
+      "archetypeId": 95,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/95.webp",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1227"
+    },
+    {
+      "id": 1226,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1226"
+    },
+    {
+      "id": 1222,
+      "leaderName": "緑ミホーク",
+      "archetypeId": 63,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1222"
+    },
+    {
+      "id": 1219,
+      "leaderName": "空島ルフィ",
+      "archetypeId": 98,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/98.webp",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "そだ杯",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1219"
+    },
+    {
+      "id": 1221,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1221"
+    },
+    {
+      "id": 1223,
+      "leaderName": "緑黄しらほし",
+      "archetypeId": 41,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/41.webp",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1223"
+    },
+    {
+      "id": 1224,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1224"
+    },
+    {
+      "id": 1218,
+      "leaderName": "黒ティーチ",
+      "archetypeId": 16,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/16.webp",
+      "date": "2026/03/30",
+      "rawDate": "2026-03-30",
+      "eventName": "天竜杯",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1218"
+    },
+    {
+      "id": 1217,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "date": "2026/03/30",
+      "rawDate": "2026-03-30",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1217"
+    },
+    {
+      "id": 1213,
+      "leaderName": "青黄ハンコック",
+      "archetypeId": 64,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/64.webp",
+      "date": "2026/03/26",
+      "rawDate": "2026-03-26",
+      "eventName": "あかなし杯",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1213"
+    },
+    {
+      "id": 1214,
+      "leaderName": "緑ミホーク",
+      "archetypeId": 63,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
+      "date": "2026/03/26",
+      "rawDate": "2026-03-26",
+      "eventName": "あかなし杯",
+      "result": "準優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1214"
+    },
+    {
+      "id": 1195,
+      "leaderName": "紫ドフラミンゴ",
+      "archetypeId": 61,
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/61.webp",
+      "date": "2026/03/23",
+      "rawDate": "2026-03-23",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1195"
+    }
+  ],
+  "distribution": [
+    {
+      "leaderName": "青黄ナミ",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "wins14": 3,
+      "wins7": 2,
+      "runnerUp14": 1,
+      "total14": 4
+    },
+    {
+      "leaderName": "紫エネル",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "wins14": 3,
+      "wins7": 3,
+      "runnerUp14": 0,
+      "total14": 3
+    },
+    {
+      "leaderName": "緑ミホーク",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
+      "wins14": 1,
+      "wins7": 1,
+      "runnerUp14": 1,
+      "total14": 2
+    },
+    {
+      "leaderName": "緑黄しらほし",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/41.webp",
+      "wins14": 1,
+      "wins7": 1,
+      "runnerUp14": 0,
+      "total14": 1
+    },
+    {
+      "leaderName": "紫ドフラミンゴ",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/61.webp",
+      "wins14": 1,
+      "wins7": 0,
+      "runnerUp14": 0,
+      "total14": 1
+    },
+    {
+      "leaderName": "黒ティーチ",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/16.webp",
+      "wins14": 1,
+      "wins7": 0,
+      "runnerUp14": 0,
+      "total14": 1
+    },
+    {
+      "leaderName": "赤青ルーシー",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/95.webp",
+      "wins14": 1,
+      "wins7": 1,
+      "runnerUp14": 0,
+      "total14": 1
+    },
+    {
+      "leaderName": "青黄ハンコック",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/64.webp",
+      "wins14": 1,
+      "wins7": 0,
+      "runnerUp14": 0,
+      "total14": 1
+    },
+    {
+      "leaderName": "空島ルフィ",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/98.webp",
+      "wins14": 1,
+      "wins7": 1,
+      "runnerUp14": 0,
+      "total14": 1
+    }
+  ]
+}
