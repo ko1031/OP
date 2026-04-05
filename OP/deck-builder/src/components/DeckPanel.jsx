@@ -205,8 +205,8 @@ export default function DeckPanel({
         )}
       </div>
 
-      {/* タブ切り替え */}
-      <div className="flex-shrink-0 flex border-b border-gray-700">
+      {/* タブ切り替え（モバイルのみ表示） */}
+      <div className="md:hidden flex-shrink-0 flex border-b border-gray-700">
         <button
           onClick={() => setActiveTab('deck')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
@@ -221,41 +221,55 @@ export default function DeckPanel({
         </button>
       </div>
 
-      {/* コスト分布（デッキタブのみ） */}
-      {activeTab === 'deck' && deck.length > 0 && (
-        <div className="flex-shrink-0 px-3 py-2 border-b border-gray-700">
-          <div className="text-xs text-gray-500 mb-1">コスト分布</div>
-          <CostBar distribution={stats.costDistribution} />
-          <div className="flex justify-between text-gray-600 text-[9px] mt-0.5">
-            {Array.from({length:11},(_,i)=>i).map(c=><span key={c}>{c}</span>)}
+      {/* PC: 2カラム並列 / モバイル: タブ切り替え */}
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+
+        {/* ── デッキ内容カラム ── */}
+        <div className={`flex-col overflow-hidden
+          md:flex md:w-[240px] md:flex-shrink-0 md:border-r md:border-gray-700
+          ${activeTab === 'deck' ? 'flex flex-1' : 'hidden'}`}>
+
+          {/* コスト分布 */}
+          {deck.length > 0 && (
+            <div className="flex-shrink-0 px-3 py-2 border-b border-gray-700">
+              <div className="text-xs text-gray-500 mb-1">コスト分布</div>
+              <CostBar distribution={stats.costDistribution} />
+              <div className="flex justify-between text-gray-600 text-[9px] mt-0.5">
+                {Array.from({length:11},(_,i)=>i).map(c=><span key={c}>{c}</span>)}
+              </div>
+            </div>
+          )}
+
+          {/* カードリスト */}
+          <div className="flex-1 overflow-y-auto">
+            {deck.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-600 text-sm">
+                カードをクリックして追加
+              </div>
+            ) : (
+              <div className="py-1">
+                {sortedDeck.map(entry => (
+                  <DeckEntry
+                    key={entry.card.card_number}
+                    entry={entry}
+                    onAdd={onAddCard}
+                    onRemove={onRemoveCard}
+                    onRemoveAll={onRemoveAllCard}
+                    onOpenModal={setModalCard}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* タブコンテンツ */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === 'deck' ? (
-          deck.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-600 text-sm">
-              カードをクリックして追加
-            </div>
-          ) : (
-            <div className="py-1">
-              {sortedDeck.map(entry => (
-                <DeckEntry
-                  key={entry.card.card_number}
-                  entry={entry}
-                  onAdd={onAddCard}
-                  onRemove={onRemoveCard}
-                  onRemoveAll={onRemoveAllCard}
-                  onOpenModal={setModalCard}
-                />
-              ))}
-            </div>
-          )
-        ) : (
+        {/* ── デッキ評価カラム ── */}
+        <div className={`flex-col flex-1 overflow-hidden
+          md:flex
+          ${activeTab === 'eval' ? 'flex' : 'hidden'}`}>
           <DeckEvaluator deck={deck} leader={leader} />
-        )}
+        </div>
+
       </div>
 
       {/* カード詳細モーダル */}

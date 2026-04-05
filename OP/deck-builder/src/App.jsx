@@ -194,7 +194,7 @@ export default function App() {
           </div>
 
           {/* 右: デッキパネル — モバイルは 'deck' ビューのみ表示 */}
-          <div className={`flex-col overflow-hidden md:w-80 md:flex-shrink-0
+          <div className={`flex-col overflow-hidden md:w-[680px] lg:w-[740px] md:flex-shrink-0
             ${mobileView === 'deck' ? 'flex w-full' : 'hidden'} md:flex`}>
             <DeckPanel
               leader={deck.leader}
