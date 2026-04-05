@@ -10,9 +10,13 @@ import time
 import requests
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+print("--- Python Script Started ---") # ← これを追記
 
-CARDS_JSON   = os.path.join(os.path.dirname(__file__), "data", "cards.json")
-OUTPUT_DIR   = os.path.join(os.path.dirname(__file__), "..", "deck-builder", "public", "images")
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+# cards.json は scraper フォルダ内の data フォルダにある
+CARDS_JSON   = os.path.join(BASE_DIR, "data", "cards.json")
+# 画像の保存先は隣の deck-builder フォルダ内
+OUTPUT_DIR   = os.path.join(os.path.dirname(BASE_DIR), "deck-builder", "public", "images")
 REQUEST_DELAY = 0.3  # 秒（サーバー負荷軽減）
 
 HEADERS = {
@@ -21,11 +25,32 @@ HEADERS = {
 }
 
 def download_images(force: bool = False):
+    # 絶対パスを取得して表示
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(script_dir, "data", "cards.json")
+    
+    print("=== DEBUG START ===")
+    print(f"1. 実行中のスクリプト場所: {script_dir}")
+    print(f"2. 探しているJSONパス: {json_path}")
+    print(f"3. ファイル存在チェック: {os.path.exists(json_path)}")
+    
+    if not os.path.exists(json_path):
+        print("ERROR: ファイルが見つかりません。終了します。")
+        return
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    with open(CARDS_JSON, encoding="utf-8") as f:
+    with open(json_path, encoding="utf-8") as f:
         data = json.load(f)
+        cards = data.get("cards", [])
+        print(f"4. JSON内のカード枚数: {len(cards)}")
 
+    if not cards:
+        print("ERROR: カードデータが空です。")
+        return
+        
+    print("=== DOWNLOAD START ===")
+    
     cards = data["cards"]
     total = len(cards)
     done = skipped = failed = 0

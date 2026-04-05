@@ -1,0 +1,15 @@
+# Node
+deck-builder/node_modules/
+deck-builder/dist/
+
+# ローカル画像キャッシュ（公式URLから直接読み込むため不要）
+deck-builder/public/images/
+
+# Python
+__pycache__/
+*.pyc
+scraper/__pycache__/
+
+# OS
+.DS_Store
+Thumbs.db
