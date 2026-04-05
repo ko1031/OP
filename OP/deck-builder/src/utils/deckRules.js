@@ -557,6 +557,7 @@ export function evaluateDeck(deck, leader) {
   let charCounterValue = 0;
   let charCounterCards = 0;
   let eventCounterCards = 0;
+  let mainEventCards = 0;   // 【メイン】イベント（除去・ドロー・サーチ系）
   let triggerCards = 0;
 
   deck.forEach(({ card, count }) => {
@@ -564,8 +565,11 @@ export function evaluateDeck(deck, leader) {
       charCounterValue += card.counter * count;
       charCounterCards += count;
     }
-    if (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】')) {
-      eventCounterCards += count;
+    const ef = card.effect || '';
+    if (card.card_type === 'EVENT') {
+      if (ef.includes('【カウンター】')) eventCounterCards += count;
+      // 【メイン】を含み、かつカウンターのみでないイベント = メインイベント
+      if (ef.includes('【メイン】')) mainEventCards += count;
     }
     if (hasTrigger(card)) triggerCards += count;
   });
@@ -593,10 +597,13 @@ export function evaluateDeck(deck, leader) {
   // ── タイプバランス評価 ──
   const charCount = deck.filter(e => e.card.card_type === 'CHARACTER').reduce((s,e)=>s+e.count,0);
   const eventCount = deck.filter(e => e.card.card_type === 'EVENT').reduce((s,e)=>s+e.count,0);
-  const charOk = charCount >= 32 && charCount <= 44;
-  const eventOk = eventCount >= 6 && eventCount <= 14;
+  const charOk = charCount >= 30 && charCount <= 44;
+  // メインイベント込みで評価: メイン2枚以上あればイベント枚数の下限を緩める
+  const eventOk = mainEventCards >= 2
+    ? (eventCount >= 6 && eventCount <= 18)
+    : (eventCount >= 6 && eventCount <= 14);
   const typeScore = Math.min(30,
-    (charOk ? 15 : charCount >= 26 ? 8 : 3) +
+    (charOk ? 15 : charCount >= 24 ? 8 : 3) +
     (eventOk ? 15 : eventCount >= 3 ? 8 : 2)
   );
 
@@ -608,19 +615,21 @@ export function evaluateDeck(deck, leader) {
     totalScore >= 40 ? 'C' : 'D';
 
   const advice = [];
-  if (charCounterCards < 15)
-    advice.push(`カウンターキャラが${charCounterCards}枚と少なめです。15枚以上を目安に増やしましょう。`);
+  if (charCounterCards < 14)
+    advice.push(`カウンターキャラが${charCounterCards}枚と少なめです。14枚以上を目安に増やしましょう。`);
   if (charCounterValue < 18000)
     advice.push(`カウンター合計値が${(charCounterValue/1000).toFixed(0)}K。20K以上を目標に守りを固めましょう。`);
-  if (eventCounterCards < 3)
+  if (eventCounterCards < 3 && mainEventCards < 4)
     advice.push(`【カウンター】イベントが${eventCounterCards}枚のみ。3〜5枚で防御力が大幅アップします。`);
-  if (lowPct < 0.55)
+  if (mainEventCards === 0)
+    advice.push('【メイン】イベント（除去・ドロー・サーチ）がありません。2〜6枚入れると盤面干渉力が上がります。');
+  if (lowPct < 0.55 && mainEventCards < 4)
     advice.push(`低コスト(0〜3)が${Math.round(lowPct*100)}%と少なめ。序盤安定のため60%以上を推奨します。`);
   if (highCost > 8)
     advice.push(`高コスト(7+)が${highCost}枚。事故防止のために6枚以下を推奨します。`);
-  if (charCount < 32)
-    advice.push(`キャラカードが${charCount}枚と少なめ。32〜40枚が標準的な構成です。`);
-  if (eventCount < 6)
+  if (charCount < 30 && mainEventCards < 6)
+    advice.push(`キャラカードが${charCount}枚と少なめ。30〜40枚が標準的な構成です。`);
+  if (eventCount < 6 && mainEventCards === 0)
     advice.push(`イベントが${eventCount}枚のみ。6〜10枚でコンボ・防御の幅が広がります。`);
   if (advice.length === 0)
     advice.push('バランスの良いデッキです！対戦でぜひ試してみましょう。');
@@ -628,9 +637,152 @@ export function evaluateDeck(deck, leader) {
   return {
     grade, totalScore,
     counterScore, costScore, typeScore,
-    charCounterValue, charCounterCards, eventCounterCards, triggerCards,
+    charCounterValue, charCounterCards, eventCounterCards, mainEventCards, triggerCards,
     lowCost, midCost, highCost, lowPct,
     charCount, eventCount,
     advice,
   };
 }
+
+// ────────────────────────────────────────────────
+// フラッグシップバトル優勝サンプルデッキ
+// 出典: cardrush.media 大会入賞デッキ（2026年2〜4月）
+// ────────────────────────────────────────────────
+export const SAMPLE_DECKS = [
+  {
+    id: 'flagship_2026_black_im',
+    name: '黒イム',
+    leaderCard: 'OP13-079',
+    date: '2026/3/4',
+    event: 'フラッグシップバトル優勝',
+    tier: 1,
+    colors: ['黒'],
+    description: '五老星ループで盤面を圧倒するコントロール。KO耐性で除去を封じながら序盤蓄積→五老星で一気に並べる。4月規制後も安定Tier1。',
+    deck: [
+      { cardNumber: 'OP05-097', count: 1 },
+      { cardNumber: 'OP13-099', count: 1 },
+      { cardNumber: 'OP13-083', count: 4 },
+      { cardNumber: 'OP13-089', count: 4 },
+      { cardNumber: 'OP13-080', count: 4 },
+      { cardNumber: 'OP13-084', count: 4 },
+      { cardNumber: 'OP13-091', count: 4 },
+      { cardNumber: 'OP13-086', count: 4 },
+      { cardNumber: 'OP13-092', count: 4 },
+      { cardNumber: 'OP13-082', count: 4 },
+      { cardNumber: 'OP05-082', count: 2 },
+      { cardNumber: 'OP13-096', count: 4 },
+      { cardNumber: 'OP13-098', count: 4 },
+      { cardNumber: 'OP13-097', count: 2 },
+      { cardNumber: 'OP14-096', count: 4 },
+    ],
+  },
+  {
+    id: 'flagship_2026_redblue_lucy',
+    name: '赤青ルーシー',
+    leaderCard: 'OP15-002',
+    date: '2026/4/2',
+    event: 'フラッグシップバトル優勝',
+    tier: 1,
+    colors: ['赤', '青'],
+    description: 'イベント・ステージを実質カウンター化するリーダー効果。大会シェア15.5%・勝率トップのTier1。',
+    deck: [
+      { cardNumber: 'OP15-057', count: 3 },
+      { cardNumber: 'OP15-053', count: 4 },
+      { cardNumber: 'OP15-052', count: 4 },
+      { cardNumber: 'OP15-040', count: 4 },
+      { cardNumber: 'OP10-045', count: 4 },
+      { cardNumber: 'OP15-006', count: 2 },
+      { cardNumber: 'OP15-046', count: 4 },
+      { cardNumber: 'OP14-049', count: 1 },
+      { cardNumber: 'OP09-118', count: 1 },
+      { cardNumber: 'OP15-020', count: 4 },
+      { cardNumber: 'OP15-056', count: 2 },
+      { cardNumber: 'OP10-060', count: 4 },
+      { cardNumber: 'OP15-054', count: 4 },
+      { cardNumber: 'OP15-021', count: 3 },
+      { cardNumber: 'OP10-059', count: 4 },
+      { cardNumber: 'OP12-060', count: 1 },
+      { cardNumber: 'OP05-019', count: 1 },
+    ],
+  },
+  {
+    id: 'flagship_2026_blueyellow_nami',
+    name: '青黄ナミ',
+    leaderCard: 'OP11-041',
+    date: '2026/4/2',
+    event: 'フラッグシップバトル優勝',
+    tier: 1,
+    colors: ['青', '黄'],
+    description: 'ライフが削れるたびにドローするリーダー効果＋バウンスで盤面コントロール。4月規制後も安定Tier1。',
+    deck: [
+      { cardNumber: 'OP06-106', count: 4 },
+      { cardNumber: 'OP11-106', count: 4 },
+      { cardNumber: 'P-096',    count: 4 },
+      { cardNumber: 'EB03-053', count: 4 },
+      { cardNumber: 'EB04-058', count: 4 },
+      { cardNumber: 'EB03-055', count: 4 },
+      { cardNumber: 'OP14-102', count: 4 },
+      { cardNumber: 'OP14-111', count: 4 },
+      { cardNumber: 'OP13-042', count: 3 },
+      { cardNumber: 'OP14-110', count: 3 },
+      { cardNumber: 'OP14-104', count: 4 },
+      { cardNumber: 'OP07-115', count: 4 },
+      { cardNumber: 'EB03-060', count: 4 },
+    ],
+  },
+  {
+    id: 'flagship_2026_purple_enel',
+    name: '紫エネル',
+    leaderCard: 'OP15-058',
+    date: '2026/4/2',
+    event: 'フラッグシップバトル優勝',
+    tier: 2,
+    colors: ['紫'],
+    description: 'ドン加速と空島シナジーで高コストカードを早期展開。シェア13.1%・59勝記録のTier2筆頭。',
+    deck: [
+      { cardNumber: 'OP15-061', count: 4 },
+      { cardNumber: 'OP15-066', count: 4 },
+      { cardNumber: 'OP15-067', count: 4 },
+      { cardNumber: 'OP15-071', count: 4 },
+      { cardNumber: 'OP10-075', count: 4 },
+      { cardNumber: 'OP07-072', count: 4 },
+      { cardNumber: 'OP10-067', count: 2 },
+      { cardNumber: 'OP15-060', count: 2 },
+      { cardNumber: 'OP15-118', count: 4 },
+      { cardNumber: 'OP15-077', count: 4 },
+      { cardNumber: 'OP15-075', count: 4 },
+      { cardNumber: 'OP15-076', count: 4 },
+      { cardNumber: 'OP15-078', count: 4 },
+      { cardNumber: 'OP13-076', count: 2 },
+    ],
+  },
+  {
+    id: 'flagship_2026_redblue_ace',
+    name: '赤青エース',
+    leaderCard: 'OP13-002',
+    date: '2026/2/18',
+    event: 'フラッグシップバトル優勝',
+    tier: 1,
+    colors: ['赤', '青'],
+    description: 'アタック時ドロー＋カウンター変換の汎用ミッドレンジ。OP13から継続してトップメタを維持。',
+    deck: [
+      { cardNumber: 'OP13-016', count: 4 },
+      { cardNumber: 'ST22-002', count: 4 },
+      { cardNumber: 'OP13-043', count: 4 },
+      { cardNumber: 'PRB02-008', count: 4 },
+      { cardNumber: 'OP02-008', count: 3 },
+      { cardNumber: 'OP13-054', count: 4 },
+      { cardNumber: 'OP08-047', count: 4 },
+      { cardNumber: 'OP13-046', count: 2 },
+      { cardNumber: 'OP10-045', count: 2 },
+      { cardNumber: 'ST23-001', count: 2 },
+      { cardNumber: 'OP06-047', count: 1 },
+      { cardNumber: 'EB04-007', count: 4 },
+      { cardNumber: 'OP13-042', count: 4 },
+      { cardNumber: 'OP09-118', count: 1 },
+      { cardNumber: 'ST22-015', count: 4 },
+      { cardNumber: 'OP04-056', count: 2 },
+      { cardNumber: 'OP01-029', count: 1 },
+    ],
+  },
+];

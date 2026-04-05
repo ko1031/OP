@@ -61,7 +61,7 @@ function CostMiniBar({ lowCost, midCost, highCost }) {
 function ScoreTab({ result }) {
   if (!result) return <EmptyState />;
   const { grade, totalScore, counterScore, costScore, typeScore,
-    charCounterValue, charCounterCards, eventCounterCards, triggerCards,
+    charCounterValue, charCounterCards, eventCounterCards, mainEventCards, triggerCards,
     lowCost, midCost, highCost, lowPct, charCount, eventCount, advice } = result;
   const gradeStyle = GRADE_COLOR[grade] || 'text-gray-300 border-gray-500 bg-gray-700/20';
   return (
@@ -82,9 +82,10 @@ function ScoreTab({ result }) {
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-orange-300 mb-1.5">🛡 カウンター</div>
         <StatRow label="キャラカウンター合計" value={`${(charCounterValue/1000).toFixed(0)}K`} highlight={charCounterValue >= 20000} />
-        <StatRow label="カウンターキャラ枚数" value={`${charCounterCards}枚`} highlight={charCounterCards >= 15} />
-        <StatRow label="カウンターイベント" value={`${eventCounterCards}枚`} highlight={eventCounterCards >= 3} />
-        <StatRow label="トリガー枚数" value={`${triggerCards}枚`} />
+        <StatRow label="カウンターキャラ枚数" value={`${charCounterCards}枚`} highlight={charCounterCards >= 14} />
+        <StatRow label="🛡 カウンターイベント" value={`${eventCounterCards}枚`} highlight={eventCounterCards >= 3} />
+        <StatRow label="📜 メインイベント" value={`${mainEventCards}枚`} sub="(除去/ドロー/サーチ)" highlight={mainEventCards >= 2} />
+        <StatRow label="⚡ トリガー" value={`${triggerCards}枚`} />
       </div>
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-green-300 mb-1.5">📊 コスト曲線</div>
@@ -95,8 +96,10 @@ function ScoreTab({ result }) {
       </div>
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-blue-300 mb-1.5">⚖️ タイプ比率</div>
-        <StatRow label="キャラ" value={`${charCount}枚`} sub="(目安32-44)" highlight={charCount >= 32 && charCount <= 44} />
-        <StatRow label="イベント" value={`${eventCount}枚`} sub="(目安6-14)" highlight={eventCount >= 6 && eventCount <= 14} />
+        <StatRow label="キャラ" value={`${charCount}枚`} sub="(目安30-44)" highlight={charCount >= 30 && charCount <= 44} />
+        <StatRow label="イベント合計" value={`${eventCount}枚`} sub="(目安6-18)" highlight={eventCount >= 6 && eventCount <= 18} />
+        <StatRow label="└ カウンター" value={`${eventCounterCards}枚`} />
+        <StatRow label="└ メイン" value={`${mainEventCards}枚`} />
       </div>
       <div className="bg-gray-800/60 rounded-lg p-2.5">
         <div className="text-xs font-bold text-purple-300 mb-1.5">💡 アドバイス</div>

@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Layers, AlertCircle, Search } from 'lucide-react';
+import { Layers, AlertCircle, Search, Trophy } from 'lucide-react';
 import FilterPanel from './components/FilterPanel';
 import CardGrid from './components/CardGrid';
 import DeckPanel from './components/DeckPanel';
+import SampleDeckPanel from './components/SampleDeckPanel';
 import { useDeck } from './hooks/useDeck';
 import { hasTrigger, DECK_LIMIT } from './utils/deckRules';
 
@@ -57,6 +58,7 @@ export default function App() {
   const [filters, setFilters] = useState({});
   const [toast, setToast] = useState(null);
   const [mobileView, setMobileView] = useState('cards'); // 'cards' | 'deck'
+  const [showSampleDecks, setShowSampleDecks] = useState(false);
   const deck = useDeck();
 
   useEffect(() => {
@@ -83,6 +85,31 @@ export default function App() {
     showToast(`リーダー「${card.name}」を選択しました`);
   };
 
+  // サンプルデッキのコピー（リーダー + デッキ一括セット）
+  const handleLoadSampleDeck = (sampleDeck) => {
+    const cardMap = {};
+    allCards.forEach(c => { cardMap[c.card_number] = c; });
+
+    const leaderCard = cardMap[sampleDeck.leaderCard];
+    if (!leaderCard) return;
+
+    // リセットしてからロード
+    deck.resetDeck();
+    deck.selectLeader(leaderCard);
+
+    // カードを順に追加
+    sampleDeck.deck.forEach(({ cardNumber, count }) => {
+      const card = cardMap[cardNumber];
+      if (card) {
+        for (let i = 0; i < count; i++) deck.addCard(card);
+      }
+    });
+
+    setShowSampleDecks(false);
+    setMobileView('deck');
+    showToast(`「${sampleDeck.name}」をデッキにコピーしました`);
+  };
+
   const isComplete = deck.total === DECK_LIMIT;
 
   return (
@@ -100,16 +127,28 @@ export default function App() {
             {allCards.length.toLocaleString()}枚収録
           </span>
         )}
-        {/* デッキ枚数バッジ（ヘッダー右） */}
-        {!loading && !error && deck.total > 0 && (
-          <div className={`ml-auto flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-300
-            ${isComplete
-              ? 'bg-green-700/30 text-green-300 border-green-600/60'
-              : 'bg-gray-700/40 text-gray-400 border-gray-600/60'
-            }`}>
-            {isComplete ? '✓ 完成' : `${deck.total} / ${DECK_LIMIT}`}
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {/* サンプルデッキボタン */}
+          {!loading && !error && (
+            <button
+              onClick={() => setShowSampleDecks(true)}
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-yellow-600/50 bg-yellow-700/20 text-yellow-300 hover:bg-yellow-700/30 transition-colors"
+            >
+              <Trophy size={12} />
+              <span className="hidden sm:inline">優勝デッキ</span>
+            </button>
+          )}
+          {/* デッキ枚数バッジ */}
+          {!loading && !error && deck.total > 0 && (
+            <div className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-300
+              ${isComplete
+                ? 'bg-green-700/30 text-green-300 border-green-600/60'
+                : 'bg-gray-700/40 text-gray-400 border-gray-600/60'
+              }`}>
+              {isComplete ? '✓ 完成' : `${deck.total} / ${DECK_LIMIT}`}
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ローディング */}
@@ -208,6 +247,15 @@ export default function App() {
             デッキ
           </button>
         </nav>
+      )}
+
+      {/* サンプルデッキパネル */}
+      {showSampleDecks && (
+        <SampleDeckPanel
+          allCards={allCards}
+          onCopy={handleLoadSampleDeck}
+          onClose={() => setShowSampleDecks(false)}
+        />
       )}
 
       {/* トースト通知 */}
