@@ -230,6 +230,56 @@ function MatchupTab({ matchups }) {
 }
 
 // ── 立ち回りタブ ──────────────────────────────────
+function TurnCardBadges({ charCards, eventCards }) {
+  const counterEvts = eventCards.filter(c => c.isCounter);
+  const actionEvts  = eventCards.filter(c => !c.isCounter);
+  const hasAny = charCards.length > 0 || eventCards.length > 0;
+  if (!hasAny) return null;
+  return (
+    <div className="space-y-1 mb-1.5">
+      {/* キャラカード */}
+      {charCards.length > 0 && (
+        <div>
+          <div className="text-[9px] text-blue-400 font-semibold mb-0.5">👤 キャラ（自分ターンに展開）</div>
+          <div className="flex flex-wrap gap-1">
+            {charCards.map((c, i) => (
+              <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-900/50 text-blue-300 rounded leading-tight border border-blue-800/50">
+                {c.name}（{c.cost}C×{c.count}）
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* カウンターイベント（相手ターン） */}
+      {counterEvts.length > 0 && (
+        <div>
+          <div className="text-[9px] text-orange-400 font-semibold mb-0.5">🛡 カウンターイベント（相手ターンに使用）</div>
+          <div className="flex flex-wrap gap-1">
+            {counterEvts.map((c, i) => (
+              <span key={i} className="text-[10px] px-1.5 py-0.5 bg-orange-900/50 text-orange-300 rounded leading-tight border border-orange-800/50">
+                {c.name}（{c.cost}C×{c.count}）
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* アクションイベント（自分ターン） */}
+      {actionEvts.length > 0 && (
+        <div>
+          <div className="text-[9px] text-green-400 font-semibold mb-0.5">📜 アクションイベント（自分ターンに使用）</div>
+          <div className="flex flex-wrap gap-1">
+            {actionEvts.map((c, i) => (
+              <span key={i} className="text-[10px] px-1.5 py-0.5 bg-green-900/50 text-green-300 rounded leading-tight border border-green-800/50">
+                {c.name}（{c.cost}C×{c.count}）
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StrategyTab({ strategy, leader }) {
   if (!strategy || !leader) return <EmptyState text="リーダーとカードを追加すると定石が表示されます" />;
   const { turns, generalTips } = strategy;
@@ -245,13 +295,7 @@ function StrategyTab({ strategy, leader }) {
             </div>
             <span className="ml-auto text-[10px] text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded">{t.phase}</span>
           </div>
-          {t.cards.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-1.5">
-              {t.cards.map((name, i) => (
-                <span key={i} className="text-[10px] px-1.5 py-0.5 bg-gray-700 text-blue-300 rounded leading-tight">{name}</span>
-              ))}
-            </div>
-          )}
+          <TurnCardBadges charCards={t.charCards} eventCards={t.eventCards} />
           <p className="text-xs text-gray-300 leading-relaxed">{t.advice}</p>
         </div>
       ))}

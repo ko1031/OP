@@ -79,8 +79,9 @@ export function hasTrigger(card) {
 // 現在の環境 Tier1〜2 デッキ定義
 // 出典: Egman Events OP14パワーランキング（2026年）
 //       tcg-portal.jp（2026年4月 大会結果 451エントリー）
-//       Onepiece.gg OP14 Tier List（2026年4月）
-// 環境: OP14「蒼海の七傑」+ EB03
+//       Note.com PROS / ドン研 / ティアワンメディア（2026年3〜4月）
+//       ※ 2026年4月1日規制: 4プリン禁止
+// 環境: OP14「蒼海の七傑」+ OP15 + EB03
 // ────────────────────────────────────────────────
 export const META_DECKS = [
   {
@@ -92,9 +93,11 @@ export const META_DECKS = [
     life: 4,
     counterDense: true,
     tier: 1,
-    description: '五老星の効果KO耐性で相手の除去戦略を封じるコントロール。《天竜人》サポートと継続ドローで盤面を支配し続ける。OP14環境でも依然として最強クラス。',
-    strength: 'KO耐性・継続ドロー・除去性能の高さ',
-    weakness: 'ライフ4と低く速攻に弱い。手札管理が難しい',
+    // キャラカード: サターン聖(4)/ウォーキュリー聖(4)/ナス寿郎聖(6)/マーズ聖(6)/ピーター聖(7)/五老星(10)
+    // イベント: 元々…ないではないか…(除去/カウンター)/世界の均衡など…(除去)/浸食輪廻(4採用)
+    description: '五老星の効果KO耐性で除去戦略を封じるコントロール。序盤はサターン聖・ウォーキュリー聖でリソースを蓄積し、10ドンで五老星を展開してトラッシュから複数体を一気に並べるゴロセイループが核。',
+    strength: 'KO耐性・ゴロセイループによる盤面圧倒・除去イベントの豊富さ',
+    weakness: 'ライフ4と低く速攻に弱い。10ドンまでの序盤を生き延びるスキルが必要',
   },
   {
     id: 'redblue_ace',
@@ -105,9 +108,26 @@ export const META_DECKS = [
     life: 5,
     counterDense: true,
     tier: 1,
-    description: 'バトル中に相手パワー−2000＋ドローするリーダー効果で攻守を同時にこなす。OP13から継続してトップメタを維持。コラソン台頭後も強さは衰えない。',
-    strength: '攻守バランス・ドロー力・どの対面にも対応できる汎用性',
+    // キャラカード: 低〜中コストの攻守両用キャラ中心
+    // イベント: 【カウンター】イベントで手札1枚を2000カウンターに変換(毎ターン1回)
+    description: 'リーダー効果でアタック時に手札1枚を2000カウンターに変換しつつドロー。攻守一体の汎用ミッドレンジ。OP13から継続してトップメタを維持し、OP14でもコラソン・ルーシーと並ぶ最強格。',
+    strength: '攻守バランス・毎ターンのドロー・どの対面にも対応できる汎用性',
     weakness: '2色構築のため事故リスクあり。ミラーは技量差が出やすい',
+  },
+  {
+    id: 'blueyellow_nami',
+    name: '青黄ナミ',
+    colors: ['青', '黄'],
+    style: 'control',
+    avgCost: 3.5,
+    life: 5,
+    counterDense: true,
+    tier: 1,
+    // キャラカード: のじこ(2・バウンス)/ジョズ(6・バウンス)/キッド(8)/ルフィ(8・ラッシュ)/サンジ(9)
+    // イベント: バウンス系・ドロー系を相手ターンに合わせて使用
+    description: '2026年4月規制後も安定Tier1。ライフが離れるたびにドローするリーダー効果で継続的に手札を補充。青のバウンスで盤面をリセットしながら黄の高パワーキャラでフィニッシュ。ドン1枚で+2000のリーダー防御も強力。',
+    strength: 'ライフトリガードロー・バウンスによる盤面コントロール・高い汎用性',
+    weakness: 'リーダーパワー7000時は6000以下のキャラがアタックを受けやすい',
   },
   {
     id: 'blackpurple_corazon',
@@ -118,7 +138,7 @@ export const META_DECKS = [
     life: 5,
     counterDense: true,
     tier: 1,
-    description: 'OP12登場のロシナンテ（コラソン）リーダー。OP14環境で急浮上し週次ランキング1位を獲得。黒紫コントロールの高い除去性能とドン加速を組み合わせた強力デッキ。',
+    description: 'OP12登場のロシナンテ（コラソン）リーダー。OP14環境で急浮上し週次ランキング1位を獲得。黒の除去性能と紫のドン加速を組み合わせた強力コントロール。テクニカルな操作が求められる上級者向けデッキ。',
     strength: '高い除去性能・ドン加速によるテンポアドバンテージ',
     weakness: '複雑なプレイングが要求される。習熟度がカギ',
   },
@@ -131,9 +151,10 @@ export const META_DECKS = [
     life: 5,
     counterDense: true,
     tier: 1,
-    description: '2026年4月大会（451エントリー）でシェア15.5%・勝率トップのTier1デッキ。低コスト展開から一気に攻め込む赤青アグロ型。速度と手札補充を両立する。',
-    strength: '圧倒的な展開速度・高いシェア率と実績',
-    weakness: '序盤の引き次第でムラが出る。コントロールには息切れリスク',
+    // イベント・ステージを実質カウンターとして機能させる独自システム
+    description: '2026年4月大会でシェア15.5%・勝率トップのTier1。イベント・ステージを実質カウンターとして扱えるリーダー効果が特徴。青サカズキ全盛期に匹敵する強さと評される。構築の自由度が高く攻守の両方に対応できる。',
+    strength: 'イベント/ステージのカウンター化・圧倒的な展開速度・高いシェア実績',
+    weakness: 'コンボ理解が必要。コントロールへの息切れリスク',
   },
   {
     id: 'greenyellow_mihawk',
@@ -144,9 +165,9 @@ export const META_DECKS = [
     life: 5,
     counterDense: false,
     tier: 2,
-    description: 'OP14新規リーダー。剣士シナジーと高パワーキャラの組み合わせで安定したトップ6フィニッシャー。イム・コラソンにも互角に戦える。',
+    description: 'OP14新規リーダー。剣士シナジーと高パワーキャラの組み合わせでトップ6安定のTier2。イムやコラソンにも互角に戦える実力を持つ。',
     strength: '高パワー展開・剣士シナジーの相乗効果',
-    weakness: 'カウンター密度がやや低く、速攻には対処が必要',
+    weakness: 'カウンター密度がやや低く速攻には対処が必要',
   },
   {
     id: 'blueyellow_hancock',
@@ -400,36 +421,51 @@ export function analyzeMatchups(deck, leader) {
 
 /**
  * デッキの立ち回り定石をターン別に生成する
+ * キャラカード（自分ターンに展開）とイベントカード（タイミング別）を分離して返す
  */
 export function generateStrategy(deck, leader) {
   if (!deck.length || !leader) return null;
 
   const leaderEffect = leader.effect || '';
-  const leaderColors = leader.colors || [];
 
-  // コスト帯別カードを抽出（枚数多い順）
-  const byBracket = (minCost, maxCost) =>
+  // コスト帯・タイプ別にカードを抽出（枚数多い順）
+  const byBracketAndType = (minCost, maxCost, type) =>
     deck
       .filter(e => {
         const c = e.card.cost ?? 0;
-        return c >= minCost && c <= maxCost && e.card.card_type !== 'LEADER';
+        return c >= minCost && c <= maxCost && e.card.card_type === type;
       })
       .sort((a, b) => b.count - a.count || (a.card.cost ?? 0) - (b.card.cost ?? 0));
 
-  const t1Cards = byBracket(0, 2);
-  const t2Cards = byBracket(3, 4);
-  const t3Cards = byBracket(5, 6);
-  const finCards = byBracket(7, 99);
-  const eventCards = deck
+  // カード情報を整形（UI表示用）
+  const toCardInfo = (arr, n = 3) =>
+    arr.slice(0, n).map(e => ({
+      name: e.card.name,
+      cost: e.card.cost ?? 0,
+      count: e.count,
+      // 【カウンター】を含む → 相手ターンに使うカウンターイベント
+      isCounter: !!(e.card.effect?.includes('【カウンター】')),
+      // バウンス・KO・除去系 → 自分ターンのアクション
+      isRemoval: !!(e.card.effect && /バウンス|手札に戻|KO|トラッシュ/.test(e.card.effect)),
+    }));
+
+  // 各コスト帯のキャラ・イベント
+  const t1Char  = byBracketAndType(0, 2, 'CHARACTER');
+  const t2Char  = byBracketAndType(3, 4, 'CHARACTER');
+  const t3Char  = byBracketAndType(5, 6, 'CHARACTER');
+  const finChar = byBracketAndType(7, 99, 'CHARACTER');
+  const t1Event  = byBracketAndType(0, 2, 'EVENT');
+  const t2Event  = byBracketAndType(3, 4, 'EVENT');
+  const t3Event  = byBracketAndType(5, 6, 'EVENT');
+  const finEvent = byBracketAndType(7, 99, 'EVENT');
+
+  // 全イベント・カウンターカード（generalTips用）
+  const allEvents = deck
     .filter(e => e.card.card_type === 'EVENT')
     .sort((a, b) => b.count - a.count);
   const counterCards = deck
     .filter(e => e.card.counter || (e.card.card_type === 'EVENT' && e.card.effect?.includes('【カウンター】')))
     .sort((a, b) => b.count - a.count);
-
-  // 先頭N枚をカード名リストに
-  const cardNames = (arr, n = 3) =>
-    arr.slice(0, n).map(e => `「${e.card.name}」(${e.card.cost ?? 0}コスト×${e.count}枚)`);
 
   // リーダー効果発動条件
   let leaderTip = '';
@@ -444,10 +480,11 @@ export function generateStrategy(deck, leader) {
       don: '1〜2ドン',
       icon: '🔰',
       phase: '序盤：盤面形成',
-      cards: cardNames(t1Cards, 3),
+      charCards:  toCardInfo(t1Char, 3),
+      eventCards: toCardInfo(t1Event, 2),
       advice:
-        t1Cards.length >= 2
-          ? `${t1Cards[0].card.name}・${t1Cards[1]?.card.name ?? ''}などを展開して序盤の盤面を作る。リーダーアタックも忘れずに。`
+        t1Char.length >= 2
+          ? `${t1Char[0].card.name}・${t1Char[1]?.card.name ?? ''}などを展開して序盤の盤面を作る。リーダーアタックも忘れずに。`
           : 'ドン!!を貯め、T3以降の大きな動きに備える。手札交換を活用して手札の質を上げる。',
     },
     {
@@ -455,10 +492,11 @@ export function generateStrategy(deck, leader) {
       don: '3〜4ドン',
       icon: '⚔️',
       phase: '中盤前半：展開加速',
-      cards: cardNames(t2Cards, 3),
+      charCards:  toCardInfo(t2Char, 3),
+      eventCards: toCardInfo(t2Event, 2),
       advice:
-        t2Cards.length >= 1
-          ? `${t2Cards[0].card.name}など主力3〜4コストを展開。カウンターは安易に使わず手札に温存しながら攻守のバランスを取る。`
+        t2Char.length >= 1
+          ? `${t2Char[0].card.name}など主力3〜4コストを展開。カウンターイベントは安易に使わず手札に温存しながら攻守のバランスを取る。`
           : 'イベント・カウンターを手札に温存しつつ低コストカードで横展開を続ける。',
     },
     {
@@ -466,10 +504,11 @@ export function generateStrategy(deck, leader) {
       don: '5〜6ドン',
       icon: '💥',
       phase: '中盤後半：盤面制圧',
-      cards: cardNames(t3Cards, 3),
+      charCards:  toCardInfo(t3Char, 3),
+      eventCards: toCardInfo(t3Event, 2),
       advice:
-        t3Cards.length >= 1
-          ? `${t3Cards[0].card.name}など強力なカードで盤面を制圧。相手のカウンターを使わせてから勝負を仕掛ける。`
+        t3Char.length >= 1
+          ? `${t3Char[0].card.name}など強力なカードで盤面を制圧。除去イベントで相手の盤面を崩してから攻めよう。`
           : 'ここまでの盤面優位を活かし、ライフへの攻撃を集中させる。カウンターは最終局面まで温存。',
     },
     {
@@ -477,10 +516,11 @@ export function generateStrategy(deck, leader) {
       don: '7ドン以上',
       icon: '🏆',
       phase: '終盤：フィニッシュ',
-      cards: cardNames(finCards, 2),
+      charCards:  toCardInfo(finChar, 2),
+      eventCards: toCardInfo(finEvent, 2),
       advice:
-        finCards.length >= 1
-          ? `${finCards[0].card.name}がフィニッシャー。相手の手札が少ない・カウンターが尽きたタイミングを見計らって叩き込む。`
+        finChar.length >= 1
+          ? `${finChar[0].card.name}がフィニッシャー。相手の手札が少ない・カウンターが尽きたタイミングを見計らって叩き込む。`
           : 'リーダーアタックと盤面カードのアタックを組み合わせ、手札のカウンターが尽きたところで一気に削り切る。',
     },
   ];
@@ -488,10 +528,17 @@ export function generateStrategy(deck, leader) {
   // 汎用アドバイス
   const generalTips = [];
   if (counterCards.length > 0) {
-    generalTips.push(`手札の${counterCards[0].card.name}などカウンターは終盤まで温存が基本`);
+    generalTips.push(`手札の${counterCards[0].card.name}などカウンターカードは終盤まで温存が基本`);
   }
-  if (eventCards.length > 0) {
-    generalTips.push(`${eventCards[0].card.name}などイベントは相手のアタックに合わせて使うと効果的`);
+  if (allEvents.length > 0) {
+    const counterEvent = allEvents.find(e => e.card.effect?.includes('【カウンター】'));
+    const actionEvent  = allEvents.find(e => !e.card.effect?.includes('【カウンター】'));
+    if (counterEvent) {
+      generalTips.push(`【カウンター】イベント（例:${counterEvent.card.name}）は相手のアタック宣言後に使う — 自分のターンには使えない`);
+    }
+    if (actionEvent) {
+      generalTips.push(`除去・ドローイベント（例:${actionEvent.card.name}）は自分のメインフェイズで使い盤面有利を作る`);
+    }
   }
   if (leaderTip) generalTips.push(leaderTip);
   generalTips.push('相手のライフが3以下になったら一気に攻めるチャンス — カウンターを警戒しながらアタック宣言を工夫しよう');
