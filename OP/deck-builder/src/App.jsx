@@ -47,7 +47,7 @@ function applyFilters(cards, filters) {
   });
 }
 
-export default function App() {
+export default function App({ onNavigate }) {
   const [allCards, setAllCards] = useState([]);
   const [seriesList, setSeriesList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +112,17 @@ export default function App() {
       {/* ヘッダー */}
       <header className="flex-shrink-0 bg-gradient-to-r from-gray-900 via-gray-900 to-gray-800 border-b border-gray-700/80 px-4 py-2.5 flex items-center gap-3 shadow-lg">
         <div className="flex items-center gap-2.5">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('home')}
+              className="text-gray-500 hover:text-gray-300 transition-colors mr-1 flex-shrink-0"
+              title="トップへ"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </button>
+          )}
           <Layers size={20} className="text-red-400 flex-shrink-0" />
           <span className="text-white font-bold text-sm sm:text-base tracking-wide">
             ONE PIECE デッキビルダー
