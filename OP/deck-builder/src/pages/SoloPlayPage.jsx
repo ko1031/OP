@@ -294,13 +294,13 @@ function LeaderEffectBadge({ leaderEffect, leaderName, onUseAbility }) {
   const [open, setOpen] = useState(false);
   if (!leaderEffect?.note && !leaderEffect?.hasActiveAbility) return null;
   return (
-    <div className="relative mt-1">
+    <div className="relative">
       <button onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-amber-900/20 text-amber-500 hover:bg-amber-800/30 transition-all">
+        className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-black/60 text-amber-400 hover:bg-amber-800/40 transition-all backdrop-blur-sm">
         <Zap size={9} /> 効果
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 mb-1 z-30 bg-[#0a0f24] border border-amber-700/40 rounded-xl p-3 shadow-2xl w-72">
+        <div className="absolute bottom-full left-0 mb-1 z-[50] bg-[#0a0f24] border border-amber-700/40 rounded-xl p-3 shadow-2xl w-72">
           <div className="text-amber-400 text-[10px] font-bold mb-2 flex items-center justify-between">
             <span>⚡ {leaderName}</span>
             <button onClick={() => setOpen(false)}><X size={12} className="text-amber-800/60 hover:text-amber-400" /></button>
@@ -597,10 +597,78 @@ export default function SoloPlayPage({ onNavigate }) {
   const SIDE_W = 110;               // 左右カラム幅
 
   return (
-    <div className={`h-screen ${P.bg} flex flex-col overflow-hidden select-none`}>
+    <div className={`h-screen ${P.bg} flex flex-col overflow-hidden select-none relative`}>
+
+      {/* ─── 海賊地図背景 ─── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+        {/* 航海チャート風グリッド */}
+        <div className="absolute inset-0" style={{
+          backgroundImage: [
+            'linear-gradient(rgba(139,105,20,0.055) 1px, transparent 1px)',
+            'linear-gradient(90deg, rgba(139,105,20,0.055) 1px, transparent 1px)',
+            'linear-gradient(rgba(139,105,20,0.025) 1px, transparent 1px)',
+            'linear-gradient(90deg, rgba(139,105,20,0.025) 1px, transparent 1px)',
+          ].join(','),
+          backgroundSize: '100px 100px, 100px 100px, 20px 20px, 20px 20px',
+        }}/>
+        {/* 波模様SVG */}
+        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.055 }}>
+          <defs>
+            <pattern id="wavesPM" width="300" height="60" patternUnits="userSpaceOnUse">
+              <path d="M 0 30 Q 75 10 150 30 Q 225 50 300 30" fill="none" stroke="#4090e0" strokeWidth="1.5"/>
+              <path d="M 0 45 Q 75 25 150 45 Q 225 65 300 45" fill="none" stroke="#2060b0" strokeWidth="0.8"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#wavesPM)"/>
+        </svg>
+        {/* コンパスローズ（右上装飾） */}
+        <svg className="absolute" style={{ top: 60, right: 20, opacity: 0.07, width: 150, height: 150 }}>
+          <g transform="translate(75,75)">
+            <circle cx="0" cy="0" r="70" fill="none" stroke="#8B6914" strokeWidth="0.8"/>
+            <circle cx="0" cy="0" r="50" fill="none" stroke="#8B6914" strokeWidth="0.5"/>
+            <circle cx="0" cy="0" r="28" fill="none" stroke="#8B6914" strokeWidth="0.5"/>
+            <circle cx="0" cy="0" r="8" fill="none" stroke="#8B6914" strokeWidth="1"/>
+            {/* 主方位線 */}
+            <line x1="0" y1="-70" x2="0" y2="70" stroke="#8B6914" strokeWidth="0.6"/>
+            <line x1="-70" y1="0" x2="70" y2="0" stroke="#8B6914" strokeWidth="0.6"/>
+            {/* 斜め線 */}
+            <line x1="-49" y1="-49" x2="49" y2="49" stroke="#8B6914" strokeWidth="0.3"/>
+            <line x1="49" y1="-49" x2="-49" y2="49" stroke="#8B6914" strokeWidth="0.3"/>
+            {/* 矢印 */}
+            <polygon points="0,-70 -6,-50 6,-50" fill="#8B6914"/>
+            <polygon points="0,70 -6,50 6,50" fill="#8B6914" opacity="0.5"/>
+            <polygon points="-70,0 -50,-6 -50,6" fill="#8B6914" opacity="0.5"/>
+            <polygon points="70,0 50,-6 50,6" fill="#8B6914" opacity="0.5"/>
+            {/* 方位文字 */}
+            <text y="-55" textAnchor="middle" fill="#8B6914" fontSize="12" fontFamily="serif" fontWeight="bold">N</text>
+            <text y="68" textAnchor="middle" fill="#8B6914" fontSize="9" fontFamily="serif">S</text>
+            <text x="-58" y="4" textAnchor="middle" fill="#8B6914" fontSize="9" fontFamily="serif">W</text>
+            <text x="60" y="4" textAnchor="middle" fill="#8B6914" fontSize="9" fontFamily="serif">E</text>
+            {/* 中心点 */}
+            <circle cx="0" cy="0" r="3" fill="#8B6914"/>
+          </g>
+        </svg>
+        {/* 左下 錨マーク */}
+        <svg className="absolute" style={{ bottom: 80, left: 20, opacity: 0.05, width: 80, height: 80 }}>
+          <g transform="translate(40,40)">
+            <circle cx="0" cy="-20" r="8" fill="none" stroke="#8B6914" strokeWidth="2"/>
+            <line x1="0" y1="-12" x2="0" y2="28" stroke="#8B6914" strokeWidth="2"/>
+            <line x1="-18" y1="-4" x2="18" y2="-4" stroke="#8B6914" strokeWidth="2"/>
+            <path d="M-18 28 Q-18 36 0 36 Q18 36 18 28" fill="none" stroke="#8B6914" strokeWidth="2"/>
+          </g>
+        </svg>
+        {/* 大気感：ラジアルグラデーション */}
+        <div className="absolute inset-0" style={{
+          background: [
+            'radial-gradient(ellipse at 10% 40%, rgba(0,25,70,0.18) 0%, transparent 45%)',
+            'radial-gradient(ellipse at 90% 60%, rgba(0,35,20,0.12) 0%, transparent 45%)',
+            'radial-gradient(ellipse at 50% 100%, rgba(60,20,0,0.1) 0%, transparent 40%)',
+          ].join(','),
+        }}/>
+      </div>
 
       {/* ─── ヘッダー ─── */}
-      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#080c1e]/95 border-b border-amber-900/30 z-10 flex-wrap">
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#080c1e]/95 border-b border-amber-900/30 z-[10] flex-wrap relative">
         <button onClick={game.resetGame} className="text-amber-800/60 hover:text-amber-400 transition-colors flex-shrink-0">
           <Home size={16}/>
         </button>
@@ -624,7 +692,7 @@ export default function SoloPlayPage({ onNavigate }) {
       </header>
 
       {/* ─── プレイマット本体 ─── */}
-      <div className="flex-1 flex flex-col overflow-hidden p-1.5 gap-1.5 min-h-0">
+      <div className="flex-1 flex flex-col overflow-hidden p-1.5 gap-1.5 min-h-0 relative z-[1]">
 
         {/* ── 行1: ライフ + キャラゾーン + デッキ/ステージ ── */}
         <div className="flex gap-1.5 flex-shrink-0" style={{ height: CHAR_ZONE_H }}>
@@ -693,19 +761,24 @@ export default function SoloPlayPage({ onNavigate }) {
           <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
             style={{ width: CARD.W + 24 }}>
             <div className={P.label}>リーダー</div>
-            <GameCard
-              card={s.leader}
-              tapped={s.leader.tapped}
-              badge={s.leader.donAttached}
-              highlight={selectedCard?.context === 'leader'}
-              onClick={() => handleCardClick(s.leader, 'leader', 'leader')}
-              onDoubleClick={() => handleCardDoubleClick(s.leader)}
-            />
-            <LeaderEffectBadge
-              leaderEffect={s.leaderEffect}
-              leaderName={s.leader?.name}
-              onUseAbility={s.leaderEffect?.hasActiveAbility ? handleLeaderAbility : null}
-            />
+            <div className="relative">
+              <GameCard
+                card={s.leader}
+                tapped={s.leader.tapped}
+                badge={s.leader.donAttached}
+                highlight={selectedCard?.context === 'leader'}
+                onClick={() => handleCardClick(s.leader, 'leader', 'leader')}
+                onDoubleClick={() => handleCardDoubleClick(s.leader)}
+              />
+              {/* リーダー効果バッジ — カード左下にオーバーレイ */}
+              <div className="absolute bottom-1 left-1 z-10">
+                <LeaderEffectBadge
+                  leaderEffect={s.leaderEffect}
+                  leaderName={s.leader?.name}
+                  onUseAbility={s.leaderEffect?.hasActiveAbility ? handleLeaderAbility : null}
+                />
+              </div>
+            </div>
           </div>
 
           {/* DON!!ゾーン */}
