@@ -290,6 +290,240 @@ function LifeStack({ life, onFlip }) {
   );
 }
 
+// ─── サーチモーダル ──────────────────────────────
+function SearchModal({ revealed, onResolve, onCancel }) {
+  // 各カードの行き先: 'hand' | 'top' | 'bottom' | null
+  const [dest, setDest] = useState(() => Object.fromEntries(revealed.map(c => [c._uid, null])));
+  // デッキトップ戻し順（ドラッグ不要にするためクリック順で確定）
+  const [topOrder, setTopOrder] = useState([]); // _uid の配列（先頭=一番上）
+  const [detailCard, setDetailCard] = useState(null);
+
+  const allAssigned = revealed.every(c => dest[c._uid] !== null);
+
+  const setCardDest = (uid, newDest) => {
+    setDest(prev => ({ ...prev, [uid]: newDest }));
+    if (newDest === 'top') {
+      setTopOrder(prev => prev.includes(uid) ? prev : [uid, ...prev]); // 先に選んだものが下
+    } else {
+      setTopOrder(prev => prev.filter(id => id !== uid));
+    }
+  };
+
+  const handleConfirm = () => {
+    const toHand   = revealed.filter(c => dest[c._uid] === 'hand').map(c => c._uid);
+    // topOrder は「先に選んだ = 下」なので toDeckTop[0] が一番上 = 後から追加したもの
+    const toDeckTop    = topOrder; // useGameStateでreverse済みなのでそのまま
+    const toDeckBottom = revealed.filter(c => dest[c._uid] === 'bottom').map(c => c._uid);
+    onResolve({ toHand, toDeckTop, toDeckBottom });
+  };
+
+  const destLabel = { hand: '手札', top: '上', bottom: '下', null: '未定' };
+  const destColor = {
+    hand:   'bg-emerald-700/70 border-emerald-500/70 text-emerald-100',
+    top:    'bg-blue-700/70 border-blue-500/70 text-blue-100',
+    bottom: 'bg-purple-700/70 border-purple-500/70 text-purple-100',
+    null:   'bg-amber-900/30 border-amber-700/40 text-amber-400/60',
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-amber-900/30">
+          <div>
+            <div className="text-amber-400 font-black text-base flex items-center gap-2">
+              🔍 サーチ効果
+            </div>
+            <div className="text-amber-700/60 text-xs mt-0.5">
+              各カードの行き先を選択してください
+            </div>
+          </div>
+          <button onClick={onCancel}
+            className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-500 hover:bg-amber-800/40 transition-all">
+            <X size={15}/>
+          </button>
+        </div>
+
+        {/* 凡例 */}
+        <div className="flex items-center gap-3 px-5 py-2 bg-black/20 text-[10px] border-b border-amber-900/20">
+          <span className="text-amber-600/70">行き先：</span>
+          {[['hand','手札に加える','emerald'],['top','デッキトップへ','blue'],['bottom','デッキボトムへ','purple']].map(([k,l,c])=>(
+            <span key={k} className={`px-2 py-0.5 rounded-full border font-bold ${destColor[k]}`}>{l}</span>
+          ))}
+          <span className="text-amber-600/50 ml-auto">
+            デッキトップ戻し順：左が下、右が上（選んだ順に積み上げ）
+          </span>
+        </div>
+
+        {/* カード一覧 */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex flex-wrap gap-4 justify-center">
+            {revealed.map((card, idx) => {
+              const d = dest[card._uid];
+              const topPos = topOrder.indexOf(card._uid); // -1 or index
+              return (
+                <div key={card._uid} className="flex flex-col items-center gap-2">
+                  {/* デッキトップ順インジケーター */}
+                  <div className="h-5 flex items-center justify-center">
+                    {d === 'top' && topPos >= 0 && (
+                      <span className="text-[10px] text-blue-300 font-bold bg-blue-900/50 px-2 py-0.5 rounded-full border border-blue-700/50">
+                        上から {topOrder.length - topPos} 番目
+                      </span>
+                    )}
+                  </div>
+
+                  {/* カード画像 */}
+                  <div
+                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                      d === 'hand'   ? 'border-emerald-500 shadow-emerald-500/40 shadow-lg scale-105' :
+                      d === 'top'    ? 'border-blue-500 shadow-blue-500/40 shadow-lg' :
+                      d === 'bottom' ? 'border-purple-500 shadow-purple-500/40 shadow-lg' :
+                      'border-amber-700/30 hover:border-amber-500/50'
+                    }`}
+                    style={{ width: CARD.W, height: CARD.H }}
+                    onClick={() => setDetailCard(card)}
+                  >
+                    <CardImage card={card} style={{ width: CARD.W, height: CARD.H }}/>
+                    {/* 番号バッジ */}
+                    <div className="absolute top-1 left-1 bg-black/70 text-amber-400 text-[9px] font-bold rounded px-1">
+                      #{idx + 1}
+                    </div>
+                    {/* 行き先バッジ */}
+                    {d && (
+                      <div className={`absolute bottom-1 left-1 right-1 text-center text-[10px] font-black py-0.5 rounded border ${destColor[d]}`}>
+                        {destLabel[d]}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 行き先ボタン */}
+                  <div className="flex gap-1">
+                    {[['hand','手札','emerald'],['top','上','blue'],['bottom','下','purple']].map(([k,l,c])=>(
+                      <button key={k}
+                        onClick={() => setCardDest(card._uid, d === k ? null : k)}
+                        className={`text-[10px] px-2 py-1 rounded-lg border font-bold transition-all ${
+                          d === k ? destColor[k] : 'bg-black/30 border-amber-900/30 text-amber-600/60 hover:border-amber-700/50'
+                        }`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* カード名（短縮） */}
+                  <div className="text-[9px] text-amber-500/60 text-center max-w-[120px] truncate">{card.name}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* デッキトップ戻し順プレビュー */}
+        {topOrder.length > 0 && (
+          <div className="px-5 py-2 bg-blue-900/20 border-t border-blue-900/30">
+            <div className="text-[10px] text-blue-400 font-bold mb-1.5">
+              📚 デッキトップ戻し順（←下 ｜ 上→）
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {[...topOrder].reverse().map((uid, i) => {
+                const card = revealed.find(c => c._uid === uid);
+                return card ? (
+                  <div key={uid} className="flex items-center gap-1.5 flex-shrink-0">
+                    {i > 0 && <span className="text-blue-700/60 text-xs">→</span>}
+                    <div className="bg-blue-900/40 border border-blue-700/40 rounded-lg px-2 py-1 text-[10px] text-blue-200 flex items-center gap-1">
+                      <span className="text-blue-500 font-bold">{i + 1}</span>
+                      <span className="max-w-[80px] truncate">{card.name}</span>
+                    </div>
+                  </div>
+                ) : null;
+              })}
+              <span className="text-blue-400/50 text-[10px] ml-1 flex-shrink-0">← 一番上</span>
+            </div>
+          </div>
+        )}
+
+        {/* フッターボタン */}
+        <div className="flex items-center gap-3 px-5 py-3 border-t border-amber-900/30">
+          <div className="text-[10px] text-amber-600/50 flex-1">
+            {revealed.filter(c=>dest[c._uid]===null).length > 0
+              ? `⚠ あと ${revealed.filter(c=>dest[c._uid]===null).length} 枚未選択`
+              : '✓ 全て選択済み'}
+          </div>
+          <button onClick={onCancel}
+            className="text-xs px-4 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 hover:bg-amber-900/20 transition-all">
+            キャンセル
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!allAssigned}
+            className={`text-xs px-5 py-2 rounded-xl font-black border transition-all ${
+              allAssigned
+                ? 'bg-gradient-to-b from-amber-600 to-amber-800 border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-amber-900/40 shadow-md'
+                : 'bg-black/20 border-amber-900/20 text-amber-900/30 cursor-not-allowed'
+            }`}>
+            ✓ 決定
+          </button>
+        </div>
+      </div>
+
+      {/* カード詳細（サーチモーダル内） */}
+      {detailCard && <CardDetailModal card={detailCard} onClose={() => setDetailCard(null)}/>}
+    </div>
+  );
+}
+
+// ─── サーチ開始パネル ────────────────────────────
+function SearchStartPanel({ deckCount, onBegin, onClose }) {
+  const [n, setN] = useState(3);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0a0f24] border border-amber-700/50 rounded-2xl shadow-2xl p-6 w-80"
+        onClick={e => e.stopPropagation()}>
+        <div className="text-amber-400 font-black text-base mb-4 flex items-center gap-2">
+          🔍 サーチ効果
+        </div>
+        <div className="text-amber-200/70 text-sm mb-4">何枚確認しますか？</div>
+
+        {/* クイック選択 */}
+        <div className="flex gap-2 mb-4">
+          {[1,2,3,4,5].map(v => (
+            <button key={v} onClick={() => setN(v)}
+              className={`flex-1 py-2 rounded-xl text-sm font-black border transition-all ${
+                n === v
+                  ? 'bg-amber-600 border-amber-400 text-amber-100 shadow-amber-900/40 shadow-md'
+                  : 'bg-black/30 border-amber-800/30 text-amber-500/70 hover:border-amber-600/50'
+              }`}>
+              {v}
+            </button>
+          ))}
+        </div>
+
+        {/* カスタム入力 */}
+        <div className="flex items-center gap-2 mb-5">
+          <span className="text-amber-600/70 text-xs">カスタム：</span>
+          <input type="number" min={1} max={deckCount} value={n}
+            onChange={e => setN(Math.max(1, Math.min(deckCount, Number(e.target.value))))}
+            className="w-20 bg-black/40 border border-amber-800/40 rounded-lg px-2 py-1 text-amber-200 text-sm text-center"/>
+          <span className="text-amber-700/50 text-xs">枚（デッキ残{deckCount}枚）</span>
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={onClose}
+            className="flex-1 py-2 rounded-xl text-sm border border-amber-800/30 text-amber-600/60 hover:bg-amber-900/20 transition-all">
+            キャンセル
+          </button>
+          <button
+            onClick={() => { onBegin(n); onClose(); }}
+            disabled={deckCount === 0}
+            className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md disabled:opacity-40">
+            めくる
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── リーダー効果バッジ ─────────────────────────
 function LeaderEffectBadge({ leaderEffect, leaderName, onUseAbility }) {
   const [open, setOpen] = useState(false);
@@ -466,6 +700,7 @@ export default function SoloPlayPage({ onNavigate }) {
   const [selectedCard, setSelectedCard] = useState(null);
   const [detailCard, setDetailCard] = useState(null);
   const [showLog, setShowLog] = useState(false);
+  const [showSearchStart, setShowSearchStart] = useState(false); // サーチ枚数選択パネル
 
   const game = useGameState();
   const { state } = game;
@@ -622,6 +857,11 @@ export default function SoloPlayPage({ onNavigate }) {
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button onClick={() => game.drawCard(1)} className={`text-[10px] px-2 py-0.5 rounded border transition-all ${P.btnBlue}`}>+1ドロー</button>
+          <button onClick={() => setShowSearchStart(true)}
+            className={`text-[10px] px-2 py-0.5 rounded border transition-all ${P.btnGold}`}
+            title="デッキトップN枚を確認してカードを選ぶ">
+            🔍 サーチ
+          </button>
           <button onClick={game.resetGame} className="text-amber-900/50 hover:text-amber-500 transition-colors" title="リセット"><RotateCcw size={13}/></button>
           <button onClick={() => setShowLog(v=>!v)} className="text-amber-900/50 hover:text-amber-500 text-[10px] transition-colors">{showLog?'▼LOG':'▶LOG'}</button>
         </div>
@@ -817,6 +1057,24 @@ export default function SoloPlayPage({ onNavigate }) {
       {selectedCard && !detailCard && (
         <ActionMenu card={selectedCard.card} context={selectedCard.context}
           onAction={handleAction} onClose={() => setSelectedCard(null)}/>
+      )}
+
+      {/* ─── サーチ開始パネル ─── */}
+      {showSearchStart && !state?.searchReveal?.length && (
+        <SearchStartPanel
+          deckCount={state?.deck?.length ?? 0}
+          onBegin={(n) => { game.beginSearch(n); setShowSearchStart(false); }}
+          onClose={() => setShowSearchStart(false)}
+        />
+      )}
+
+      {/* ─── サーチ解決モーダル ─── */}
+      {state?.searchReveal?.length > 0 && (
+        <SearchModal
+          revealed={state.searchReveal}
+          onResolve={(result) => game.resolveSearch(result)}
+          onCancel={game.cancelSearch}
+        />
       )}
     </div>
   );

@@ -169,6 +169,7 @@ function buildInitialState(leader, deckCards, playerOrder) {
     leaderEffect: leaderEff,
 
     trash: [],
+    searchReveal: [],   // サーチ効果で一時的に公開したカード
     mulliganCount: 0,
     log: [`ゲーム開始！（${leader?.name}）${leaderEff.note ? ' ⚠ ' + leaderEff.note : ''} マリガンしますか？`],
   };
@@ -560,6 +561,67 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  // ─── サーチ効果：デッキトップN枚を公開 ───────────────────────
+  const beginSearch = useCallback((n) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const count = Math.min(n, prev.deck.length);
+      if (count === 0) return addLog('デッキにカードがありません', prev);
+      const revealed = prev.deck.slice(0, count).map(c => ({ ...c }));
+      const remaining = prev.deck.slice(count);
+      return addLog(`サーチ：デッキトップ${count}枚を確認`, {
+        ...prev, deck: remaining, searchReveal: revealed,
+      });
+    });
+  }, [addLog]);
+
+  // ─── サーチ効果：選択結果を適用 ──────────────────────────────
+  // toHand      : 手札に加えるカードの _uid 配列
+  // toDeckTop   : デッキトップに戻すカードの _uid 配列（先頭=一番上）
+  // toDeckBottom: デッキボトムに戻すカードの _uid 配列
+  const resolveSearch = useCallback(({ toHand = [], toDeckTop = [], toDeckBottom = [] }) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const all = prev.searchReveal;
+      const pick = (uids) => uids.map(uid => all.find(c => c._uid === uid)).filter(Boolean);
+      const handCards   = pick(toHand);
+      const topCards    = pick(toDeckTop);    // index 0 が一番上に来る
+      const bottomCards = pick(toDeckBottom);
+      // 未割り当て（念のため）
+      const assigned = new Set([...toHand, ...toDeckTop, ...toDeckBottom]);
+      const unassigned = all.filter(c => !assigned.has(c._uid));
+      // デッキトップ → 配列の先頭が一番上になるよう reverse して unshift
+      const newDeck = [
+        ...topCards.slice().reverse(), // topCards[0] が最終的にtopになるよう逆順に積む
+        ...prev.deck,
+        ...bottomCards,
+        ...unassigned,  // 未割り当ては底に
+      ];
+      const parts = [];
+      if (handCards.length)   parts.push(`手札${handCards.length}枚`);
+      if (topCards.length)    parts.push(`デッキトップ${topCards.length}枚`);
+      if (bottomCards.length) parts.push(`デッキボトム${bottomCards.length}枚`);
+      return addLog(`サーチ完了：${parts.join('、')}`, {
+        ...prev,
+        hand: [...prev.hand, ...handCards],
+        deck: newDeck,
+        searchReveal: [],
+      });
+    });
+  }, [addLog]);
+
+  const cancelSearch = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.searchReveal.length === 0) return prev;
+      // キャンセル時はデッキトップに戻す
+      return addLog('サーチをキャンセル（デッキトップに戻す）', {
+        ...prev,
+        deck: [...prev.searchReveal, ...prev.deck],
+        searchReveal: [],
+      });
+    });
+  }, [addLog]);
+
   const flipLife = useCallback(() => {
     setState(prev => {
       if (!prev || prev.life.length === 0) return prev;
@@ -582,6 +644,7 @@ export function useGameState() {
     returnHandToTop, returnHandToBottom,
     returnFieldToTop, returnFieldToBottom,
     flipLife,
+    beginSearch, resolveSearch, cancelSearch,
     useEnelAbility, useMihawkAbility,
     resetGame,
   };
