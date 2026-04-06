@@ -455,12 +455,108 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  // ─── アクティブDON!!をDON!!デッキに返却 ───
   const returnDonToDeck = useCallback((count = 1) => {
     setState(prev => {
       if (!prev) return prev;
       const n = Math.min(count, prev.donActive);
-      if (n <= 0) return addLog('返却できるDON!!がありません', prev);
-      return addLog(`DON!!×${n}をDON!!デッキに返却`, { ...prev, donActive: prev.donActive - n, donDeck: prev.donDeck + n });
+      if (n <= 0) return addLog('返却できるアクティブDON!!がありません', prev);
+      return addLog(`アクティブDON!!×${n}をDON!!デッキに返却`, { ...prev, donActive: prev.donActive - n, donDeck: prev.donDeck + n });
+    });
+  }, [addLog]);
+
+  // ─── レストDON!!をDON!!デッキに返却 ───
+  const returnTappedDonToDeck = useCallback((count = 1) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const n = Math.min(count, prev.donTapped);
+      if (n <= 0) return addLog('返却できるレストDON!!がありません', prev);
+      return addLog(`レストDON!!×${n}をDON!!デッキに返却`, { ...prev, donTapped: prev.donTapped - n, donDeck: prev.donDeck + n });
+    });
+  }, [addLog]);
+
+  // ─── リーダーのDON!!アタッチを外す ───
+  const detachDonFromLeader = useCallback(() => {
+    setState(prev => {
+      if (!prev || (prev.leader.donAttached || 0) <= 0) return addLog('リーダーにアタッチされたDON!!がありません', prev || {});
+      const removed = 1;
+      return addLog('リーダーからDON!!を外す（アクティブへ返還）', {
+        ...prev,
+        donActive: prev.donActive + removed,
+        donLeader: prev.donLeader - removed,
+        leader: { ...prev.leader, donAttached: prev.leader.donAttached - removed },
+      });
+    });
+  }, [addLog]);
+
+  // ─── フィールドカードのDON!!アタッチを外す ───
+  const detachDonFromField = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const card = prev.field.find(c => c._uid === cardUid);
+      if (!card || (card.donAttached || 0) <= 0) return addLog('このキャラにアタッチされたDON!!がありません', prev);
+      const newField = prev.field.map(c =>
+        c._uid === cardUid ? { ...c, donAttached: (c.donAttached || 0) - 1 } : c
+      );
+      return addLog(`「${card.name}」からDON!!を外す（アクティブへ返還）`, {
+        ...prev, field: newField, donActive: prev.donActive + 1,
+      });
+    });
+  }, [addLog]);
+
+  // ─── 手札カードをデッキトップに戻す ───
+  const returnHandToTop = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const idx = prev.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = prev.hand[idx];
+      const newHand = prev.hand.filter((_, i) => i !== idx);
+      return addLog(`「${card.name}」をデッキトップに戻す`, { ...prev, hand: newHand, deck: [card, ...prev.deck] });
+    });
+  }, [addLog]);
+
+  // ─── 手札カードをデッキボトムに戻す ───
+  const returnHandToBottom = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const idx = prev.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = prev.hand[idx];
+      const newHand = prev.hand.filter((_, i) => i !== idx);
+      return addLog(`「${card.name}」をデッキボトムに戻す`, { ...prev, hand: newHand, deck: [...prev.deck, card] });
+    });
+  }, [addLog]);
+
+  // ─── フィールドカードをデッキトップに戻す（アタッチDON!!返還）───
+  const returnFieldToTop = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const card = prev.field.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const attached = card.donAttached || 0;
+      const newField = prev.field.filter(c => c._uid !== cardUid);
+      const cleanCard = { ...card, tapped: false, donAttached: 0, _uid: card._uid };
+      return addLog(
+        `「${card.name}」をデッキトップに戻す${attached > 0 ? `（DON!!×${attached}アクティブに返還）` : ''}`,
+        { ...prev, field: newField, deck: [cleanCard, ...prev.deck], donActive: prev.donActive + attached }
+      );
+    });
+  }, [addLog]);
+
+  // ─── フィールドカードをデッキボトムに戻す（アタッチDON!!返還）───
+  const returnFieldToBottom = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const card = prev.field.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const attached = card.donAttached || 0;
+      const newField = prev.field.filter(c => c._uid !== cardUid);
+      const cleanCard = { ...card, tapped: false, donAttached: 0, _uid: card._uid };
+      return addLog(
+        `「${card.name}」をデッキボトムに戻す${attached > 0 ? `（DON!!×${attached}アクティブに返還）` : ''}`,
+        { ...prev, field: newField, deck: [...prev.deck, cleanCard], donActive: prev.donActive + attached }
+      );
     });
   }, [addLog]);
 
@@ -480,7 +576,12 @@ export function useGameState() {
     state, startGame, mulligan, startMainGame, advancePhase,
     playToField, playStage, toggleFieldCard, toggleLeader,
     trashFieldCard, trashHandCard, drawCard, tapDon,
-    attachDonToLeader, attachDonToField, returnDonToDeck, flipLife,
+    attachDonToLeader, attachDonToField,
+    returnDonToDeck, returnTappedDonToDeck,
+    detachDonFromLeader, detachDonFromField,
+    returnHandToTop, returnHandToBottom,
+    returnFieldToTop, returnFieldToBottom,
+    flipLife,
     useEnelAbility, useMihawkAbility,
     resetGame,
   };
