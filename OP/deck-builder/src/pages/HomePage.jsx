@@ -1,4 +1,4 @@
-import { Layers, Swords, Anchor, ChevronRight } from 'lucide-react';
+import { Layers, Swords, Anchor, ChevronRight, Bot } from 'lucide-react';
 import PirateMapBg from '../components/PirateMapBg';
 
 // 海賊旗SVG
@@ -20,11 +20,11 @@ function SkullCross({ size = 40, className = '' }) {
 
 // ナビカード
 function NavCard({ onClick, color, icon: Icon, iconBg, title, subtitle, badge, features }) {
-  const borderColor  = color === 'red'  ? 'rgba(220,60,60,0.25)'  : 'rgba(60,100,220,0.25)';
-  const borderHover  = color === 'red'  ? 'rgba(220,60,60,0.65)'  : 'rgba(60,100,220,0.65)';
-  const glowColor    = color === 'red'  ? 'rgba(180,40,0,0.18)'   : 'rgba(0,40,200,0.18)';
-  const badgeColor   = color === 'red'  ? '#ef4444'               : '#3b82f6';
-  const badgeBorder  = color === 'red'  ? 'rgba(220,60,60,0.35)'  : 'rgba(60,100,220,0.35)';
+  const borderColor  = color === 'red'   ? 'rgba(220,60,60,0.25)'   : color === 'green' ? 'rgba(40,180,80,0.25)'  : 'rgba(60,100,220,0.25)';
+  const borderHover  = color === 'red'   ? 'rgba(220,60,60,0.65)'   : color === 'green' ? 'rgba(40,180,80,0.65)'  : 'rgba(60,100,220,0.65)';
+  const glowColor    = color === 'red'   ? 'rgba(180,40,0,0.18)'    : color === 'green' ? 'rgba(0,140,50,0.18)'   : 'rgba(0,40,200,0.18)';
+  const badgeColor   = color === 'red'   ? '#ef4444'                : color === 'green' ? '#22c55e'               : '#3b82f6';
+  const badgeBorder  = color === 'red'   ? 'rgba(220,60,60,0.35)'   : color === 'green' ? 'rgba(40,180,80,0.35)'  : 'rgba(60,100,220,0.35)';
 
   return (
     <button
@@ -148,7 +148,7 @@ export default function HomePage({ onNavigate }) {
       </div>
 
       {/* ─── メニューカード ─── */}
-      <div className="relative flex flex-col sm:flex-row gap-5 w-full max-w-xl">
+      <div className="relative flex flex-col sm:flex-row gap-4 w-full max-w-2xl flex-wrap justify-center">
 
         <NavCard
           onClick={() => onNavigate('solo-play')}
@@ -163,6 +163,21 @@ export default function HomePage({ onNavigate }) {
           subtitle="デッキの動きを確認・練習。先行/後攻選択、マリガン、ドロー、サーチ効果など完全サポート。"
           badge="SOLO PLAY"
           features={['先行/後攻', 'マリガン', 'サーチ効果', 'DON!!管理']}
+        />
+
+        <NavCard
+          onClick={() => onNavigate('battle')}
+          color="green"
+          icon={Bot}
+          iconBg={{
+            bg: 'radial-gradient(circle, #14532d55, #052e1635)',
+            border: 'rgba(40,180,80,0.3)',
+            iconClass: 'text-green-400 group-hover:text-green-300 transition-colors',
+          }}
+          title="CPU対戦"
+          subtitle="ルールベースAIと実戦対決。ライフトリガー・ブロッカー・フェーズ進行など本格ルール対応。"
+          badge="CPU BATTLE"
+          features={['ライフトリガー', 'ブロッカー', 'AI対戦', '自動効果']}
         />
 
         <NavCard
