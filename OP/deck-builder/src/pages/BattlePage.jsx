@@ -518,31 +518,44 @@ function WinModal({ winner, onReturn, onRematch }) {
   );
 }
 
+// ─── 保存済みデッキをentries形式に変換 ─────────────────────────
+function resolveSavedDeck(savedDeck, cardMap) {
+  if (!savedDeck) return null;
+  const entries = (savedDeck.deck || [])
+    .map(({ cardNumber, count }) => {
+      const card = cardMap[cardNumber];
+      return card ? { card, count } : null;
+    })
+    .filter(Boolean);
+  return { leader: savedDeck.leader, entries, name: savedDeck.name || savedDeck.id };
+}
+
 // ─── セットアップ画面 ────────────────────────────────────────────
 function SetupScreen({ onStart, onHome, cardMap }) {
   const savedDecks = loadSavedDecks();
   const savedDeckNames = Object.keys(savedDecks);
 
   const [playerDeckName, setPlayerDeckName] = useState(savedDeckNames[0] || '');
-  const [cpuDeckName, setCpuDeckName]       = useState('');
+  const [cpuDeckName, setCpuDeckName]       = useState(savedDeckNames[0] || '');
   const [cpuDeckType, setCpuDeckType]       = useState('sample'); // 'sample' | 'saved'
   const [sampleIdx, setSampleIdx]           = useState(0);
   const [order, setOrder]                   = useState('first');
   const isCardMapReady = Object.keys(cardMap || {}).length > 0;
 
-  // プレイヤーデッキ: 保存済みのみ
-  const playerDeck = savedDecks[playerDeckName] || null;
+  // プレイヤーデッキ: 保存済みをentries形式に変換
+  const playerDeckRaw = savedDecks[playerDeckName] || null;
+  const playerDeck = isCardMapReady ? resolveSavedDeck(playerDeckRaw, cardMap) : null;
 
-  // CPUデッキ（サンプルはresolveSampleDeckで解決）
+  // CPUデッキ（サンプルはresolveSampleDeck、保存済みはresolveSavedDeckで解決）
   let cpuDeckResolved = null;
   if (cpuDeckType === 'sample' && isCardMapReady) {
     const raw = SAMPLE_DECKS[sampleIdx];
     if (raw) cpuDeckResolved = resolveSampleDeck(raw, cardMap);
-  } else if (cpuDeckType === 'saved') {
-    cpuDeckResolved = savedDecks[cpuDeckName] || null;
+  } else if (cpuDeckType === 'saved' && isCardMapReady) {
+    cpuDeckResolved = resolveSavedDeck(savedDecks[cpuDeckName] || null, cardMap);
   }
 
-  const canStart = playerDeck && cpuDeckResolved && isCardMapReady;
+  const canStart = playerDeck && playerDeck.entries?.length > 0 && cpuDeckResolved && cpuDeckResolved.entries?.length > 0 && isCardMapReady;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6"
@@ -577,6 +590,7 @@ function SetupScreen({ onStart, onHome, cardMap }) {
             {playerDeck && (
               <div className="mt-2 text-[10px] text-amber-700/50">
                 リーダー: {playerDeck.leader?.name} / {playerDeck.entries?.length ?? 0}種
+                {!isCardMapReady && <span className="text-amber-900/50 ml-1">（カードマップ読み込み中）</span>}
               </div>
             )}
           </div>

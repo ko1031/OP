@@ -81,8 +81,8 @@ export function useBattleState() {
 
   // ── 対戦開始 ─────────────────────────────────────────────────────
   const startBattle = useCallback((playerLeader, playerDeckEntries, cpuLeader, cpuDeckEntries, playerOrder) => {
-    const flatDeck = entries => entries.flatMap(({ card, count }) =>
-      Array.from({ length: count }, (_, i) => ({ ...card }))
+    const flatDeck = entries => (entries || []).flatMap(({ card, count }) =>
+      Array.from({ length: count }, () => ({ ...card }))
     );
     const pSide = buildSide(playerLeader, flatDeck(playerDeckEntries), 'p');
     const cSide = buildSide(cpuLeader, flatDeck(cpuDeckEntries), 'c');
@@ -410,8 +410,16 @@ export function useBattleState() {
     setState(prev => {
       if (!prev || !prev.pendingTrigger) return prev;
       const { card, owner } = prev.pendingTrigger;
+      const atkKey = owner === 'player' ? 'cpu' : 'player'; // トリガー発動側の相手 = 攻撃側
       const ns = { ...prev, pendingTrigger: null };
-      if (!activate) return addLog(`トリガー「${card.name}」スキップ`, ns);
+      if (!activate) {
+        // スキップしてもライフが0なら勝敗確定
+        const ownerSide = ns[owner];
+        if (ownerSide.life.length === 0) {
+          return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns, winner: atkKey });
+        }
+        return addLog(`トリガー「${card.name}」スキップ`, ns);
+      }
 
       const actions = parseTriggerActions(card);
       let applied = ns;
@@ -432,7 +440,12 @@ export function useBattleState() {
           });
         }
       }
-      return addLog(`トリガー「${card.name}」発動`, applied);
+      applied = addLog(`トリガー「${card.name}」発動`, applied);
+      // トリガー解決後もライフが0なら勝敗確定
+      if (applied[owner].life.length === 0) {
+        return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...applied, winner: atkKey });
+      }
+      return applied;
     });
   }, [addLog]);
 
