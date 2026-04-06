@@ -16,7 +16,7 @@ function CostBar({ distribution }) {
         const h = Math.round((cnt / max) * 100);
         return (
           <div key={c} className="flex-1 flex flex-col items-center gap-0.5">
-            {cnt > 0 && <span className="text-gray-500 text-[9px] leading-none">{cnt}</span>}
+            {cnt > 0 && <span className="text-amber-700/60 text-[9px] leading-none">{cnt}</span>}
             <div className="w-full bg-blue-600 rounded-sm" style={{ height: `${h}%`, minHeight: cnt > 0 ? 2 : 0 }} />
           </div>
         );
@@ -28,7 +28,7 @@ function CostBar({ distribution }) {
 function DeckEntry({ entry, onAdd, onRemove, onRemoveAll, onOpenModal }) {
   const { card, count } = entry;
   return (
-    <div className="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-800 group">
+    <div className="flex items-center gap-2 py-1 px-2 rounded hover:bg-[#0d1530]/80 group">
       {/* カード画像＋名前エリア: クリックでモーダルを開く */}
       <button
         onClick={() => onOpenModal(card)}
@@ -39,23 +39,23 @@ function DeckEntry({ entry, onAdd, onRemove, onRemoveAll, onOpenModal }) {
           <div className="text-xs font-medium text-white truncate">{card.name}</div>
           <div className="flex gap-1 mt-0.5">
             {(card.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
-            {card.cost != null && <span className="text-gray-500 text-xs">C{card.cost}</span>}
-            {card.power != null && <span className="text-gray-500 text-xs">{card.power?.toLocaleString()}</span>}
+            {card.cost != null && <span className="text-amber-700/60 text-xs">C{card.cost}</span>}
+            {card.power != null && <span className="text-amber-700/60 text-xs">{card.power?.toLocaleString()}</span>}
           </div>
         </div>
       </button>
       <div className="flex items-center gap-1 flex-shrink-0">
         <button onClick={() => onRemove(card.card_number)}
-          className="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300">
+          className="w-5 h-5 flex items-center justify-center rounded bg-[#1a2040] hover:bg-amber-900/40 text-amber-200/80">
           <Minus size={10} />
         </button>
         <span className="text-white text-sm font-bold w-4 text-center">{count}</span>
         <button onClick={() => onAdd(card)}
-          className="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300">
+          className="w-5 h-5 flex items-center justify-center rounded bg-[#1a2040] hover:bg-amber-900/40 text-amber-200/80">
           <Plus size={10} />
         </button>
         <button onClick={() => onRemoveAll(card.card_number)}
-          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-red-900 text-gray-500 hover:text-red-400 transition-all">
+          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-red-900 text-amber-700/60 hover:text-red-400 transition-all">
           <Trash2 size={10} />
         </button>
       </div>
@@ -65,10 +65,10 @@ function DeckEntry({ entry, onAdd, onRemove, onRemoveAll, onOpenModal }) {
 
 function SavedDeckItem({ saved, onLoad, onDelete }) {
   return (
-    <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-800 group">
+    <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-[#0d1530]/80 group">
       <div className="flex-1 min-w-0">
         <div className="text-xs text-white font-medium truncate">{saved.name}</div>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-amber-700/60">
           {saved.leader?.name} · {saved.deck.reduce((s, e) => s + e.count, 0)}枚
         </div>
       </div>
@@ -132,24 +132,24 @@ export default function DeckPanel({
   });
 
   return (
-    <div className="flex flex-col h-full bg-gray-900">
+    <div className="flex flex-col h-full bg-[#080c1e]/90">
       {/* ヘッダー */}
-      <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-gray-700">
+      <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-amber-900/30">
         <div className="flex items-center justify-between mb-2">
           <span className="text-white font-bold text-sm">デッキ</span>
-          <span className={`text-sm font-bold ${total === DECK_LIMIT ? 'text-green-400' : total > DECK_LIMIT ? 'text-red-400' : 'text-gray-300'}`}>
+          <span className={`text-sm font-bold ${total === DECK_LIMIT ? 'text-green-400' : total > DECK_LIMIT ? 'text-red-400' : 'text-amber-200/80'}`}>
             {total} / {DECK_LIMIT}
           </span>
         </div>
         {/* プログレスバー */}
-        <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-[#1a2040] rounded-full overflow-hidden">
           <div className={`h-full rounded-full transition-all ${progressColor}`} style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {/* リーダー */}
-      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-700">
-        <div className="text-xs text-gray-500 mb-1">リーダー</div>
+      <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30">
+        <div className="text-xs text-amber-700/60 mb-1">リーダー</div>
         {leader ? (
           <div className="flex items-center gap-2">
             <CardImage card={leader} className="w-12 rounded" />
@@ -157,21 +157,21 @@ export default function DeckPanel({
               <div className="text-sm font-bold text-white">{leader.name}</div>
               <div className="flex gap-1 mt-0.5">
                 {(leader.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
-                <span className="text-gray-400 text-xs">ライフ:{leader.life}</span>
+                <span className="text-amber-500/70 text-xs">ライフ:{leader.life}</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-xs text-gray-600 italic">リーダーカードをクリックして選択</div>
+          <div className="text-xs text-amber-800/50 italic">リーダーカードをクリックして選択</div>
         )}
       </div>
 
       {/* デッキ名 + 操作ボタン */}
-      <div className="flex-shrink-0 px-3 py-2 border-b border-gray-700 space-y-2">
+      <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30 space-y-2">
         <input
           value={deckName}
           onChange={e => setDeckName(e.target.value)}
-          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
+          className="w-full bg-[#0d1530]/80 border border-amber-900/30 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-blue-500"
           placeholder="デッキ名を入力…"
         />
         <div className="flex gap-1">
@@ -180,12 +180,12 @@ export default function DeckPanel({
             <Save size={12} /> 保存
           </button>
           <button onClick={handleShowSaved}
-            className="flex-1 flex items-center justify-center gap-1 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs rounded py-1.5 transition-colors">
+            className="flex-1 flex items-center justify-center gap-1 bg-[#1a2040] hover:bg-amber-900/40 text-amber-200/80 text-xs rounded py-1.5 transition-colors">
             <FolderOpen size={12} /> 読込
             {showSaved ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
           </button>
           <button onClick={onReset}
-            className="flex items-center justify-center gap-1 bg-gray-700 hover:bg-red-900 text-gray-400 hover:text-red-300 text-xs rounded px-2 py-1.5 transition-colors">
+            className="flex items-center justify-center gap-1 bg-[#1a2040] hover:bg-red-900 text-amber-500/70 hover:text-red-300 text-xs rounded px-2 py-1.5 transition-colors">
             <RotateCcw size={12} />
           </button>
         </div>
@@ -193,9 +193,9 @@ export default function DeckPanel({
 
         {/* 保存済みデッキ */}
         {showSaved && (
-          <div className="bg-gray-800 rounded p-1 space-y-0.5 max-h-40 overflow-y-auto">
+          <div className="bg-[#0d1530]/80 rounded p-1 space-y-0.5 max-h-40 overflow-y-auto">
             {Object.keys(savedDecks).length === 0 ? (
-              <div className="text-xs text-gray-500 text-center py-2">保存済みデッキなし</div>
+              <div className="text-xs text-amber-700/60 text-center py-2">保存済みデッキなし</div>
             ) : (
               Object.values(savedDecks).map(s => (
                 <SavedDeckItem key={s.id} saved={s} onLoad={handleLoad} onDelete={handleDelete} />
@@ -206,17 +206,17 @@ export default function DeckPanel({
       </div>
 
       {/* タブ切り替え（モバイルのみ表示） */}
-      <div className="md:hidden flex-shrink-0 flex border-b border-gray-700">
+      <div className="md:hidden flex-shrink-0 flex border-b border-amber-900/30">
         <button
           onClick={() => setActiveTab('deck')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
-            ${activeTab === 'deck' ? 'text-white border-b-2 border-blue-500 bg-gray-800/50' : 'text-gray-500 hover:text-gray-300'}`}>
+            ${activeTab === 'deck' ? 'text-white border-b-2 border-blue-500 bg-[#0d1530]/80/50' : 'text-amber-700/60 hover:text-amber-200/80'}`}>
           <List size={12} /> デッキ内容
         </button>
         <button
           onClick={() => setActiveTab('eval')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
-            ${activeTab === 'eval' ? 'text-white border-b-2 border-purple-500 bg-gray-800/50' : 'text-gray-500 hover:text-gray-300'}`}>
+            ${activeTab === 'eval' ? 'text-white border-b-2 border-purple-500 bg-[#0d1530]/80/50' : 'text-amber-700/60 hover:text-amber-200/80'}`}>
           <BarChart2 size={12} /> デッキ評価
         </button>
       </div>
@@ -226,15 +226,15 @@ export default function DeckPanel({
 
         {/* ── デッキ内容カラム ── */}
         <div className={`flex-col overflow-hidden
-          md:flex md:w-[240px] md:flex-shrink-0 md:border-r md:border-gray-700
+          md:flex md:w-[240px] md:flex-shrink-0 md:border-r md:border-amber-900/30
           ${activeTab === 'deck' ? 'flex flex-1' : 'hidden'}`}>
 
           {/* コスト分布 */}
           {deck.length > 0 && (
-            <div className="flex-shrink-0 px-3 py-2 border-b border-gray-700">
-              <div className="text-xs text-gray-500 mb-1">コスト分布</div>
+            <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30">
+              <div className="text-xs text-amber-700/60 mb-1">コスト分布</div>
               <CostBar distribution={stats.costDistribution} />
-              <div className="flex justify-between text-gray-600 text-[9px] mt-0.5">
+              <div className="flex justify-between text-amber-800/50 text-[9px] mt-0.5">
                 {Array.from({length:11},(_,i)=>i).map(c=><span key={c}>{c}</span>)}
               </div>
             </div>
@@ -243,7 +243,7 @@ export default function DeckPanel({
           {/* カードリスト */}
           <div className="flex-1 overflow-y-auto">
             {deck.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-600 text-sm">
+              <div className="flex items-center justify-center h-full text-amber-800/50 text-sm">
                 カードをクリックして追加
               </div>
             ) : (

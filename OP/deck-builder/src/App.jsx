@@ -5,6 +5,7 @@ import CardGrid from './components/CardGrid';
 import DeckPanel from './components/DeckPanel';
 import SampleDeckPanel from './components/SampleDeckPanel';
 import TournamentPanel from './components/TournamentPanel';
+import PirateMapBg from './components/PirateMapBg';
 import { useDeck } from './hooks/useDeck';
 import { hasTrigger, DECK_LIMIT } from './utils/deckRules';
 
@@ -108,14 +109,18 @@ export default function App({ onNavigate }) {
   const isComplete = deck.total === DECK_LIMIT;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950">
+    <div className="flex flex-col h-screen bg-[#06091a] relative overflow-hidden">
+      {/* 海賊地図背景 */}
+      <PirateMapBg />
+
       {/* ヘッダー */}
-      <header className="flex-shrink-0 bg-gradient-to-r from-gray-900 via-gray-900 to-gray-800 border-b border-gray-700/80 px-4 py-2.5 flex items-center gap-3 shadow-lg">
+      <header className="flex-shrink-0 relative z-10 px-4 py-2.5 flex items-center gap-3 shadow-lg"
+        style={{ background: 'linear-gradient(90deg, #080c1e 0%, #0d1530 50%, #080c1e 100%)', borderBottom: '1px solid rgba(139,105,20,0.35)' }}>
         <div className="flex items-center gap-2.5">
           {onNavigate && (
             <button
               onClick={() => onNavigate('home')}
-              className="text-gray-500 hover:text-gray-300 transition-colors mr-1 flex-shrink-0"
+              className="text-amber-700/60 hover:text-amber-400 transition-colors mr-1 flex-shrink-0"
               title="トップへ"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -123,13 +128,25 @@ export default function App({ onNavigate }) {
               </svg>
             </button>
           )}
-          <Layers size={20} className="text-red-400 flex-shrink-0" />
-          <span className="text-white font-bold text-sm sm:text-base tracking-wide">
+          {/* 海賊旗アイコン */}
+          <svg width="20" height="20" viewBox="0 0 100 100" fill="none" className="flex-shrink-0">
+            <ellipse cx="50" cy="40" rx="24" ry="22" fill="#c9a227" opacity="0.9"/>
+            <circle cx="38" cy="38" r="6" fill="#06091a"/>
+            <circle cx="62" cy="38" r="6" fill="#06091a"/>
+            <ellipse cx="50" cy="50" rx="4" ry="3" fill="#06091a" opacity="0.5"/>
+            <rect x="38" y="56" width="6" height="8" rx="2" fill="#c9a227" opacity="0.8"/>
+            <rect x="47" y="56" width="6" height="8" rx="2" fill="#c9a227" opacity="0.8"/>
+            <rect x="56" y="56" width="6" height="8" rx="2" fill="#c9a227" opacity="0.8"/>
+            <line x1="12" y1="78" x2="88" y2="90" stroke="#c9a227" strokeWidth="7" strokeLinecap="round" opacity="0.7"/>
+            <line x1="88" y1="78" x2="12" y2="90" stroke="#c9a227" strokeWidth="7" strokeLinecap="round" opacity="0.7"/>
+          </svg>
+          <span className="font-black text-sm sm:text-base tracking-wide"
+            style={{ background: 'linear-gradient(180deg, #f5d78e 0%, #c9a227 60%, #8b6914 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
             ONE PIECE デッキビルダー
           </span>
         </div>
         {!loading && (
-          <span className="text-gray-600 text-xs hidden sm:inline">
+          <span className="text-amber-800/50 text-xs hidden sm:inline">
             {allCards.length.toLocaleString()}枚収録
           </span>
         )}
@@ -138,7 +155,7 @@ export default function App({ onNavigate }) {
           {!loading && !error && (
             <button
               onClick={() => setShowTournament(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-600/50 bg-blue-700/20 text-blue-300 hover:bg-blue-700/30 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-blue-600/50 bg-blue-900/30 text-blue-300 hover:bg-blue-800/40 transition-colors"
             >
               <BarChart2 size={12} />
               <span className="hidden sm:inline">大会統計</span>
@@ -148,7 +165,7 @@ export default function App({ onNavigate }) {
           {!loading && !error && (
             <button
               onClick={() => setShowSampleDecks(true)}
-              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-yellow-600/50 bg-yellow-700/20 text-yellow-300 hover:bg-yellow-700/30 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border border-amber-600/50 bg-amber-900/20 text-amber-300 hover:bg-amber-800/30 transition-colors"
             >
               <Trophy size={12} />
               <span className="hidden sm:inline">優勝デッキ</span>
@@ -159,7 +176,7 @@ export default function App({ onNavigate }) {
             <div className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full border transition-all duration-300
               ${isComplete
                 ? 'bg-green-700/30 text-green-300 border-green-600/60'
-                : 'bg-gray-700/40 text-gray-400 border-gray-600/60'
+                : 'bg-amber-900/30 text-amber-400 border-amber-700/40'
               }`}>
               {isComplete ? '✓ 完成' : `${deck.total} / ${DECK_LIMIT}`}
             </div>
@@ -192,9 +209,9 @@ export default function App({ onNavigate }) {
 
       {/* メインコンテンツ */}
       {!loading && !error && (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden relative z-10">
           {/* 左: カード検索エリア — モバイルは 'cards' ビューのみ表示 */}
-          <div className={`flex-col flex-1 overflow-hidden border-r border-gray-700/80
+          <div className={`flex-col flex-1 overflow-hidden border-r border-amber-900/30
             ${mobileView === 'cards' ? 'flex' : 'hidden'} md:flex`}>
             <FilterPanel filters={filters} onChange={setFilters} seriesList={seriesList} />
             <div className="flex-1 overflow-hidden">
@@ -234,13 +251,14 @@ export default function App({ onNavigate }) {
 
       {/* モバイル用ボトムナビ */}
       {!loading && !error && (
-        <nav className="md:hidden flex-shrink-0 flex border-t border-gray-700/80 bg-gray-900">
+        <nav className="md:hidden flex-shrink-0 flex border-t border-amber-900/30 relative z-10"
+          style={{ background: 'linear-gradient(0deg, #060910 0%, #0a1020 100%)' }}>
           <button
             onClick={() => setMobileView('cards')}
             className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-xs font-medium transition-colors tap-highlight-transparent
               ${mobileView === 'cards'
-                ? 'text-blue-400 border-t-2 border-blue-400 -mt-px bg-blue-500/5'
-                : 'text-gray-500 active:text-gray-300'}`}
+                ? 'text-amber-400 border-t-2 border-amber-500 -mt-px bg-amber-900/10'
+                : 'text-amber-800/60 active:text-amber-400'}`}
           >
             <Search size={19} />
             カード検索
@@ -249,8 +267,8 @@ export default function App({ onNavigate }) {
             onClick={() => setMobileView('deck')}
             className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 text-xs font-medium transition-colors relative tap-highlight-transparent
               ${mobileView === 'deck'
-                ? 'text-blue-400 border-t-2 border-blue-400 -mt-px bg-blue-500/5'
-                : 'text-gray-500 active:text-gray-300'}`}
+                ? 'text-amber-400 border-t-2 border-amber-500 -mt-px bg-amber-900/10'
+                : 'text-amber-800/60 active:text-amber-400'}`}
           >
             <div className="relative">
               <Layers size={19} />

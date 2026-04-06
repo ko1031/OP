@@ -1,6 +1,6 @@
 /**
- * PirateMapBg — SVGベースの海賊地図背景コンポーネント
- * fixedポジションで全画面に敷き、z-0 に配置する
+ * PirateMapBg — 豪華な海賊地図SVG背景
+ * fixed・z-0・pointer-events-none で全画面に敷く
  */
 export default function PirateMapBg() {
   return (
@@ -13,205 +13,404 @@ export default function PirateMapBg() {
         style={{ position: 'absolute', inset: 0 }}
       >
         <defs>
-          {/* 海洋グラデーション */}
-          <radialGradient id="oceanGrad" cx="50%" cy="40%" r="70%">
-            <stop offset="0%"  stopColor="#0f1e45" />
-            <stop offset="60%" stopColor="#080f28" />
-            <stop offset="100%" stopColor="#040810" />
+          {/* ─── グラデーション ─── */}
+          <radialGradient id="pmOcean" cx="50%" cy="40%" r="75%">
+            <stop offset="0%"  stopColor="#0f1e45"/>
+            <stop offset="55%" stopColor="#080f28"/>
+            <stop offset="100%" stopColor="#030610"/>
           </radialGradient>
+          <radialGradient id="pmVig" cx="50%" cy="50%" r="72%">
+            <stop offset="0%"  stopColor="transparent"/>
+            <stop offset="85%" stopColor="#000" stopOpacity="0.55"/>
+            <stop offset="100%" stopColor="#000" stopOpacity="0.8"/>
+          </radialGradient>
+          <linearGradient id="pmTopGlow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#1a3a7a" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="transparent"/>
+          </linearGradient>
+          <linearGradient id="pmBotGlow" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="transparent"/>
+            <stop offset="100%" stopColor="#200a00" stopOpacity="0.35"/>
+          </linearGradient>
 
-          {/* 羊皮紙風テクスチャ（フィルター） */}
-          <filter id="parchment" x="-5%" y="-5%" width="110%" height="110%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
-            <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise"/>
-            <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="blend"/>
-            <feComposite in="blend" in2="SourceGraphic" operator="in"/>
-          </filter>
-
-          {/* 海の波パターン */}
-          <pattern id="wavePattern" x="0" y="0" width="60" height="20" patternUnits="userSpaceOnUse">
-            <path d="M0 10 Q15 0 30 10 Q45 20 60 10" fill="none" stroke="#1a3060" strokeWidth="0.8" opacity="0.5"/>
+          {/* 波パターン */}
+          <pattern id="pmWave" x="0" y="0" width="80" height="24" patternUnits="userSpaceOnUse">
+            <path d="M0 12 Q20 2 40 12 Q60 22 80 12" fill="none" stroke="#1a3560" strokeWidth="0.9" opacity="0.55"/>
+            <path d="M0 19 Q20 9 40 19 Q60 29 80 19" fill="none" stroke="#102040" strokeWidth="0.5" opacity="0.35"/>
           </pattern>
 
-          {/* 羅針盤ライン（菱形グリッド） */}
-          <pattern id="rhumbGrid" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
-            <line x1="0" y1="60" x2="120" y2="60" stroke="#c9a227" strokeWidth="0.2" opacity="0.12"/>
-            <line x1="60" y1="0" x2="60" y2="120" stroke="#c9a227" strokeWidth="0.2" opacity="0.12"/>
+          {/* グリッドパターン */}
+          <pattern id="pmGrid" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="40" x2="80" y2="40" stroke="#c9a227" strokeWidth="0.2" opacity="0.13"/>
+            <line x1="40" y1="0" x2="40" y2="80" stroke="#c9a227" strokeWidth="0.2" opacity="0.13"/>
           </pattern>
 
-          {/* コンパスラインのマスク */}
-          <radialGradient id="compassLineFade" cx="50%" cy="50%" r="50%">
+          {/* コンパスラインフェード */}
+          <radialGradient id="pmCFade" cx="50%" cy="50%" r="50%">
             <stop offset="0%"  stopColor="white" stopOpacity="1"/>
-            <stop offset="80%" stopColor="white" stopOpacity="0.3"/>
+            <stop offset="75%" stopColor="white" stopOpacity="0.4"/>
             <stop offset="100%" stopColor="white" stopOpacity="0"/>
           </radialGradient>
-          <mask id="compassMask">
-            <rect x="0" y="0" width="300" height="300" fill="url(#compassLineFade)"/>
+          <mask id="pmCMask1">
+            <rect x="-110" y="-110" width="220" height="220" fill="url(#pmCFade)"/>
           </mask>
+          <mask id="pmCMask2">
+            <rect x="-70" y="-70" width="140" height="140" fill="url(#pmCFade)"/>
+          </mask>
+
+          {/* 錨グラデ */}
+          <linearGradient id="pmAnchorG" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"  stopColor="#c9a227"/>
+            <stop offset="100%" stopColor="#8b6914"/>
+          </linearGradient>
         </defs>
 
-        {/* ── ベース背景 ── */}
-        <rect width="1440" height="900" fill="url(#oceanGrad)"/>
+        {/* ══ ベース海洋 ══ */}
+        <rect width="1440" height="900" fill="url(#pmOcean)"/>
+        <rect width="1440" height="900" fill="url(#pmWave)" opacity="0.7"/>
+        <rect width="1440" height="900" fill="url(#pmGrid)"/>
 
-        {/* ── 波パターン ── */}
-        <rect width="1440" height="900" fill="url(#wavePattern)" opacity="0.6"/>
+        {/* ══ 外枠（二重額縁） ══ */}
+        <rect x="12" y="8"  width="1416" height="884" fill="none"
+          stroke="#c9a227" strokeWidth="2"   strokeOpacity="0.35" rx="3"/>
+        <rect x="20" y="16" width="1400" height="868" fill="none"
+          stroke="#c9a227" strokeWidth="0.7" strokeOpacity="0.18" rx="2"/>
+        <rect x="28" y="24" width="1384" height="852" fill="none"
+          stroke="#c9a227" strokeWidth="0.3" strokeOpacity="0.1"  rx="1"/>
 
-        {/* ── 羅針盤グリッド ── */}
-        <rect width="1440" height="900" fill="url(#rhumbGrid)"/>
-
-        {/* ── 外枠（古地図の額縁） ── */}
-        <rect x="14" y="10" width="1412" height="880" fill="none"
-          stroke="#c9a227" strokeWidth="1.5" strokeOpacity="0.25" rx="4"/>
-        <rect x="22" y="18" width="1396" height="864" fill="none"
-          stroke="#c9a227" strokeWidth="0.7" strokeOpacity="0.15" rx="3"/>
-
-        {/* ── 緯度経度風ライン ── */}
-        {[0.15,0.3,0.45,0.6,0.75,0.9].map((r,i) => (
-          <line key={`h${i}`} x1="14" y1={r*900} x2="1426" y2={r*900}
-            stroke="#c9a227" strokeWidth="0.4" strokeOpacity="0.1"/>
-        ))}
-        {[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9].map((r,i) => (
-          <line key={`v${i}`} x1={r*1440} y1="10" x2={r*1440} y2="890"
-            stroke="#c9a227" strokeWidth="0.4" strokeOpacity="0.1"/>
+        {/* コーナー装飾（×印） */}
+        {[[18,14],[1422,14],[18,886],[1422,886]].map(([x,y],i)=>(
+          <g key={i} transform={`translate(${x},${y})`} opacity="0.45">
+            <line x1="-6" y1="-6" x2="6" y2="6" stroke="#c9a227" strokeWidth="1.2"/>
+            <line x1="6"  y1="-6" x2="-6" y2="6" stroke="#c9a227" strokeWidth="1.2"/>
+            <circle r="2.5" fill="none" stroke="#c9a227" strokeWidth="0.8"/>
+          </g>
         ))}
 
-        {/* ── 航路ドット線（左上→右下） ── */}
-        <path d="M 100 80 Q 400 300 700 250 Q 1000 200 1350 480"
-          fill="none" stroke="#c9a227" strokeWidth="1.2" strokeOpacity="0.2"
-          strokeDasharray="6 8"/>
-        {/* 航路ドット線（右上→左下） */}
-        <path d="M 1350 100 Q 1000 400 700 380 Q 400 360 80 600"
-          fill="none" stroke="#c9a227" strokeWidth="1" strokeOpacity="0.15"
-          strokeDasharray="4 10"/>
+        {/* ══ 経緯線（ラベル付き） ══ */}
+        {/* 緯度線 */}
+        {[
+          [150, '75°N'], [300, '60°N'], [450, '45°N'],
+          [600, '30°N'], [750, 'EQ'], [850, '15°S'],
+        ].map(([y, label]) => (
+          <g key={label}>
+            <line x1="28" y1={y} x2="1412" y2={y}
+              stroke="#c9a227" strokeWidth="0.35" strokeOpacity="0.12"/>
+            <text x="35" y={y - 3} fontSize="7" fontFamily="serif"
+              fill="#c9a227" fillOpacity="0.3">{label}</text>
+            <text x="1400" y={y - 3} fontSize="7" fontFamily="serif"
+              fill="#c9a227" fillOpacity="0.3" textAnchor="end">{label}</text>
+          </g>
+        ))}
+        {/* 経度線 */}
+        {[
+          [180, '90°W'], [360, '45°W'], [540, '0°'], [720, '45°E'],
+          [900, '90°E'], [1080, '135°E'], [1260, '180°'],
+        ].map(([x, label]) => (
+          <g key={label}>
+            <line x1={x} y1="24" x2={x} y2="876"
+              stroke="#c9a227" strokeWidth="0.35" strokeOpacity="0.12"/>
+            <text x={x + 3} y="36" fontSize="7" fontFamily="serif"
+              fill="#c9a227" fillOpacity="0.3">{label}</text>
+          </g>
+        ))}
 
-        {/* ── 島シルエット（左上エリア） ── */}
-        <ellipse cx="200" cy="160" rx="55" ry="30" fill="#0d1f3f" fillOpacity="0.5"
-          stroke="#c9a227" strokeWidth="0.8" strokeOpacity="0.2"/>
-        <ellipse cx="215" cy="152" rx="30" ry="18" fill="#0d1f3f" fillOpacity="0.4"/>
-        <ellipse cx="185" cy="165" rx="20" ry="12" fill="#0d1f3f" fillOpacity="0.35"/>
+        {/* ══ 航路（破線） ══ */}
+        <path d="M 80 200 Q 300 350 580 280 Q 860 210 1100 420 Q 1250 530 1380 380"
+          fill="none" stroke="#c9a227" strokeWidth="1.4" strokeOpacity="0.22"
+          strokeDasharray="7 9"/>
+        <path d="M 1380 700 Q 1100 600 820 660 Q 540 720 280 580 Q 140 510 60 600"
+          fill="none" stroke="#c9a227" strokeWidth="1" strokeOpacity="0.16"
+          strokeDasharray="4 11"/>
+        <path d="M 400 60 Q 600 180 720 340 Q 820 480 900 700"
+          fill="none" stroke="#c9a227" strokeWidth="0.8" strokeOpacity="0.13"
+          strokeDasharray="3 8"/>
+        {/* 航路上の小さな矢印マーカー */}
+        {[[580,280],[1100,420]].map(([x,y],i)=>(
+          <polygon key={i} points={`${x},${y-5} ${x-4},${y+4} ${x+4},${y+4}`}
+            fill="#c9a227" fillOpacity="0.25" transform={`rotate(30,${x},${y})`}/>
+        ))}
 
-        {/* ── 島シルエット（右下エリア） ── */}
-        <ellipse cx="1280" cy="760" rx="70" ry="35" fill="#0d1f3f" fillOpacity="0.5"
-          stroke="#c9a227" strokeWidth="0.8" strokeOpacity="0.2"/>
-        <ellipse cx="1310" cy="748" rx="40" ry="22" fill="#0d1f3f" fillOpacity="0.4"/>
+        {/* ══ 島シルエット群 ══ */}
+        {/* 左上・大島 */}
+        <g opacity="0.55">
+          <ellipse cx="160" cy="175" rx="62" ry="34" fill="#0c1c3a" stroke="#c9a227" strokeWidth="0.9" strokeOpacity="0.28"/>
+          <ellipse cx="178" cy="163" rx="36" ry="21" fill="#0a1630"/>
+          <ellipse cx="138" cy="182" rx="24" ry="14" fill="#0a1630"/>
+          {/* 山 */}
+          <polygon points="160,148 145,175 175,175" fill="#0d2040" opacity="0.6"/>
+          <polygon points="145,152 132,175 158,175" fill="#0a1830" opacity="0.5"/>
+          {/* 木 */}
+          <line x1="190" y1="175" x2="190" y2="162" stroke="#8b6914" strokeWidth="1" opacity="0.4"/>
+          <ellipse cx="190" cy="158" rx="5" ry="6" fill="#1a3a1a" opacity="0.4"/>
+          <text x="160" y="200" textAnchor="middle" fontSize="8" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.35" fontStyle="italic">Dawn Island</text>
+        </g>
 
-        {/* ── 島シルエット（右上） ── */}
-        <ellipse cx="1180" cy="140" rx="45" ry="22" fill="#0d1f3f" fillOpacity="0.45"
-          stroke="#c9a227" strokeWidth="0.7" strokeOpacity="0.18"/>
+        {/* 右上・中島 */}
+        <g opacity="0.5">
+          <ellipse cx="1240" cy="130" rx="50" ry="26" fill="#0c1c3a" stroke="#c9a227" strokeWidth="0.8" strokeOpacity="0.25"/>
+          <ellipse cx="1260" cy="122" rx="28" ry="16" fill="#0a1630"/>
+          <polygon points="1240,110 1225,130 1255,130" fill="#0d2040" opacity="0.5"/>
+          <text x="1240" y="150" textAnchor="middle" fontSize="7" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.3" fontStyle="italic">Skypeia</text>
+        </g>
 
-        {/* ── コンパスローズ（左下コーナー） ── */}
-        <g transform="translate(130,750)">
-          {/* コンパス背景 */}
-          <circle r="62" fill="#06091a" fillOpacity="0.7" stroke="#c9a227" strokeWidth="1" strokeOpacity="0.4"/>
-          <circle r="55" fill="none" stroke="#c9a227" strokeWidth="0.4" strokeOpacity="0.3"/>
-          <circle r="10" fill="#c9a227" fillOpacity="0.25"/>
+        {/* 右下・大島 */}
+        <g opacity="0.55">
+          <ellipse cx="1310" cy="770" rx="75" ry="38" fill="#0c1c3a" stroke="#c9a227" strokeWidth="0.9" strokeOpacity="0.28"/>
+          <ellipse cx="1340" cy="756" rx="44" ry="25" fill="#0a1630"/>
+          <ellipse cx="1280" cy="778" rx="30" ry="17" fill="#0a1630"/>
+          <polygon points="1310,745 1292,770 1328,770" fill="#0d2040" opacity="0.6"/>
+          <line x1="1345" y1="770" x2="1345" y2="752" stroke="#8b6914" strokeWidth="1.2" opacity="0.4"/>
+          <ellipse cx="1345" cy="748" rx="6" ry="7" fill="#1a3a1a" opacity="0.4"/>
+          <text x="1310" y="800" textAnchor="middle" fontSize="8" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.35" fontStyle="italic">Wano Kuni</text>
+        </g>
 
-          {/* 8方向ライン */}
-          {[0,45,90,135,180,225,270,315].map(angle => (
-            <line key={angle}
-              x1="0" y1="0"
-              x2={Math.sin(angle*Math.PI/180)*55}
-              y2={-Math.cos(angle*Math.PI/180)*55}
-              stroke="#c9a227" strokeWidth={angle%90===0 ? 0.8 : 0.4} strokeOpacity="0.35"/>
+        {/* 中央上・小島 */}
+        <g opacity="0.4">
+          <ellipse cx="720" cy="90" rx="32" ry="16" fill="#0c1c3a" stroke="#c9a227" strokeWidth="0.6" strokeOpacity="0.2"/>
+          <ellipse cx="730" cy="83" rx="18" ry="10" fill="#0a1630"/>
+          <text x="720" y="108" textAnchor="middle" fontSize="7" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.28" fontStyle="italic">Alabasta</text>
+        </g>
+
+        {/* 左下・中島 */}
+        <g opacity="0.45">
+          <ellipse cx="220" cy="760" rx="55" ry="28" fill="#0c1c3a" stroke="#c9a227" strokeWidth="0.8" strokeOpacity="0.22"/>
+          <ellipse cx="240" cy="750" rx="30" ry="17" fill="#0a1630"/>
+          <polygon points="218,740 204,762 232,762" fill="#0d2040" opacity="0.55"/>
+          <text x="220" y="785" textAnchor="middle" fontSize="7" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.3" fontStyle="italic">Dressrosa</text>
+        </g>
+
+        {/* ══ グランドライン帯 ══ */}
+        <rect x="28" y="724" width="1384" height="2"
+          fill="none" stroke="#c9a227" strokeWidth="1" strokeOpacity="0.18" strokeDasharray="12 6"/>
+        <text x="50" y="718" fontSize="9" fontFamily="serif" fontStyle="italic"
+          fill="#c9a227" fillOpacity="0.28" letterSpacing="3">— GRAND LINE —</text>
+
+        {/* ══ 大型コンパスローズ（左下） ══ */}
+        <g transform="translate(128,770)">
+          {/* 外リング */}
+          <circle r="78" fill="#06091a" fillOpacity="0.65" stroke="#c9a227" strokeWidth="1.2" strokeOpacity="0.5"/>
+          <circle r="70" fill="none" stroke="#c9a227" strokeWidth="0.4" strokeOpacity="0.3"/>
+          <circle r="56" fill="none" stroke="#c9a227" strokeWidth="0.3" strokeOpacity="0.22"/>
+          <circle r="34" fill="none" stroke="#c9a227" strokeWidth="0.3" strokeOpacity="0.18"/>
+          <circle r="10" fill="#c9a227" fillOpacity="0.22" stroke="#c9a227" strokeWidth="0.5" strokeOpacity="0.4"/>
+
+          {/* 16方位ライン */}
+          {Array.from({length:16},(_,i)=>i*22.5).map(a=>(
+            <line key={a}
+              x1={Math.sin(a*Math.PI/180)*10}  y1={-Math.cos(a*Math.PI/180)*10}
+              x2={Math.sin(a*Math.PI/180)*70}  y2={-Math.cos(a*Math.PI/180)*70}
+              stroke="#c9a227"
+              strokeWidth={a%90===0 ? 0.9 : a%45===0 ? 0.6 : 0.3}
+              strokeOpacity={a%90===0 ? 0.45 : a%45===0 ? 0.32 : 0.18}/>
           ))}
 
-          {/* N矢印（北） */}
-          <polygon points="0,-54 -7,-30 0,-38 7,-30"
-            fill="#c9a227" fillOpacity="0.8"/>
-          {/* S矢印（南） */}
-          <polygon points="0,54 -7,30 0,38 7,30"
-            fill="#8b6914" fillOpacity="0.6"/>
-          {/* E矢印 */}
-          <polygon points="54,0 30,-7 38,0 30,7"
-            fill="#8b6914" fillOpacity="0.5"/>
-          {/* W矢印 */}
-          <polygon points="-54,0 -30,-7 -38,0 -30,7"
-            fill="#8b6914" fillOpacity="0.5"/>
+          {/* 主方位 矢印（4方向） */}
+          {/* N */}
+          <polygon points="0,-70 -7,-42 0,-52 7,-42" fill="#c9a227" fillOpacity="0.9"/>
+          <polygon points="0,-70 -7,-42 0,-52 7,-42" fill="#fff" fillOpacity="0.15"/>
+          {/* S */}
+          <polygon points="0,70 -7,42 0,52 7,42"  fill="#8b6914" fillOpacity="0.7"/>
+          {/* E */}
+          <polygon points="70,0 42,-7 52,0 42,7"  fill="#8b6914" fillOpacity="0.6"/>
+          {/* W */}
+          <polygon points="-70,0 -42,-7 -52,0 -42,7" fill="#8b6914" fillOpacity="0.6"/>
 
-          {/* Nラベル */}
-          <text x="0" y="-60" textAnchor="middle"
-            fontSize="10" fontFamily="serif" fontWeight="bold"
+          {/* 斜め方位 小矢印 */}
+          {[45,135,225,315].map(a=>{
+            const r1=34, r2=54;
+            const sx=Math.sin(a*Math.PI/180), cx=-Math.cos(a*Math.PI/180);
+            return (
+              <polygon key={a}
+                points={`${sx*r2},${cx*r2} ${sx*r1-6*cx},${cx*r1-6*sx} ${sx*r1+6*cx},${cx*r1+6*sx}`}
+                fill="#8b6914" fillOpacity="0.5"/>
+            );
+          })}
+
+          {/* 方位ラベル */}
+          <text y="-58" textAnchor="middle" fontSize="13" fontFamily="serif" fontWeight="bold"
+            fill="#c9a227" fillOpacity="1">N</text>
+          <text y="68"  textAnchor="middle" fontSize="10" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.7">S</text>
+          <text x="62"  y="4"  textAnchor="middle" fontSize="10" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.7">E</text>
+          <text x="-62" y="4"  textAnchor="middle" fontSize="10" fontFamily="serif"
+            fill="#c9a227" fillOpacity="0.7">W</text>
+
+          {/* 中心 */}
+          <circle r="5" fill="#c9a227" fillOpacity="0.9"/>
+          <circle r="2" fill="#06091a"/>
+        </g>
+
+        {/* ══ 小型コンパス（右上） ══ */}
+        <g transform="translate(1360,80)">
+          <circle r="44" fill="#06091a" fillOpacity="0.6" stroke="#c9a227" strokeWidth="0.8" strokeOpacity="0.4"/>
+          <circle r="38" fill="none" stroke="#c9a227" strokeWidth="0.3" strokeOpacity="0.22"/>
+          {Array.from({length:8},(_,i)=>i*45).map(a=>(
+            <line key={a}
+              x1={Math.sin(a*Math.PI/180)*6}  y1={-Math.cos(a*Math.PI/180)*6}
+              x2={Math.sin(a*Math.PI/180)*38} y2={-Math.cos(a*Math.PI/180)*38}
+              stroke="#c9a227" strokeWidth={a%90===0?0.7:0.35}
+              strokeOpacity={a%90===0?0.38:0.2}/>
+          ))}
+          <polygon points="0,-38 -4,-22 0,-28 4,-22" fill="#c9a227" fillOpacity="0.85"/>
+          <polygon points="0,38 -4,22 0,28 4,22"   fill="#8b6914" fillOpacity="0.6"/>
+          <polygon points="38,0 22,-4 28,0 22,4"   fill="#8b6914" fillOpacity="0.5"/>
+          <polygon points="-38,0 -22,-4 -28,0 -22,4" fill="#8b6914" fillOpacity="0.5"/>
+          <text y="-44" textAnchor="middle" fontSize="9" fontFamily="serif" fontWeight="bold"
             fill="#c9a227" fillOpacity="0.9">N</text>
-
-          {/* 中心点 */}
-          <circle r="4" fill="#c9a227" fillOpacity="0.9"/>
-          <circle r="1.5" fill="#06091a"/>
+          <circle r="3.5" fill="#c9a227" fillOpacity="0.85"/>
+          <circle r="1.2" fill="#06091a"/>
         </g>
 
-        {/* ── ドクロマーク（中央右上エリア） ── */}
-        <g transform="translate(1080,200)" opacity="0.18">
-          {/* 頭部 */}
-          <ellipse cx="0" cy="-8" rx="16" ry="14"
-            fill="#c9a227"/>
-          {/* 目 */}
-          <circle cx="-5" cy="-10" r="3.5" fill="#06091a"/>
-          <circle cx="5" cy="-10" r="3.5" fill="#06091a"/>
-          {/* 鼻 */}
-          <path d="M-2 -5 L2 -5 L0 -2 Z" fill="#06091a"/>
-          {/* 歯 */}
-          <rect x="-8" y="1" width="16" height="3" fill="#06091a" rx="1"/>
-          <line x1="-4" y1="1" x2="-4" y2="4" stroke="#c9a227" strokeWidth="1.2"/>
-          <line x1="0"  y1="1" x2="0"  y2="4" stroke="#c9a227" strokeWidth="1.2"/>
-          <line x1="4"  y1="1" x2="4"  y2="4" stroke="#c9a227" strokeWidth="1.2"/>
+        {/* ══ 帆船シルエット（中央） ══ */}
+        <g transform="translate(720,480)" opacity="0.14">
+          {/* 船体 */}
+          <path d="M-70 0 Q-65 20 0 24 Q65 20 70 0 Z" fill="#c9a227"/>
+          {/* マスト */}
+          <line x1="0"   y1="0"  x2="0"  y2="-90" stroke="#c9a227" strokeWidth="3"/>
+          <line x1="-30" y1="0"  x2="-30" y2="-55" stroke="#c9a227" strokeWidth="2"/>
+          <line x1="30"  y1="0"  x2="30"  y2="-55" stroke="#c9a227" strokeWidth="2"/>
+          {/* 帆 */}
+          <path d="M-2 -88 Q-40 -65 -38 -20 L-2 -20 Z"  fill="#c9a227" opacity="0.8"/>
+          <path d="M2  -88 Q40  -65 38  -20 L2  -20 Z"  fill="#c9a227" opacity="0.6"/>
+          <path d="M-29 -53 Q-52 -38 -50 -8 L-29 -8 Z"  fill="#c9a227" opacity="0.6"/>
+          <path d="M29  -53 Q52  -38 50  -8 L29  -8 Z"  fill="#c9a227" opacity="0.5"/>
+          {/* ジョリーロジャー旗 */}
+          <rect x="-1" y="-90" width="18" height="12" fill="#c9a227" opacity="0.7"/>
+          <circle cx="9" cy="-84" r="3" fill="#06091a" opacity="0.7"/>
+          {/* 横帆ロープ */}
+          <line x1="-40" y1="-22" x2="40" y2="-22" stroke="#c9a227" strokeWidth="1"/>
+          <line x1="-53" y1="-10" x2="53" y2="-10" stroke="#c9a227" strokeWidth="1"/>
+          {/* 波 */}
+          <path d="M-80 18 Q-60 10 -40 18 Q-20 26 0 18 Q20 10 40 18 Q60 26 80 18"
+            fill="none" stroke="#c9a227" strokeWidth="1.5" opacity="0.5"/>
+        </g>
+
+        {/* ══ ドクロ・クロスボーン（右上エリア） ══ */}
+        <g transform="translate(1090,210)" opacity="0.2">
+          {/* 頭蓋骨 */}
+          <ellipse cx="0" cy="-10" rx="20" ry="18" fill="#c9a227"/>
+          <circle cx="-6" cy="-13" r="5" fill="#06091a"/>
+          <circle cx="6"  cy="-13" r="5" fill="#06091a"/>
+          <ellipse cx="0" cy="-5" rx="3" ry="2.5" fill="#06091a" opacity="0.5"/>
+          <rect x="-10" y="4" width="20" height="4" fill="#06091a" rx="1"/>
+          <line x1="-4" y1="4" x2="-4" y2="8" stroke="#c9a227" strokeWidth="1.5"/>
+          <line x1="0"  y1="4" x2="0"  y2="8" stroke="#c9a227" strokeWidth="1.5"/>
+          <line x1="4"  y1="4" x2="4"  y2="8" stroke="#c9a227" strokeWidth="1.5"/>
           {/* 交差した骨 */}
-          <line x1="-20" y1="16" x2="20" y2="-4" stroke="#c9a227" strokeWidth="4" strokeLinecap="round"/>
-          <line x1="20" y1="16" x2="-20" y2="-4" stroke="#c9a227" strokeWidth="4" strokeLinecap="round"/>
-          <circle cx="-22" cy="17" r="5" fill="#c9a227"/>
-          <circle cx="22"  cy="17" r="5" fill="#c9a227"/>
-          <circle cx="-22" cy="-5" r="5" fill="#c9a227"/>
-          <circle cx="22"  cy="-5" r="5" fill="#c9a227"/>
+          <line x1="-28" y1="24" x2="28" y2="-4"  stroke="#c9a227" strokeWidth="5.5" strokeLinecap="round"/>
+          <line x1="28"  y1="24" x2="-28" y2="-4" stroke="#c9a227" strokeWidth="5.5" strokeLinecap="round"/>
+          <circle cx="-30" cy="25"  r="7" fill="#c9a227"/>
+          <circle cx="30"  cy="25"  r="7" fill="#c9a227"/>
+          <circle cx="-30" cy="-5"  r="7" fill="#c9a227"/>
+          <circle cx="30"  cy="-5"  r="7" fill="#c9a227"/>
         </g>
 
-        {/* ── "X" マーク（宝の場所） ── */}
-        <g transform="translate(760,620)" opacity="0.22">
-          <line x1="-14" y1="-14" x2="14" y2="14" stroke="#c9a227" strokeWidth="3" strokeLinecap="round"/>
-          <line x1="14" y1="-14" x2="-14" y2="14" stroke="#c9a227" strokeWidth="3" strokeLinecap="round"/>
-          <circle r="18" fill="none" stroke="#c9a227" strokeWidth="1.2" strokeDasharray="3 4"/>
+        {/* ══ 海の怪物（クラーケン風・左中） ══ */}
+        <g transform="translate(80,480)" opacity="0.12">
+          {/* 頭 */}
+          <ellipse cx="0" cy="0" rx="30" ry="22" fill="#c9a227"/>
+          {/* 目 */}
+          <circle cx="-10" cy="-5" r="6" fill="#06091a"/>
+          <circle cx="10"  cy="-5" r="6" fill="#06091a"/>
+          <circle cx="-9"  cy="-6" r="2" fill="#c9a227"/>
+          <circle cx="11"  cy="-6" r="2" fill="#c9a227"/>
+          {/* 触手（6本） */}
+          {[-40,-24,-8,8,24,40].map((ox,i)=>(
+            <path key={i}
+              d={`M${ox} 18 Q${ox-8} 50 ${ox-4} 80 Q${ox} 110 ${ox+6} 130`}
+              fill="none" stroke="#c9a227" strokeWidth={3-Math.abs(i-2.5)*0.4} strokeLinecap="round" opacity="0.8"/>
+          ))}
+          {/* 触手の先端 */}
+          {[-34,-18,-2,14,30,46].map((ox,i)=>(
+            <circle key={i} cx={ox+6} cy={130} r="4" fill="#c9a227" opacity="0.6"/>
+          ))}
         </g>
 
-        {/* ── 隅のアンカー装飾 ── */}
-        {/* 右上 */}
-        <g transform="translate(1400,30) scale(0.9)" opacity="0.2">
-          <AnchorSVG/>
+        {/* ══ 宝の地図マーク ══ */}
+        {/* X マーク（中央左） */}
+        <g transform="translate(580,590)" opacity="0.24">
+          <circle r="22" fill="none" stroke="#c9a227" strokeWidth="1.5" strokeDasharray="4 5"/>
+          <line x1="-14" y1="-14" x2="14" y2="14" stroke="#c9a227" strokeWidth="3.5" strokeLinecap="round"/>
+          <line x1="14"  y1="-14" x2="-14" y2="14" stroke="#c9a227" strokeWidth="3.5" strokeLinecap="round"/>
         </g>
-        {/* 左上 */}
-        <g transform="translate(38,30) scale(0.9)" opacity="0.2">
-          <AnchorSVG/>
+        {/* 宝箱（中央下） */}
+        <g transform="translate(860,810)" opacity="0.18">
+          <rect x="-22" y="-14" width="44" height="28" fill="#c9a227" rx="3"/>
+          <rect x="-22" y="-14" width="44" height="13" fill="#8b6914" rx="3"/>
+          <rect x="-22" y="-14" width="44" height="2"  fill="#c9a227" opacity="0.5"/>
+          <rect x="-5"  y="-6"  width="10" height="14" fill="#06091a" rx="2"/>
+          <circle cx="0" cy="0" r="3" fill="#c9a227"/>
         </g>
 
-        {/* ── 周縁のビネット（暗い四隅） ── */}
-        <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
-          <stop offset="0%"  stopColor="transparent"/>
-          <stop offset="100%" stopColor="#000" stopOpacity="0.6"/>
-        </radialGradient>
-        <rect width="1440" height="900" fill="url(#vignette)"/>
+        {/* ══ 大型錨（右下コーナー） ══ */}
+        <g transform="translate(1400,830)" opacity="0.2">
+          <circle cx="0" cy="-38" r="10" fill="none" stroke="url(#pmAnchorG)" strokeWidth="3.5"/>
+          <line x1="0" y1="-28" x2="0" y2="40" stroke="url(#pmAnchorG)" strokeWidth="3.5" strokeLinecap="round"/>
+          <line x1="-25" y1="-10" x2="25" y2="-10" stroke="url(#pmAnchorG)" strokeWidth="3.5" strokeLinecap="round"/>
+          <path d="M-28 40 Q-28 55 0 55 Q28 55 28 40" fill="none" stroke="url(#pmAnchorG)" strokeWidth="3.5" strokeLinecap="round"/>
+          <line x1="-14" y1="40" x2="14" y2="40" stroke="url(#pmAnchorG)" strokeWidth="3" strokeLinecap="round"/>
+        </g>
 
-        {/* ── 水平の光の帯（画面上部） ── */}
-        <linearGradient id="topGlow" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"  stopColor="#1a3a7a" stopOpacity="0.25"/>
-          <stop offset="100%" stopColor="transparent"/>
-        </linearGradient>
-        <rect width="1440" height="200" fill="url(#topGlow)"/>
+        {/* 小錨（左上コーナー） */}
+        <g transform="translate(50,50)" opacity="0.18">
+          <circle cx="0" cy="-22" r="6" fill="none" stroke="#c9a227" strokeWidth="2.5"/>
+          <line x1="0" y1="-16" x2="0" y2="26" stroke="#c9a227" strokeWidth="2.5" strokeLinecap="round"/>
+          <line x1="-16" y1="-4" x2="16" y2="-4" stroke="#c9a227" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M-18 26 Q-18 36 0 36 Q18 36 18 26" fill="none" stroke="#c9a227" strokeWidth="2.5" strokeLinecap="round"/>
+        </g>
+
+        {/* 小錨（右上） */}
+        <g transform="translate(1400,55)" opacity="0.16">
+          <circle cx="0" cy="-18" r="5" fill="none" stroke="#c9a227" strokeWidth="2"/>
+          <line x1="0" y1="-13" x2="0" y2="20" stroke="#c9a227" strokeWidth="2" strokeLinecap="round"/>
+          <line x1="-13" y1="-3" x2="13" y2="-3" stroke="#c9a227" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M-14 20 Q-14 28 0 28 Q14 28 14 20" fill="none" stroke="#c9a227" strokeWidth="2" strokeLinecap="round"/>
+        </g>
+
+        {/* ══ 舵輪（右中央） ══ */}
+        <g transform="translate(1390,450)" opacity="0.15">
+          <circle r="40" fill="none" stroke="#c9a227" strokeWidth="2"/>
+          <circle r="28" fill="none" stroke="#c9a227" strokeWidth="1.5"/>
+          <circle r="8"  fill="#c9a227" fillOpacity="0.4" stroke="#c9a227" strokeWidth="1.5"/>
+          {Array.from({length:8},(_,i)=>i*45).map(a=>(
+            <line key={a}
+              x1={Math.sin(a*Math.PI/180)*8}   y1={-Math.cos(a*Math.PI/180)*8}
+              x2={Math.sin(a*Math.PI/180)*40}  y2={-Math.cos(a*Math.PI/180)*40}
+              stroke="#c9a227" strokeWidth="2" strokeLinecap="round"/>
+          ))}
+          {Array.from({length:8},(_,i)=>i*45).map(a=>(
+            <circle key={a}
+              cx={Math.sin(a*Math.PI/180)*40}
+              cy={-Math.cos(a*Math.PI/180)*40}
+              r="4" fill="#c9a227" fillOpacity="0.6"/>
+          ))}
+        </g>
+
+        {/* ══ 「THE NEW WORLD」テキスト ══ */}
+        <text x="1100" y="820" textAnchor="middle" fontSize="11" fontFamily="serif"
+          fontStyle="italic" fontWeight="bold" letterSpacing="4"
+          fill="#c9a227" fillOpacity="0.22">— THE NEW WORLD —</text>
+        <text x="340" y="820" textAnchor="middle" fontSize="10" fontFamily="serif"
+          fontStyle="italic" letterSpacing="3"
+          fill="#c9a227" fillOpacity="0.18">EAST BLUE</text>
+        <text x="1100" y="60" textAnchor="middle" fontSize="10" fontFamily="serif"
+          fontStyle="italic" letterSpacing="3"
+          fill="#c9a227" fillOpacity="0.18">SKYPIEA</text>
+
+        {/* ══ ビネット（四隅を暗く） ══ */}
+        <rect width="1440" height="900" fill="url(#pmVig)"/>
+        {/* 上部光彩 */}
+        <rect width="1440" height="220" fill="url(#pmTopGlow)"/>
+        {/* 下部 */}
+        <rect y="700" width="1440" height="200" fill="url(#pmBotGlow)"/>
       </svg>
     </div>
-  );
-}
-
-/** アンカーSVGパス（簡略版） */
-function AnchorSVG() {
-  return (
-    <g fill="none" stroke="#c9a227" strokeWidth="2.5" strokeLinecap="round">
-      {/* 縦軸 */}
-      <line x1="0" y1="-20" x2="0" y2="20"/>
-      {/* 横棒 */}
-      <line x1="-12" y1="-13" x2="12" y2="-13"/>
-      {/* アンカー輪 */}
-      <circle cx="0" cy="-20" r="5"/>
-      {/* 下部曲線 */}
-      <path d="M0 20 Q-18 12 -18 0 Q-18 -6 -12 -6" />
-      <path d="M0 20 Q18 12 18 0 Q18 -6 12 -6" />
-      {/* 下端の横棒 */}
-      <line x1="-8" y1="20" x2="8" y2="20"/>
-    </g>
   );
 }

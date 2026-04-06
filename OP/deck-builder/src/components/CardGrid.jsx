@@ -42,7 +42,7 @@ function CardItem({ card, count, isSelected, onOpenModal }) {
 
         {/* デッキ内枚数バッジ */}
         {count > 0 && (
-          <div className="absolute top-1 right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
+          <div className="absolute top-1 right-1 bg-amber-700 text-amber-100 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow">
             {count}
           </div>
         )}
@@ -116,15 +116,15 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onRemoveCard,
   return (
     <div className="flex flex-col h-full">
       {/* ソートバー */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700 bg-gray-900/50 text-xs text-gray-400 flex-shrink-0">
-        <span className="text-gray-500">{cards.length}枚</span>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-amber-900/30 bg-[#080c1e]/70 text-xs text-amber-500/70 flex-shrink-0">
+        <span className="text-amber-700/60">{cards.length}枚</span>
         <div className="ml-auto flex gap-1">
           {[['cost','コスト'],['power','パワー'],['name','名前'],['number','番号']].map(([v, l]) => (
             <button
               key={v}
               onClick={() => setSortBy(v)}
               className={`px-2 py-1 rounded transition-colors
-                ${sortBy === v ? 'bg-blue-600 text-white' : 'hover:bg-gray-700 text-gray-400'}`}
+                ${sortBy === v ? 'bg-amber-700 text-amber-100' : 'hover:bg-amber-900/30 text-amber-500/70'}`}
             >
               {l}
             </button>
@@ -135,7 +135,7 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onRemoveCard,
       {/* カードグリッド */}
       <div className="flex-1 overflow-y-auto p-2">
         {sorted.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-gray-500 text-sm">
+          <div className="flex items-center justify-center h-40 text-amber-700/60 text-sm">
             カードが見つかりません
           </div>
         ) : (
