@@ -161,10 +161,21 @@ function HandCard({ card, selected, onClick, onDoubleClick }) {
     >
       <CardImage card={card} className="w-full h-full object-cover" />
       {selected && <div className="absolute inset-0 bg-amber-400/10 pointer-events-none" />}
-      {card?.cost > 0 && (
-        <div className="absolute top-1 left-1 bg-amber-500/90 text-gray-900 text-[10px] font-black rounded w-5 h-5 flex items-center justify-center">
+      {/* コスト */}
+      {card?.cost != null && (
+        <div className="absolute top-1 left-1 bg-amber-500 text-gray-900 text-[11px] font-black rounded-full w-6 h-6 flex items-center justify-center shadow-md">
           {card.cost}
         </div>
+      )}
+      {/* カウンター値 */}
+      {card?.counter != null && (
+        <div className="absolute top-1 right-1 bg-blue-600/90 text-white text-[9px] font-black rounded px-1 shadow">
+          +{(card.counter/1000).toFixed(0)}k
+        </div>
+      )}
+      {/* トリガーマーク */}
+      {(card?.trigger || card?.effect?.includes('[トリガー]')) && (
+        <div className="absolute bottom-1 right-1 text-[8px] bg-yellow-500/90 text-gray-900 font-black rounded px-1">⚡TRG</div>
       )}
     </div>
   );
@@ -199,6 +210,17 @@ function ActionMenu({ card, context, onAction, onClose }) {
     if ((card.donAttached||0) > 0)
       actions.push({ id:'detach-don-leader', label:`💛 DON!!を外す（現在+${card.donAttached}）` });
     actions.push({ id:'detail', label:'🔍 効果を確認' });
+  }
+  if (context === 'stage') {
+    actions.push({ id:'detail',        label:'🔍 効果を確認' });
+    actions.push({ id:'trash-stage',   label:'🗑 トラッシュに置く' });
+    actions.push({ id:'deck-top',      label:'⬆ デッキトップに戻す' });
+    actions.push({ id:'deck-bottom',   label:'⬇ デッキボトムに戻す' });
+  }
+  if (context === 'trash') {
+    actions.push({ id:'detail',            label:'🔍 効果を確認' });
+    actions.push({ id:'trash-to-deck-top', label:'⬆ デッキトップに戻す' });
+    actions.push({ id:'trash-to-hand',     label:'✋ 手札に加える' });
   }
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -472,6 +494,49 @@ function SearchModal({ revealed, onResolve, onCancel }) {
   );
 }
 
+// ─── トラッシュビューワー ─────────────────────────
+function TrashModal({ trash, onAction, onClose }) {
+  const [sel, setSel] = useState(null);
+  if (!trash.length) return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0a0f24] border border-amber-700/40 rounded-2xl p-8 text-amber-600/60 text-sm">トラッシュは空です</div>
+    </div>
+  );
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-amber-900/30">
+          <div className="text-amber-400 font-black text-base">🗑 トラッシュ ({trash.length}枚)</div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-500 hover:bg-amber-800/40"><X size={15}/></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex flex-wrap gap-3 justify-start">
+            {[...trash].reverse().map((card, i) => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer"
+                onClick={() => setSel(sel?._uid === card._uid ? null : card)}>
+                <div className={`rounded-xl overflow-hidden border-2 transition-all ${sel?._uid===card._uid?'border-amber-500 scale-105':'border-amber-900/30 hover:border-amber-700/50'}`}
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} style={{ width:80, height:112 }}/>
+                </div>
+                <div className="text-[8px] text-amber-700/50 text-center max-w-[80px] truncate">{card.name}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {sel && (
+          <div className="border-t border-amber-900/30 px-5 py-3 flex items-center gap-3 bg-[#080c20]/60">
+            <div className="text-amber-300 text-sm font-bold flex-1 truncate">{sel.name}</div>
+            <button onClick={() => { onAction('trash-to-hand', sel._uid); setSel(null); }}
+              className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnGold}`}>✋ 手札へ</button>
+            <button onClick={() => { onAction('trash-to-deck-top', sel._uid); setSel(null); }}
+              className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnBlue}`}>⬆ デッキトップへ</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── サーチ開始パネル ────────────────────────────
 function SearchStartPanel({ deckCount, onBegin, onClose }) {
   const [n, setN] = useState(3);
@@ -700,7 +765,10 @@ export default function SoloPlayPage({ onNavigate }) {
   const [selectedCard, setSelectedCard] = useState(null);
   const [detailCard, setDetailCard] = useState(null);
   const [showLog, setShowLog] = useState(false);
-  const [showSearchStart, setShowSearchStart] = useState(false); // サーチ枚数選択パネル
+  const [showSearchStart, setShowSearchStart] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);      // トラッシュ一覧
+  const [triggerToast, setTriggerToast] = useState(null); // トリガー発動通知
+  const [prevHandLen, setPrevHandLen] = useState(0);      // ライフトリガー検出用
 
   const game = useGameState();
   const { state } = game;
@@ -711,6 +779,37 @@ export default function SoloPlayPage({ onNavigate }) {
       .then(d => { setAllCards(d.cards || []); setLoadingCards(false); })
       .catch(() => setLoadingCards(false));
   }, []);
+
+  // ─── キーボードショートカット ───
+  useEffect(() => {
+    if (!state) return;
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') { e.preventDefault(); game.advancePhase(); }
+      if (e.code === 'KeyD' && !e.ctrlKey && !e.metaKey) game.drawCard(1);
+      if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey) game.shuffleDeck();
+      if (e.code === 'Escape') { setSelectedCard(null); setDetailCard(null); setShowTrash(false); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [state, game]);
+
+  // ─── ライフカードのトリガー検知 ───
+  useEffect(() => {
+    if (!state) return;
+    const cur = state.hand.length;
+    if (cur > prevHandLen) {
+      // 増えた枚数分のカードをチェック（末尾から）
+      const newCards = state.hand.slice(state.hand.length - (cur - prevHandLen));
+      const triggered = newCards.find(c => c.trigger || c.effect?.includes('[トリガー]') || c.effect?.includes('Trigger'));
+      if (triggered) {
+        setTriggerToast(triggered);
+        setTimeout(() => setTriggerToast(null), 4000);
+      }
+    }
+    setPrevHandLen(cur);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.hand?.length]);
 
   const handleCardClick = (card, context, uid) => {
     if (selectedCard?.uid === uid) { setSelectedCard(null); return; }
@@ -728,7 +827,8 @@ export default function SoloPlayPage({ onNavigate }) {
       case 'event':              game.trashHandCard(uid); break;
       case 'trash-hand':         game.trashHandCard(uid); break;
       case 'deck-top':
-        if (selectedCard.context === 'hand')  game.returnHandToTop(uid);
+        if (selectedCard.context === 'hand')   game.returnHandToTop(uid);
+        else if (selectedCard.context === 'stage') game.trashStage(); // ステージはトラッシュ経由
         else                                   game.returnFieldToTop(uid);
         break;
       case 'deck-bottom':
@@ -742,6 +842,9 @@ export default function SoloPlayPage({ onNavigate }) {
       case 'tap-leader':         game.toggleLeader(); break;
       case 'attach-don-leader':  game.attachDonToLeader(); break;
       case 'detach-don-leader':  game.detachDonFromLeader(); break;
+      case 'trash-stage':        game.trashStage(); break;
+      case 'trash-to-deck-top':  game.returnTrashToDeckTop(uid); break;
+      case 'trash-to-hand':      game.returnTrashToHand(uid); break;
     }
     setSelectedCard(null);
   };
@@ -848,9 +951,12 @@ export default function SoloPlayPage({ onNavigate }) {
           <span className="text-amber-700/60 text-[10px] font-normal">({s.playerOrder==='first'?'先':'後'})</span>
         </div>
         <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-amber-700/60 flex-shrink-0">
-          <span>甲板<b className="text-amber-300/70 ml-0.5">{s.deck.length}</b></span>
-          <span>手<b className="text-amber-300/70 ml-0.5">{s.hand.length}</b></span>
-          <span>命<b className="text-red-400 ml-0.5">{s.life.length}</b></span>
+          <span title="デッキ枚数">📚<b className="text-amber-300/70 ml-0.5">{s.deck.length}</b></span>
+          <span title="手札枚数">✋<b className="text-amber-300/70 ml-0.5">{s.hand.length}</b></span>
+          <span title="ライフ枚数">❤️<b className="text-red-400 ml-0.5">{s.life.length}</b></span>
+          <span title="トラッシュ" className="cursor-pointer hover:text-amber-400" onClick={() => setShowTrash(true)}>
+            🗑<b className="text-amber-300/70 ml-0.5">{s.trash.length}</b>
+          </span>
         </div>
         <div className="flex-1 flex justify-center min-w-0">
           <PhaseBar subPhase={s.subPhase} onAdvance={game.advancePhase}/>
@@ -907,14 +1013,21 @@ export default function SoloPlayPage({ onNavigate }) {
                 </div>
                 <div className="absolute -bottom-1 -right-1 bg-blue-700 text-white text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center">{s.deck.length}</div>
               </div>
-              <div className="text-[8px] text-amber-800/50 text-center">クリックでドロー</div>
+              <div className="flex gap-1 mt-0.5">
+                <div className="text-[8px] text-amber-800/50 text-center flex-1">クリックでドロー</div>
+                <button onClick={game.shuffleDeck} title="デッキをシャッフル（Sキー）"
+                  className="text-amber-700/50 hover:text-amber-400 transition-colors">
+                  <Shuffle size={11}/>
+                </button>
+              </div>
             </div>
             {/* ステージ */}
             <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 flex-1`}>
               <div className={P.label}>ステージ</div>
               {s.stage ? (
-                <div className="cursor-pointer rounded-xl overflow-hidden border border-amber-900/40"
-                  onClick={() => handleCardDoubleClick(s.stage)}>
+                <div className="cursor-pointer rounded-xl overflow-hidden border border-purple-700/50 hover:border-purple-500/70 transition-all"
+                  onClick={() => handleCardClick(s.stage, 'stage', s.stage._uid)}
+                  onDoubleClick={() => handleCardDoubleClick(s.stage)}>
                   <CardImage card={s.stage} className="object-cover" style={{ width:72, height:100 }}/>
                 </div>
               ) : (
@@ -966,25 +1079,52 @@ export default function SoloPlayPage({ onNavigate }) {
                 {s.donMax < 10 && <span className="ml-1 text-amber-600/60 text-[10px]">（上限{s.donMax}）</span>}
               </div>
               <div className="flex gap-1 flex-wrap">
+                <button onClick={game.tapAllDon}
+                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnRed}`}
+                  title="アクティブDON!!を全てレスト（相手アタック時など）">全レスト</button>
+                <button onClick={game.activateAllDon}
+                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnBlue}`}
+                  title="レストDON!!を全てアクティブ（手動リフレッシュ）">全アクティブ</button>
                 <button onClick={() => game.tapDon(1)}
                   className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>レスト×1</button>
                 <button onClick={() => game.returnDonToDeck(1)}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>アクティブ→デッキ</button>
+                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>→デッキ</button>
                 <button onClick={() => game.returnTappedDonToDeck(1)}
                   className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>レスト→デッキ</button>
                 <button onClick={game.attachDonToLeader}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGold}`}>リーダーに+1</button>
+                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGold}`}>リーダー+1</button>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {Array.from({ length: s.donActive }).map((_, i) => (
-                <DonCoin key={`a-${i}`} active={true} onClick={() => game.tapDon(1)}/>
-              ))}
-              {Array.from({ length: s.donTapped }).map((_, i) => (
-                <DonCoin key={`t-${i}`} active={false}/>
-              ))}
-              {s.donLeader > 0 && <span className="text-amber-600/70 text-[10px] self-center ml-1">リーダー+{s.donLeader}</span>}
-              {donTotal === 0 && <span className="text-amber-900/40 text-sm italic self-center">次フェイズでDON!!補充</span>}
+            {/* DON!!コイン表示（6枚超えはコンパクト表示） */}
+            <div className="flex gap-2 flex-wrap items-center">
+              {s.donActive <= 6
+                ? Array.from({ length: s.donActive }).map((_, i) => (
+                    <DonCoin key={`a-${i}`} active={true} onClick={() => game.tapDon(1)}/>
+                  ))
+                : (
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: 3 }).map((_, i) => <DonCoin key={i} active={true} onClick={() => game.tapDon(1)}/>)}
+                    <span className="text-amber-400 font-black text-base">×{s.donActive}</span>
+                  </div>
+                )
+              }
+              {s.donTapped <= 6
+                ? Array.from({ length: s.donTapped }).map((_, i) => (
+                    <DonCoin key={`t-${i}`} active={false}/>
+                  ))
+                : (
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: 3 }).map((_, i) => <DonCoin key={i} active={false}/>)}
+                    <span className="text-amber-900/60 font-black text-base">×{s.donTapped}</span>
+                  </div>
+                )
+              }
+              {s.donLeader > 0 && (
+                <span className="text-amber-500 text-[11px] font-bold bg-amber-900/30 px-2 py-0.5 rounded-full border border-amber-800/40 ml-1">
+                  👑+{s.donLeader}
+                </span>
+              )}
+              {donTotal === 0 && <span className="text-amber-900/40 text-sm italic">次フェーズでDON!!補充</span>}
             </div>
           </div>
 
@@ -1017,13 +1157,16 @@ export default function SoloPlayPage({ onNavigate }) {
             style={{ width: SIDE_W }}>
             <div className={P.label}>トラッシュ</div>
             {s.trash.length > 0 ? (
-              <div className="relative cursor-pointer" onClick={() => handleCardDoubleClick(s.trash[s.trash.length-1])}
-                title="クリックで効果確認">
+              <div className="relative cursor-pointer" onClick={() => setShowTrash(true)}
+                title="クリックで一覧表示">
                 <CardImage card={s.trash[s.trash.length-1]}
                   className="rounded-xl border border-amber-900/40 opacity-60 object-cover"
                   style={{ width:80, height:112 }}/>
                 <div className="absolute -bottom-1 -right-1 bg-amber-900/80 text-amber-300 text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-amber-700/50">
                   {s.trash.length}
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/40 rounded-xl">
+                  <span className="text-amber-300 text-[9px] font-bold">一覧</span>
                 </div>
               </div>
             ) : (
@@ -1032,6 +1175,7 @@ export default function SoloPlayPage({ onNavigate }) {
                 <span className="text-amber-900/25 text-[9px]">0</span>
               </div>
             )}
+            <div className="text-[8px] text-amber-800/40">クリックで一覧</div>
           </div>
         </div>
       </div>
@@ -1058,6 +1202,39 @@ export default function SoloPlayPage({ onNavigate }) {
         <ActionMenu card={selectedCard.card} context={selectedCard.context}
           onAction={handleAction} onClose={() => setSelectedCard(null)}/>
       )}
+
+      {/* ─── トラッシュ一覧 ─── */}
+      {showTrash && (
+        <TrashModal
+          trash={state?.trash || []}
+          onAction={(actionId, uid) => {
+            setSelectedCard({ card: (state?.trash||[]).find(c=>c._uid===uid), context:'trash', uid });
+            if (actionId === 'trash-to-hand')      game.returnTrashToHand(uid);
+            else if (actionId === 'trash-to-deck-top') game.returnTrashToDeckTop(uid);
+          }}
+          onClose={() => setShowTrash(false)}
+        />
+      )}
+
+      {/* ─── トリガー発動トースト ─── */}
+      {triggerToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[80] pointer-events-none animate-bounce">
+          <div className="bg-yellow-900/95 border-2 border-yellow-500/80 rounded-2xl px-5 py-3 shadow-2xl flex items-center gap-3">
+            <span className="text-yellow-300 text-lg">⚡</span>
+            <div>
+              <div className="text-yellow-200 font-black text-sm">トリガー発動！</div>
+              <div className="text-yellow-400/80 text-xs">{triggerToast.name}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── キーボードショートカットヒント ─── */}
+      <div className="fixed bottom-2 left-2 z-20 text-[9px] text-amber-900/35 pointer-events-none space-y-0.5">
+        <div>Space: 次フェーズ</div>
+        <div>D: ドロー　S: シャッフル</div>
+        <div>Esc: 選択解除</div>
+      </div>
 
       {/* ─── サーチ開始パネル ─── */}
       {showSearchStart && !state?.searchReveal?.length && (

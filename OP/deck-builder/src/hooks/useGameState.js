@@ -610,6 +610,74 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  // ─── デッキシャッフル ─────────────────────────────────────
+  const shuffleDeck = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.deck.length === 0) return prev;
+      const shuffled = shuffle([...prev.deck]);
+      return addLog(`デッキをシャッフル（${shuffled.length}枚）`, { ...prev, deck: shuffled });
+    });
+  }, [addLog]);
+
+  // ─── DON!!全レスト（相手アタック時など）─────────────────────
+  const tapAllDon = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.donActive === 0) return addLog('アクティブDON!!がありません', prev || {});
+      const n = prev.donActive;
+      return addLog(`DON!!×${n}を全てレスト`, {
+        ...prev, donActive: 0, donTapped: prev.donTapped + n,
+      });
+    });
+  }, [addLog]);
+
+  // ─── DON!!全アクティブ（手動リフレッシュ）──────────────────
+  const activateAllDon = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.donTapped === 0) return addLog('レストDON!!がありません', prev || {});
+      const n = prev.donTapped;
+      return addLog(`DON!!×${n}を全てアクティブ`, {
+        ...prev, donTapped: 0, donActive: prev.donActive + n,
+      });
+    });
+  }, [addLog]);
+
+  // ─── トラッシュからデッキに戻す ──────────────────────────
+  const returnTrashToDeckTop = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const card = prev.trash.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const cleanCard = { ...card, tapped: false, donAttached: 0 };
+      return addLog(`「${card.name}」をトラッシュからデッキトップへ`, {
+        ...prev, trash: prev.trash.filter(c => c._uid !== cardUid),
+        deck: [cleanCard, ...prev.deck],
+      });
+    });
+  }, [addLog]);
+
+  const returnTrashToHand = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const card = prev.trash.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const cleanCard = { ...card, tapped: false, donAttached: 0 };
+      return addLog(`「${card.name}」をトラッシュから手札へ`, {
+        ...prev, trash: prev.trash.filter(c => c._uid !== cardUid),
+        hand: [...prev.hand, cleanCard],
+      });
+    });
+  }, [addLog]);
+
+  // ─── ステージをトラッシュ ────────────────────────────────
+  const trashStage = useCallback(() => {
+    setState(prev => {
+      if (!prev || !prev.stage) return prev;
+      return addLog(`ステージ「${prev.stage.name}」をトラッシュ`, {
+        ...prev, trash: [...prev.trash, prev.stage], stage: null,
+      });
+    });
+  }, [addLog]);
+
   const cancelSearch = useCallback(() => {
     setState(prev => {
       if (!prev || prev.searchReveal.length === 0) return prev;
@@ -645,6 +713,8 @@ export function useGameState() {
     returnFieldToTop, returnFieldToBottom,
     flipLife,
     beginSearch, resolveSearch, cancelSearch,
+    shuffleDeck, tapAllDon, activateAllDon,
+    returnTrashToDeckTop, returnTrashToHand, trashStage,
     useEnelAbility, useMihawkAbility,
     resetGame,
   };
