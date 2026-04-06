@@ -404,6 +404,100 @@ export default function PirateMapBg() {
           fontStyle="italic" letterSpacing="3"
           fill="#c9a227" fillOpacity="0.18">SKYPIEA</text>
 
+        {/* ══ ── ONE PIECEシルエット ── ══ */}
+
+        {/* 🎩 麦わら帽子（中央やや上） */}
+        <g transform="translate(470,305)" opacity="0.14">
+          {/* ブリム（ひさし） */}
+          <ellipse cx="0" cy="0" rx="68" ry="17" fill="#c9a227"/>
+          {/* クラウン */}
+          <path d="M-36 -2 Q-38 -44 0 -50 Q38 -44 36 -2 Z" fill="#c9a227"/>
+          {/* 赤いリボンバンド */}
+          <rect x="-36" y="-14" width="72" height="14" fill="#a06010" rx="1"/>
+          {/* ブリム下面のライン */}
+          <ellipse cx="0" cy="0" rx="68" ry="17" fill="none" stroke="#8b6914" strokeWidth="1.5" opacity="0.5"/>
+          {/* ひも */}
+          <path d="M44 8 Q65 35 60 58" fill="none" stroke="#c9a227" strokeWidth="2.5" strokeLinecap="round" opacity="0.7"/>
+        </g>
+
+        {/* ⚔️ 刀3本（ゾロ風・右中央） */}
+        <g transform="translate(990,620)" opacity="0.13">
+          {/* 刀1（左斜め） */}
+          <g transform="rotate(-28)">
+            <polygon points="-3,-88 3,-88 0,-112" fill="#c9a227"/>
+            <rect x="-3" y="-88" width="6" height="108" fill="#c9a227" rx="1"/>
+            <ellipse cx="0" cy="22" rx="13" ry="5" fill="#8b6914"/>
+            <rect x="-4" y="22" width="8" height="34" fill="#8b6914" rx="1.5"/>
+            <circle cx="0" cy="56" r="4.5" fill="#8b6914"/>
+          </g>
+          {/* 刀2（垂直） */}
+          <g transform="rotate(0)">
+            <polygon points="-3,-88 3,-88 0,-112" fill="#c9a227"/>
+            <rect x="-3" y="-88" width="6" height="108" fill="#c9a227" rx="1"/>
+            <ellipse cx="0" cy="22" rx="13" ry="5" fill="#8b6914"/>
+            <rect x="-4" y="22" width="8" height="34" fill="#8b6914" rx="1.5"/>
+            <circle cx="0" cy="56" r="4.5" fill="#8b6914"/>
+          </g>
+          {/* 刀3（右斜め） */}
+          <g transform="rotate(28)">
+            <polygon points="-3,-88 3,-88 0,-112" fill="#c9a227"/>
+            <rect x="-3" y="-88" width="6" height="108" fill="#c9a227" rx="1"/>
+            <ellipse cx="0" cy="22" rx="13" ry="5" fill="#8b6914"/>
+            <rect x="-4" y="22" width="8" height="34" fill="#8b6914" rx="1.5"/>
+            <circle cx="0" cy="56" r="4.5" fill="#8b6914"/>
+          </g>
+        </g>
+
+        {/* 👨‍🍳 コック帽（サンジ風・上部中央左） */}
+        <g transform="translate(625,158)" opacity="0.13">
+          {/* 帽子本体（背の高いふくらみ） */}
+          <path d="M-24 0 Q-30 -55 -14 -76 Q0 -90 14 -76 Q30 -55 24 0 Z" fill="#c9a227"/>
+          {/* 上部の丸みポンポン */}
+          <ellipse cx="0" cy="-78" rx="16" ry="14" fill="#c9a227"/>
+          {/* ベースバンド */}
+          <rect x="-26" y="-14" width="52" height="18" fill="#c9a227"/>
+          <ellipse cx="0" cy="-14" rx="26" ry="6" fill="#c9a227"/>
+          {/* バンドの折り返し線 */}
+          <line x1="-26" y1="-6" x2="26" y2="-6" stroke="#8b6914" strokeWidth="1.5" opacity="0.6"/>
+        </g>
+
+        {/* 🎩 シルクハット（ブルック風・右下） */}
+        <g transform="translate(1185,720)" opacity="0.13">
+          {/* ブリム */}
+          <ellipse cx="0" cy="0" rx="42" ry="10" fill="#c9a227"/>
+          {/* 帽子本体 */}
+          <rect x="-26" y="-68" width="52" height="70" fill="#c9a227" rx="2"/>
+          {/* 帽子トップ */}
+          <ellipse cx="0" cy="-68" rx="26" ry="7" fill="#c9a227"/>
+          {/* バンド */}
+          <rect x="-26" y="-16" width="52" height="9" fill="#8b6914" opacity="0.75"/>
+          {/* ブリム上部のライン */}
+          <ellipse cx="0" cy="0" rx="42" ry="10" fill="none" stroke="#8b6914" strokeWidth="1.2" opacity="0.5"/>
+        </g>
+
+        {/* 🍎 悪魔の実 （左中・渦巻き模様） */}
+        <g transform="translate(308,360)" opacity="0.13">
+          <path d="M0 -42 Q32 -24 32 6 Q32 36 0 44 Q-32 36 -32 6 Q-32 -24 0 -42 Z" fill="#c9a227"/>
+          {/* 渦巻き */}
+          <path d="M0 -4 Q14 -20 20 -6 Q20 9 8 17 Q-6 22 -14 12 Q-20 2 -16 -10 Q-10 -22 0 -24 Q14 -26 20 -14"
+            fill="none" stroke="#06091a" strokeWidth="2.2" strokeOpacity="0.45"/>
+          {/* へた */}
+          <path d="M0 -42 Q5 -58 12 -54" fill="none" stroke="#c9a227" strokeWidth="3" strokeLinecap="round"/>
+          <path d="M0 -42 Q-4 -56 -9 -51" fill="none" stroke="#c9a227" strokeWidth="2.5" strokeLinecap="round"/>
+        </g>
+
+        {/* 🍎 悪魔の実 （右上エリア） */}
+        <g transform="translate(1050,390)" opacity="0.11">
+          <path d="M0 -36 Q27 -20 27 5 Q27 30 0 38 Q-27 30 -27 5 Q-27 -20 0 -36 Z" fill="#c9a227"/>
+          {/* 渦巻き */}
+          <path d="M0 -3 Q11 -17 17 -5 Q17 8 6 14 Q-5 18 -12 10 Q-17 1 -13 -8 Q-8 -18 0 -20 Q11 -22 17 -12"
+            fill="none" stroke="#06091a" strokeWidth="2" strokeOpacity="0.4"/>
+          {/* へた */}
+          <path d="M0 -36 Q4 -50 10 -46" fill="none" stroke="#c9a227" strokeWidth="2.8" strokeLinecap="round"/>
+        </g>
+
+        {/* ══ ── ここまでONE PIECEシルエット ── ══ */}
+
         {/* ══ ビネット（四隅を暗く） ══ */}
         <rect width="1440" height="900" fill="url(#pmVig)"/>
         {/* 上部光彩 */}
