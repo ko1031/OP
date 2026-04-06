@@ -874,7 +874,7 @@ function BlockerModal({ attackState, playerField, onBlock, onPass }) {
 function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
   if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
   const { attackPower, defensePower, targetType } = attackState;
-  const willSurvive = defensePower >= attackPower;
+  const willSurvive = defensePower > attackPower; // 同値では防げない（超過が必要）
   const counterCards = playerHand.filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -887,7 +887,7 @@ function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
             <div className="text-center"><div className="text-[10px] text-blue-400/60 mb-0.5">防御力</div><div className={`font-black text-2xl ${willSurvive ? 'text-green-300' : 'text-blue-300'}`}>{defensePower.toLocaleString()}</div></div>
           </div>
           <div className={`text-sm font-bold ${willSurvive ? 'text-green-400' : 'text-red-400'}`}>
-            {willSurvive ? '✓ ダメージ防御成功！' : `あと ${(attackPower - defensePower).toLocaleString()} 以上必要`}
+            {willSurvive ? '✓ ダメージ防御成功！' : `防御力が攻撃力を超える必要あり（残り+${(attackPower - defensePower + 1000).toLocaleString()}）`}
           </div>
         </div>
         {targetType === 'leader' && counterCards.length > 0 && (
@@ -1322,17 +1322,23 @@ export default function BattlePage({ onNavigate }) {
       }
       case 'tap':
         if (ctx === 'field') {
-          if (!card.tapped) {
+          if (card.tapped) {
+            // レスト状態ならアンタップ（トグル）
             game.playerToggleField(card._uid);
-            if (/【アタック時】/.test(card.effect || '')) setPendingAttackEffect(card);
           } else {
-            game.playerToggleField(card._uid);
+            // アクティブ状態 → アタック宣言 → ターゲット選択モードへ
+            handleAttackerSelect(card._uid);
           }
         }
         break;
       case 'tap-leader':
-        game.playerToggleLeader();
-        if (!state.player.leader.tapped && /【アタック時】/.test(state.player.leader.effect || '')) setPendingAttackEffect(state.player.leader);
+        if (state.player.leader.tapped) {
+          // レスト状態ならアンタップ（トグル）
+          game.playerToggleLeader();
+        } else {
+          // アクティブ状態 → リーダーでアタック宣言 → ターゲット選択モードへ
+          handleAttackerSelect('p-leader');
+        }
         break;
       case 'attach-don': game.playerAttachDon(card._uid); break;
       case 'attach-don-leader': game.playerAttachDon('leader'); break;
@@ -1443,13 +1449,20 @@ export default function BattlePage({ onNavigate }) {
             {/* CPUフィールド */}
             <div className="flex gap-2 items-end flex-wrap">
               {cs.field.length === 0 && <EmptySlot size={CC}/>}
-              {cs.field.map(card => (
-                <div key={card._uid} className="flex flex-col items-center gap-0.5">
-                  <GameCard card={card} tapped={card.tapped} size={CC} showPower
-                    highlight={isSelectingTarget ? 'target' : null}
-                    onClick={() => isSelectingTarget && handleTargetSelect(card._uid)}/>
-                </div>
-              ))}
+              {cs.field.map(card => {
+                // アクティブ状態のキャラはアタック対象にできない
+                const canTarget = isSelectingTarget && card.tapped;
+                return (
+                  <div key={card._uid} className="flex flex-col items-center gap-0.5">
+                    <GameCard card={card} tapped={card.tapped} size={CC} showPower
+                      highlight={canTarget ? 'target' : (isSelectingTarget && !card.tapped ? null : null)}
+                      onClick={() => canTarget ? handleTargetSelect(card._uid) : (isSelectingTarget && !card.tapped ? showPhaseError('アクティブ状態のキャラにはアタックできません') : null)}/>
+                    {isSelectingTarget && !card.tapped && (
+                      <div className="text-[7px] text-gray-500/60 font-bold">攻撃不可</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             {/* CPU手札（裏向き） */}
             <div className="flex gap-0.5 flex-wrap max-w-[120px]">

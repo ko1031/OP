@@ -48,6 +48,8 @@ export function cpuDecide(cpuSide, playerSide, turn) {
 
   // ─── 3. アタックを決める ─────────────────────────────────────
   const attacks = [];
+  // ターン1は先攻・後攻ともアタック不可
+  if (turn <= 1) return { playDecisions, donAttachments, attacks };
   const remainingPlayerTargets = [...playerSide.field];
 
   // キャラカードでのアタック
@@ -55,13 +57,14 @@ export function cpuDecide(cpuSide, playerSide, turn) {
   for (const attacker of untappedChars) {
     const atkPow = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
 
-    // 倒せるキャラを優先
+    // レスト状態のキャラのみ攻撃対象（アクティブキャラはアタックできない）
     let beaten = false;
     for (let i = 0; i < remainingPlayerTargets.length; i++) {
       const tgt = remainingPlayerTargets[i];
+      if (!tgt.tapped) continue; // アクティブ（起きている）キャラには攻撃不可
       const defPow = (tgt.power || 0) + (tgt.donAttached || 0) * 1000;
       if (atkPow >= defPow) {
-        // 同パワーも攻撃側勝利（Q15/Q16）
+        // 同パワーも攻撃側勝利
         attacks.push({
           attackerUid: attacker._uid, attackerType: 'character',
           targetUid: tgt._uid, targetType: 'character',
@@ -84,9 +87,9 @@ export function cpuDecide(cpuSide, playerSide, turn) {
   // リーダーアタック
   if (!leader.tapped && !leaderEffect?.leaderCannotAttack) {
     const ldrPow = (leader.power || 0) + (leader.donAttached || 0) * 1000;
-    // 残りキャラに倒せるものがあれば狙う
+    // レスト状態で倒せるキャラがあれば狙う（アクティブキャラは攻撃不可）
     const weakChar = remainingPlayerTargets.find(
-      t => ldrPow >= ((t.power || 0) + (t.donAttached || 0) * 1000)
+      t => t.tapped && ldrPow >= ((t.power || 0) + (t.donAttached || 0) * 1000)
     );
     if (weakChar) {
       attacks.push({

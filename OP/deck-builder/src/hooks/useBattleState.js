@@ -46,11 +46,13 @@ function addLog(msg, prev) {
 
 // CPU自動カウンター判断
 // ターゲットがリーダーで攻撃が通る場合のみカウンターを使う
+// ※ ONE PIECE TCG: アタック側が防御側「以上」なら攻撃成功 → 防御側は攻撃力を「超える」必要がある
 function cpuAutoCounter(cpuSide, targetType, attackPower, defensePower) {
   if (targetType !== 'leader' || attackPower < defensePower) {
     return { bonus: 0, cards: [] };
   }
-  const needed = attackPower - defensePower + 1;
+  // 防御力が攻撃力を「超える」必要がある（同値では防げない）
+  const needed = attackPower - defensePower + 1000;
   const candidates = cpuSide.hand
     .filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0)
     .sort((a, b) => (b.counter || 0) - (a.counter || 0));
@@ -407,6 +409,8 @@ export function useBattleState() {
   const playerSelectAttacker = useCallback((attackerUid) => {
     setState(prev => {
       if (!prev || prev.activePlayer !== 'player' || prev.subPhase !== 'main') return prev;
+      // ターン1は先攻・後攻ともアタック不可
+      if (prev.turn <= 1) return addLog('最初のターンはアタックできません', prev);
       const p = prev.player;
       let attacker, attackerType;
       if (attackerUid === 'p-leader') {
@@ -443,6 +447,8 @@ export function useBattleState() {
         target = c.field.find(x => x._uid === targetUid);
         targetType = 'character';
         if (!target) return prev;
+        // アクティブ（レストでない）キャラには攻撃不可
+        if (!target.tapped) return addLog('アクティブ状態のキャラにはアタックできません', prev);
       }
 
       const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
