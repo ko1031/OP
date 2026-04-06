@@ -21,11 +21,11 @@ const PHASES = [
 const P = {
   bg:      'bg-[#06091a]',
   panel:   'bg-[#0d1530]/80 border border-[#8B6914]/25',
-  label:   'text-[10px] text-amber-500/70 font-bold uppercase tracking-widest',
-  btnGold: 'bg-gradient-to-b from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-amber-100 font-bold border border-amber-500/60 shadow-amber-900/40 shadow-md',
-  btnRed:  'bg-gradient-to-b from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-red-100 font-bold border border-red-600/50',
-  btnBlue: 'bg-gradient-to-b from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800 text-blue-100 font-bold border border-blue-600/50',
-  btnGray: 'bg-[#1a2040] hover:bg-[#232d55] text-amber-200/60 border border-amber-800/30',
+  label:   'text-[10px] text-amber-400/85 font-bold uppercase tracking-widest',
+  btnGold: 'bg-gradient-to-b from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-amber-100 font-bold border border-amber-500/60 shadow-amber-900/40 shadow-md transition-all',
+  btnRed:  'bg-gradient-to-b from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-red-100 font-bold border border-red-600/50 transition-all',
+  btnBlue: 'bg-gradient-to-b from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800 text-blue-100 font-bold border border-blue-600/50 transition-all',
+  btnGray: 'bg-[#1a2040] hover:bg-[#232d55] text-amber-200/60 border border-amber-800/30 transition-all',
 };
 
 // ─── カード詳細モーダル ──────────────────────────
@@ -91,6 +91,19 @@ function Stat({ label, value, red }) {
 }
 function Tag({ children }) {
   return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 border border-amber-800/40">{children}</span>;
+}
+
+// ─── ヘッダー用 stat チップ ──────────────────────
+function StatChip({ icon, value, label, color, clickable }) {
+  return (
+    <div className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-lg border
+      ${clickable ? 'cursor-pointer hover:bg-amber-900/25 hover:border-amber-700/50' : ''}
+      bg-[#0d1530]/60 border-amber-900/30`}
+      title={label}>
+      <span>{icon}</span>
+      <b className={color === 'red' ? 'text-red-400' : 'text-amber-300/80'}>{value}</b>
+    </div>
+  );
 }
 
 // ─── ゲームカード（フィールド用）──────────────────
@@ -251,25 +264,33 @@ function ActionMenu({ card, context, onAction, onClose }) {
 function PhaseBar({ subPhase, onAdvance }) {
   const activeIdx = PHASES.findIndex(p => p.id === subPhase);
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
+      {/* デスクトップ: 全フェーズ表示 */}
       <div className="hidden lg:flex items-center gap-0.5">
         {PHASES.map((p, i) => (
           <div key={p.id} className="flex items-center">
-            <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold
-              ${i === activeIdx ? 'bg-amber-600/30 text-amber-300 border border-amber-500/50'
-                : i < activeIdx ? 'text-amber-900/40 line-through' : 'text-amber-900/30'}`}>
-              {p.icon}<span className="hidden xl:inline ml-0.5">{p.label}</span>
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all
+              ${i === activeIdx
+                ? 'bg-amber-600/35 text-amber-200 border border-amber-500/60 shadow-sm shadow-amber-900/30'
+                : i < activeIdx
+                  ? 'text-amber-900/35 line-through'
+                  : 'text-amber-800/50'}`}>
+              <span>{p.icon}</span>
+              <span className="hidden xl:inline">{p.label}</span>
             </div>
-            {i < PHASES.length - 1 && <span className="text-amber-900/20 text-[8px] mx-0.5">→</span>}
+            {i < PHASES.length - 1 && <span className="text-amber-900/25 text-[9px] mx-0.5">›</span>}
           </div>
         ))}
       </div>
-      <div className="lg:hidden text-amber-300 text-xs font-bold">
-        {PHASES[activeIdx]?.icon} {PHASES[activeIdx]?.label}
+      {/* モバイル: 現在フェーズのみ */}
+      <div className="lg:hidden flex items-center gap-1 bg-amber-900/25 border border-amber-700/35 rounded-lg px-2.5 py-1">
+        <span className="text-sm">{PHASES[activeIdx]?.icon}</span>
+        <span className="text-amber-200 text-xs font-bold">{PHASES[activeIdx]?.label}</span>
       </div>
+      {/* 次へボタン */}
       <button onClick={onAdvance}
-        className={`flex-shrink-0 text-[10px] px-2.5 py-1 rounded-lg font-bold transition-all ${P.btnGold}`}>
-        {subPhase === 'end' ? '次ターン▶' : '次へ▶'}
+        className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnGold}`}>
+        {subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
       </button>
     </div>
   );
@@ -942,34 +963,53 @@ export default function SoloPlayPage({ onNavigate }) {
       <PirateMapBg />
 
       {/* ─── ヘッダー ─── */}
-      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#080c1e]/95 border-b border-amber-900/30 z-[10] flex-wrap relative">
-        <button onClick={game.resetGame} className="text-amber-800/60 hover:text-amber-400 transition-colors flex-shrink-0">
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#080c1e]/98 border-b border-amber-900/35 z-[10] flex-wrap relative"
+        style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+        {/* 戻るボタン */}
+        <button onClick={game.resetGame} title="デッキ選択へ戻る"
+          className="text-amber-700/60 hover:text-amber-400 transition-colors flex-shrink-0 p-0.5 rounded hover:bg-amber-900/20">
           <Home size={16}/>
         </button>
-        <div className="text-amber-400 font-black text-sm flex items-center gap-1 flex-shrink-0">
-          <Skull size={12}/> T{s.turn}
-          <span className="text-amber-700/60 text-[10px] font-normal">({s.playerOrder==='first'?'先':'後'})</span>
-        </div>
-        <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-amber-700/60 flex-shrink-0">
-          <span title="デッキ枚数">📚<b className="text-amber-300/70 ml-0.5">{s.deck.length}</b></span>
-          <span title="手札枚数">✋<b className="text-amber-300/70 ml-0.5">{s.hand.length}</b></span>
-          <span title="ライフ枚数">❤️<b className="text-red-400 ml-0.5">{s.life.length}</b></span>
-          <span title="トラッシュ" className="cursor-pointer hover:text-amber-400" onClick={() => setShowTrash(true)}>
-            🗑<b className="text-amber-300/70 ml-0.5">{s.trash.length}</b>
+
+        {/* ターン + 手番 */}
+        <div className="flex items-center gap-1.5 flex-shrink-0 bg-amber-900/20 border border-amber-800/30 rounded-lg px-2 py-0.5">
+          <Skull size={11} className="text-amber-500/80"/>
+          <span className="text-amber-300 font-black text-sm">T{s.turn}</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${s.playerOrder==='first' ? 'bg-amber-800/40 text-amber-400' : 'bg-blue-900/40 text-blue-400'}`}>
+            {s.playerOrder==='first' ? '先行' : '後攻'}
           </span>
         </div>
+
+        {/* ゲーム状態カウンター */}
+        <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+          <StatChip icon="📚" value={s.deck.length} label="デッキ" />
+          <StatChip icon="✋" value={s.hand.length} label="手札" />
+          <StatChip icon="❤️" value={s.life.length} label="LIFE" color="red" />
+          <button onClick={() => setShowTrash(true)} title="トラッシュを確認">
+            <StatChip icon="🗑" value={s.trash.length} label="トラッシュ" clickable />
+          </button>
+        </div>
+
+        {/* フェイズバー（中央） */}
         <div className="flex-1 flex justify-center min-w-0">
           <PhaseBar subPhase={s.subPhase} onAdvance={game.advancePhase}/>
         </div>
+
+        {/* アクションボタン */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button onClick={() => game.drawCard(1)} className={`text-[10px] px-2 py-0.5 rounded border transition-all ${P.btnBlue}`}>+1ドロー</button>
+          <button onClick={() => game.drawCard(1)} className={`text-xs px-2.5 py-1 rounded-lg border ${P.btnBlue}`}>+ドロー</button>
           <button onClick={() => setShowSearchStart(true)}
-            className={`text-[10px] px-2 py-0.5 rounded border transition-all ${P.btnGold}`}
+            className={`text-xs px-2.5 py-1 rounded-lg border ${P.btnGold}`}
             title="デッキトップN枚を確認してカードを選ぶ">
             🔍 サーチ
           </button>
-          <button onClick={game.resetGame} className="text-amber-900/50 hover:text-amber-500 transition-colors" title="リセット"><RotateCcw size={13}/></button>
-          <button onClick={() => setShowLog(v=>!v)} className="text-amber-900/50 hover:text-amber-500 text-[10px] transition-colors">{showLog?'▼LOG':'▶LOG'}</button>
+          <button onClick={game.resetGame} className="text-amber-900/55 hover:text-amber-500 transition-colors p-1 rounded hover:bg-amber-900/20" title="ゲームリセット">
+            <RotateCcw size={13}/>
+          </button>
+          <button onClick={() => setShowLog(v=>!v)}
+            className={`text-[10px] px-1.5 py-0.5 rounded border transition-all ${showLog ? 'bg-amber-800/40 border-amber-600/50 text-amber-300' : 'border-amber-900/30 text-amber-800/50 hover:text-amber-400'}`}>
+            LOG
+          </button>
         </div>
       </header>
 
@@ -987,8 +1027,11 @@ export default function SoloPlayPage({ onNavigate }) {
 
           {/* 中央: キャラクターゾーン */}
           <div className={`flex-1 ${P.panel} rounded-xl p-2`}
-            style={{ backgroundImage: 'linear-gradient(135deg, #0d1f1015 0%, transparent 100%)' }}>
-            <div className={`${P.label} mb-1.5`}>キャラクター ({s.field.length}/5) — ダブルクリックで効果確認</div>
+            style={{ backgroundImage: 'linear-gradient(135deg, rgba(16,60,30,0.12) 0%, transparent 100%)', borderColor: 'rgba(60,180,80,0.18)' }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={P.label}>キャラクター ({s.field.length}/5)</span>
+              <span className="text-[9px] text-amber-800/45 hidden sm:inline">ダブルクリック→効果 / クリック→操作</span>
+            </div>
             <div className="flex gap-2 items-end overflow-x-auto">
               {s.field.map(card => (
                 <GameCard key={card._uid} card={card} tapped={card.tapped} badge={card.donAttached}
@@ -1005,7 +1048,7 @@ export default function SoloPlayPage({ onNavigate }) {
           <div className="flex-shrink-0 flex flex-col gap-1.5" style={{ width: SIDE_W }}>
             {/* デッキ */}
             <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}>
-              <div className={P.label}>甲板</div>
+              <div className={P.label}>デッキ</div>
               <div className="relative cursor-pointer" onClick={() => game.drawCard(1)} title="クリックでドロー">
                 <div className="rounded-xl bg-gradient-to-br from-[#0d1530] to-[#06091a] border-2 border-amber-900/40 flex items-center justify-center hover:border-amber-600/60 transition-colors"
                   style={{ width: 72, height: 100 }}>
@@ -1072,7 +1115,7 @@ export default function SoloPlayPage({ onNavigate }) {
 
           {/* DON!!ゾーン */}
           <div className={`flex-1 ${P.panel} rounded-xl p-3`}
-            style={{ backgroundImage: 'linear-gradient(135deg, #2a1d0015 0%, transparent 100%)' }}>
+            style={{ backgroundImage: 'linear-gradient(135deg, rgba(60,40,0,0.15) 0%, transparent 100%)', borderColor: 'rgba(200,160,40,0.22)' }}>
             <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
               <div className="text-[11px] text-amber-500/80 font-bold">
                 💛 DON!! ({donTotal}/{s.donMax}) デッキ残{s.donDeck}
@@ -1135,10 +1178,11 @@ export default function SoloPlayPage({ onNavigate }) {
         {/* ── 行3: 手札 + トラッシュ ── */}
         <div className="flex gap-1.5 flex-1 min-h-0">
           {/* 手札 */}
-          <div className={`flex-1 ${P.panel} rounded-xl px-3 py-2 flex flex-col min-w-0`}>
+          <div className={`flex-1 ${P.panel} rounded-xl px-3 py-2 flex flex-col min-w-0`}
+            style={{ borderColor: 'rgba(100,140,255,0.20)' }}>
             <div className="flex items-center gap-2 mb-1.5 flex-shrink-0">
               <div className={P.label}>手札 ({s.hand.length}枚)</div>
-              <div className="text-[9px] text-amber-900/40">クリック→操作 / ダブルクリック→効果確認</div>
+              <div className="text-[9px] text-amber-800/45 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認</div>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-0.5 items-end">
               {s.hand.map(card => (
@@ -1230,10 +1274,16 @@ export default function SoloPlayPage({ onNavigate }) {
       )}
 
       {/* ─── キーボードショートカットヒント ─── */}
-      <div className="fixed bottom-2 left-2 z-20 text-[9px] text-amber-900/35 pointer-events-none space-y-0.5">
-        <div>Space: 次フェーズ</div>
-        <div>D: ドロー　S: シャッフル</div>
-        <div>Esc: 選択解除</div>
+      <div className="fixed bottom-2 left-2 z-20 pointer-events-none">
+        <div className="flex flex-col gap-0.5 bg-[#080c1e]/70 border border-amber-900/25 rounded-lg px-2.5 py-1.5 backdrop-blur-sm">
+          <div className="text-[9px] text-amber-700/70 font-bold uppercase tracking-wider mb-0.5">ショートカット</div>
+          {[['Space', '次フェーズ'], ['D', 'ドロー'], ['S', 'シャッフル'], ['Esc', '選択解除']].map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1.5 text-[9px]">
+              <kbd className="bg-amber-900/30 border border-amber-800/40 text-amber-500/80 px-1 rounded font-mono leading-none py-0.5">{k}</kbd>
+              <span className="text-amber-800/60">{v}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ─── サーチ開始パネル ─── */}

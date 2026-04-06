@@ -136,20 +136,26 @@ export default function DeckPanel({
       {/* ヘッダー */}
       <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-amber-900/30">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-white font-bold text-sm">デッキ</span>
-          <span className={`text-sm font-bold ${total === DECK_LIMIT ? 'text-green-400' : total > DECK_LIMIT ? 'text-red-400' : 'text-amber-200/80'}`}>
-            {total} / {DECK_LIMIT}
-          </span>
+          <span className="text-amber-200/90 font-black text-sm tracking-wide">デッキ構築</span>
+          <div className={`flex items-center gap-1 text-sm font-black px-2 py-0.5 rounded-full border
+            ${total === DECK_LIMIT
+              ? 'bg-green-900/30 text-green-400 border-green-700/50'
+              : total > DECK_LIMIT
+                ? 'bg-red-900/30 text-red-400 border-red-700/50'
+                : 'bg-[#1a2040] text-amber-200/80 border-amber-800/30'}`}>
+            {total === DECK_LIMIT && <span>✓</span>}
+            <span>{total} / {DECK_LIMIT}</span>
+          </div>
         </div>
         {/* プログレスバー */}
-        <div className="h-1.5 bg-[#1a2040] rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all ${progressColor}`} style={{ width: `${progress}%` }} />
+        <div className="h-1.5 bg-[#0d1530]/80 rounded-full overflow-hidden border border-amber-900/20">
+          <div className={`h-full rounded-full transition-all duration-300 ${progressColor}`} style={{ width: `${progress}%` }} />
         </div>
       </div>
 
       {/* リーダー */}
       <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30">
-        <div className="text-xs text-amber-700/60 mb-1">リーダー</div>
+        <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-wider mb-1.5">リーダー</div>
         {leader ? (
           <div className="flex items-center gap-2">
             <CardImage card={leader} className="w-12 rounded" />
