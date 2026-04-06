@@ -352,6 +352,49 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  // ─── フィールドカードにDON!!複数アタッチ（レストDONから）───
+  const attachDonToFieldMulti = useCallback((cardUid, count) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const card = prev.field.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const actualCount = Math.min(count, prev.donTapped);
+      if (actualCount <= 0) return addLog('アタッチできるレストDON!!がありません', prev);
+      const newField = prev.field.map(c =>
+        c._uid === cardUid ? { ...c, donAttached: (c.donAttached || 0) + actualCount } : c
+      );
+      return addLog(`「${card.name}」にDON!!×${actualCount}アタッチ（レストから）`, {
+        ...prev, donTapped: prev.donTapped - actualCount, field: newField,
+      });
+    });
+  }, [addLog]);
+
+  // ─── スモーカー起動メイン: レストDON!!×2をアクティブ化 ───
+  const useSmokerAbility = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const hasPower7k = prev.field.some(c => (c.power || 0) >= 7000);
+      if (!hasPower7k) return addLog('パワー7000以上のキャラがいません（スモーカー効果不発）', prev);
+      const activate = Math.min(2, prev.donTapped);
+      if (activate <= 0) return addLog('レストDON!!がありません（スモーカー効果）', prev);
+      return addLog(`【スモーカー効果】レストDON!!×${activate}をアクティブに`, {
+        ...prev, donTapped: prev.donTapped - activate, donActive: prev.donActive + activate,
+      });
+    });
+  }, [addLog]);
+
+  // ─── サカズキ起動メイン: 1ドロー（手動で手札1枚トラッシュ）───
+  const useAkainuAbility = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      if (prev.deck.length === 0) return addLog('デッキにカードがありません（サカズキ効果）', prev);
+      const [drawn, ...newDeck] = prev.deck;
+      return addLog(`【サカズキ効果】1枚ドロー「${drawn.name}」→手動で手札1枚をトラッシュしてください`, {
+        ...prev, deck: newDeck, hand: [...prev.hand, drawn],
+      });
+    });
+  }, [addLog]);
+
   // ─── カードプレイ（DON!!自動レスト）───
   const playToField = useCallback((cardUid) => {
     setState(prev => {
@@ -808,7 +851,7 @@ export function useGameState() {
     beginSearch, resolveSearch, cancelSearch,
     shuffleDeck, tapAllDon, activateAllDon,
     returnTrashToDeckTop, returnTrashToHand, trashStage,
-    useEnelAbility, useMihawkAbility,
+    useEnelAbility, useMihawkAbility, attachDonToFieldMulti, useSmokerAbility, useAkainuAbility,
     resetGame,
   };
 }

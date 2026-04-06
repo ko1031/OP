@@ -715,6 +715,40 @@ function parseEntryEffect(effectText) {
   return { entryText: entryText || effectText, autoActions };
 }
 
+// ─── アタック時効果パーサー ─────────────────────
+function parseAttackEffect(card) {
+  const effectText = card?.effect || '';
+  const match = effectText.match(/【アタック時】([\s\S]*?)(?=【|$)/);
+  if (!match) return { attackText: null, autoActions: [] };
+  const attackText = match[0].trim();
+  const body = match[1].trim();
+  const autoActions = [];
+  const drawM = body.match(/カード(\d+)枚を引く/);
+  if (drawM && !body.includes('場合') && !body.includes('ならば') && !body.includes('なら')) {
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  }
+  const donCostM = body.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM) {
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す`, color:'text-yellow-300' });
+  }
+  return { attackText, autoActions };
+}
+
+// ─── イベント効果パーサー ────────────────────────
+function parseEventEffect(card) {
+  const effectText = card?.effect || '';
+  const autoActions = [];
+  const drawM = effectText.match(/カード(\d+)枚を引く/);
+  if (drawM && !effectText.includes('場合') && !effectText.includes('ならば') && !effectText.includes('なら')) {
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  }
+  const donCostM = effectText.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM) {
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
+  }
+  return { effectText, autoActions };
+}
+
 // ─── 登場時効果モーダル ──────────────────────────
 function EntryEffectModal({ card, onActivate, onSkip, game }) {
   const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
@@ -782,6 +816,216 @@ function EntryEffectModal({ card, onActivate, onSkip, game }) {
             className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md shadow-amber-900/40 transition-all">
             ⚡ 発動する
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── アタック時効果モーダル ─────────────────────
+function AttackEffectModal({ card, onActivate, onSkip, game }) {
+  const { attackText, autoActions } = parseAttackEffect(card);
+  if (!attackText) return null;
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw')      game.drawCard(a.count);
+      if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-red-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-red-900/30">
+          <div className="w-9 h-9 rounded-full bg-red-800/40 border border-red-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-red-300 text-base">⚔</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-red-600/60 uppercase tracking-widest">アタック時効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+            {card?.power != null && <div className="text-amber-700/60 text-[10px]">パワー{card.power?.toLocaleString()}</div>}
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-red-900/25 mb-3">
+          <div className="text-[9px] text-red-600/50 uppercase tracking-wider mb-1.5">【アタック時】</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{attackText}</div>
+        </div>
+        {autoActions.length > 0 ? (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (
+              <div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}>
+                <span>{a.icon}</span><span>{a.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">⚠ この効果はゲームボードで手動操作が必要です。</div>
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">発動しない</button>
+          <button onClick={handleActivate} className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-red-600 to-red-800 border border-red-500/60 text-red-100 hover:from-red-500 shadow-md shadow-red-900/40 transition-all">⚔ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── イベント効果モーダル ─────────────────────
+function EventEffectModal({ card, onActivate, onSkip, game }) {
+  const { effectText, autoActions } = parseEventEffect(card);
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw')      game.drawCard(a.count);
+      if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-blue-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-blue-900/30">
+          <div className="w-9 h-9 rounded-full bg-blue-800/40 border border-blue-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-blue-300 text-base">📜</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-blue-600/60 uppercase tracking-widest">イベント効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+            {card?.cost != null && <div className="text-amber-700/60 text-[10px]">コスト{card.cost}</div>}
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-blue-900/25 mb-3">
+          <div className="text-[9px] text-blue-600/50 uppercase tracking-wider mb-1.5">効果</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{effectText || '（効果テキストなし）'}</div>
+        </div>
+        {autoActions.length > 0 ? (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (
+              <div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}>
+                <span>{a.icon}</span><span>{a.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">⚠ この効果はゲームボードで手動操作が必要です。「発動する」を押した後、各ボタンで処理してください。</div>
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">効果なしで使用</button>
+          <button onClick={handleActivate} className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-blue-600 to-blue-800 border border-blue-500/60 text-blue-100 hover:from-blue-500 shadow-md shadow-blue-900/40 transition-all">📜 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── キャラクター選択モーダル ────────────────────
+function CharacterSelectModal({ field, info, onConfirm, onCancel }) {
+  const [chosen, setChosen] = useState([]);
+  const { mode, maxSelect, donPerChar, label } = info;
+
+  const toggle = (uid) => {
+    if (mode === 'single') {
+      setChosen([uid]);
+    } else {
+      if (chosen.includes(uid)) {
+        setChosen(c => c.filter(id => id !== uid));
+      } else if (chosen.length < maxSelect) {
+        setChosen(c => [...c, uid]);
+      }
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-amber-300 text-base">⚡</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">キャラクター選択</div>
+            <div className="text-amber-200 text-sm leading-tight">{label}</div>
+            {mode === 'multi' && <div className="text-[10px] text-amber-700/60">{chosen.length}/{maxSelect}枚選択中</div>}
+          </div>
+          <button onClick={onCancel}><X size={14} className="text-amber-800/60 hover:text-amber-400"/></button>
+        </div>
+        {field.length === 0 ? (
+          <div className="text-amber-600/60 text-sm text-center py-6">フィールドにキャラクターがいません</div>
+        ) : (
+          <div className="flex flex-wrap gap-3 justify-center mb-4">
+            {field.map(card => {
+              const sel = chosen.includes(card._uid);
+              return (
+                <button key={card._uid} onClick={() => toggle(card._uid)}
+                  className={`relative rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-105
+                    ${sel ? 'border-amber-400 shadow-amber-400/60 shadow-lg scale-105' : 'border-white/20 hover:border-amber-500/60'}`}
+                  style={{ width: CARD.W, height: CARD.H }}>
+                  <CardImage card={card} className="w-full h-full object-cover"/>
+                  {sel && (
+                    <div className="absolute inset-0 bg-amber-400/25 flex items-center justify-center">
+                      <span className="text-amber-200 font-black text-3xl drop-shadow-lg">✓</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-1 pb-1 pt-3">
+                    <span className="text-[9px] text-amber-200 font-bold truncate block">{card.name}</span>
+                  </div>
+                  {(card.donAttached || 0) > 0 && (
+                    <div className="absolute top-1 right-1 bg-amber-500 text-gray-900 text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                      +{card.donAttached}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">キャンセル</button>
+          <button
+            onClick={() => chosen.length > 0 && onConfirm(chosen, donPerChar)}
+            disabled={chosen.length === 0}
+            className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md disabled:opacity-40 transition-all">
+            ⚡ 確定（{chosen.length}枚）
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── リーダー効果確認モーダル ────────────────────
+function LeaderAbilityModal({ leaderEffect, leaderName, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[58] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0">
+            <Zap size={16} className="text-amber-300"/>
+          </div>
+          <div>
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">起動メイン効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{leaderName}</div>
+          </div>
+        </div>
+        {leaderEffect.note && (
+          <div className="bg-amber-900/20 rounded-xl p-3 border border-amber-800/25 mb-3">
+            <div className="text-amber-200/80 text-[10px] leading-relaxed">{leaderEffect.note}</div>
+          </div>
+        )}
+        {leaderEffect.activeAbility && (
+          <div className="bg-[#131d45]/70 rounded-xl p-3 border border-amber-900/20 mb-4">
+            <div className="text-[9px] text-amber-600/50 uppercase tracking-wider mb-1">効果</div>
+            <div className="text-amber-100/90 text-[11px] leading-relaxed">{leaderEffect.activeAbility}</div>
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">キャンセル</button>
+          <button onClick={onConfirm} className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md shadow-amber-900/40 transition-all">⚡ 発動する</button>
         </div>
       </div>
     </div>
@@ -968,7 +1212,11 @@ export default function SoloPlayPage({ onNavigate }) {
   const [showTrash, setShowTrash] = useState(false);            // トラッシュ一覧
   const [triggerToast, setTriggerToast] = useState(null);       // トリガー発動通知
   const [prevHandLen, setPrevHandLen] = useState(0);            // ライフトリガー検出用
-  const [pendingEntryEffect, setPendingEntryEffect] = useState(null); // 登場時効果待ち
+  const [pendingEntryEffect,  setPendingEntryEffect]  = useState(null); // 登場時効果待ち
+  const [pendingAttackEffect, setPendingAttackEffect] = useState(null); // アタック時効果待ち
+  const [pendingEventEffect,  setPendingEventEffect]  = useState(null); // イベント効果待ち
+  const [showLeaderAbilityModal, setShowLeaderAbilityModal] = useState(false); // リーダー効果確認
+  const [charSelectInfo, setCharSelectInfo] = useState(null); // キャラ選択モーダル情報
   const [dragInfo,  setDragInfo]  = useState(null);  // ドラッグ中カード情報 { card, context }
   const [dragOver,  setDragOver]  = useState(null);  // ホバー中ドロップゾーン名
 
@@ -1095,7 +1343,11 @@ export default function SoloPlayPage({ onNavigate }) {
         break;
       }
       case 'stage':              game.playStage(uid); break;
-      case 'event':              game.trashHandCard(uid); break;
+      case 'event': {
+        // イベントは効果モーダルを表示してから使用
+        setPendingEventEffect({ card, uid });
+        break;
+      }
       case 'trash-hand':         game.trashHandCard(uid); break;
       case 'deck-top':
         if (selectedCard.context === 'hand')   game.returnHandToTop(uid);
@@ -1106,7 +1358,15 @@ export default function SoloPlayPage({ onNavigate }) {
         if (selectedCard.context === 'hand')  game.returnHandToBottom(uid);
         else                                   game.returnFieldToBottom(uid);
         break;
-      case 'tap':                game.toggleFieldCard(uid); break;
+      case 'tap': {
+        // アタック時: カードがアクティブ→タップされる前にアタック時効果をチェック
+        const attackCard = state?.field?.find(c => c._uid === uid);
+        game.toggleFieldCard(uid);
+        if (attackCard && !attackCard.tapped && /【アタック時】/.test(attackCard.effect || '')) {
+          setPendingAttackEffect(attackCard);
+        }
+        break;
+      }
       case 'attach-don':         game.attachDonToField(uid); break;
       case 'detach-don':         game.detachDonFromField(uid); break;
       case 'trash-field':        game.trashFieldCard(uid); break;
@@ -1120,11 +1380,37 @@ export default function SoloPlayPage({ onNavigate }) {
     setSelectedCard(null);
   };
 
-  const handleLeaderAbility = () => {
+  // リーダー効果確認モーダルで「発動する」押下時
+  const handleLeaderAbilityConfirm = () => {
     if (!state) return;
     const num = state.leader?.card_number;
-    if (num === 'OP15-058') game.useEnelAbility(1, 4);
-    else if (num === 'OP14-020') game.useMihawkAbility('leader');
+    if (num === 'OP15-058') {
+      // エネル: DON追加後にキャラ選択（レストDON×4をキャラに付与）
+      game.useEnelAbility(1, 4);
+      setShowLeaderAbilityModal(false);
+      setCharSelectInfo({ mode: 'single', maxSelect: 1, donPerChar: 4, label: 'DON!!×4を付与するキャラを1枚選んでください' });
+    } else if (num === 'OP08-001') {
+      // チョッパー: 最大3キャラにDON!!×1ずつ
+      setShowLeaderAbilityModal(false);
+      setCharSelectInfo({ mode: 'multi', maxSelect: 3, donPerChar: 1, label: '《動物》か《ドラム王国》のキャラを最大3枚選んでください（DON!!×1ずつ付与）' });
+    } else if (num === 'OP14-020') {
+      game.useMihawkAbility('leader');
+      setShowLeaderAbilityModal(false);
+    } else if (num === 'OP10-001') {
+      game.useSmokerAbility();
+      setShowLeaderAbilityModal(false);
+    } else if (num === 'OP05-041') {
+      game.useAkainuAbility();
+      setShowLeaderAbilityModal(false);
+    } else {
+      setShowLeaderAbilityModal(false);
+    }
+  };
+
+  // キャラ選択確定時（DONをアタッチ）
+  const handleCharSelectConfirm = (chosenUids, donPerChar) => {
+    chosenUids.forEach(uid => game.attachDonToFieldMulti(uid, donPerChar));
+    setCharSelectInfo(null);
   };
 
   if (loadingCards) {
@@ -1346,14 +1632,14 @@ export default function SoloPlayPage({ onNavigate }) {
 
               {/* リーダー（flex — 中央配置） */}
               <div
-                className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 overflow-visible min-w-0`}
+                className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-2 overflow-visible min-w-0`}
                 style={{ borderColor: 'rgba(255,220,80,0.22)', ...dzStyle('leader') }}
                 onDragOver={(e) => { if (isValidDrop('leader')) { e.preventDefault(); setDragOver('leader'); } }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={(e) => { e.preventDefault(); handleDrop('leader'); }}
               >
                 <div className={P.label}>リーダー</div>
-                <div className="relative flex-1 flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center">
                   <GameCard
                     card={s.leader}
                     tapped={s.leader.tapped}
@@ -1362,14 +1648,19 @@ export default function SoloPlayPage({ onNavigate }) {
                     onClick={() => handleCardClick(s.leader, 'leader', 'leader')}
                     onDoubleClick={() => handleCardDoubleClick(s.leader)}
                   />
-                  <div className="absolute bottom-1 left-1 z-20">
-                    <LeaderEffectBadge
-                      leaderEffect={s.leaderEffect}
-                      leaderName={s.leader?.name}
-                      onUseAbility={s.leaderEffect?.hasActiveAbility ? handleLeaderAbility : null}
-                    />
-                  </div>
                 </div>
+                {/* リーダー効果ボタン（大・センタリング） */}
+                {s.leaderEffect?.hasActiveAbility && (
+                  <button onClick={() => setShowLeaderAbilityModal(true)}
+                    className={`w-full py-2.5 rounded-xl font-black text-xs ${P.btnGold} flex items-center justify-center gap-1.5 shadow-lg`}>
+                    <Zap size={13}/> 起動メイン効果
+                  </button>
+                )}
+                {s.leaderEffect?.note && !s.leaderEffect?.hasActiveAbility && (
+                  <div className="text-[9px] text-amber-500/55 text-center leading-tight px-1 line-clamp-2">
+                    {s.leaderEffect.note}
+                  </div>
+                )}
               </div>
 
               {/* ステージ（固定幅 — ライフ列と同じ） */}
@@ -1674,6 +1965,46 @@ export default function SoloPlayPage({ onNavigate }) {
           game={game}
           onActivate={() => setPendingEntryEffect(null)}
           onSkip={() => setPendingEntryEffect(null)}
+        />
+      )}
+
+      {/* ─── アタック時効果モーダル ─── */}
+      {pendingAttackEffect && (
+        <AttackEffectModal
+          card={pendingAttackEffect}
+          game={game}
+          onActivate={() => setPendingAttackEffect(null)}
+          onSkip={() => setPendingAttackEffect(null)}
+        />
+      )}
+
+      {/* ─── イベント効果モーダル ─── */}
+      {pendingEventEffect && (
+        <EventEffectModal
+          card={pendingEventEffect.card}
+          game={game}
+          onActivate={() => { game.trashHandCard(pendingEventEffect.uid); setPendingEventEffect(null); }}
+          onSkip={() => { game.trashHandCard(pendingEventEffect.uid); setPendingEventEffect(null); }}
+        />
+      )}
+
+      {/* ─── リーダー効果確認モーダル ─── */}
+      {showLeaderAbilityModal && (
+        <LeaderAbilityModal
+          leaderEffect={s.leaderEffect}
+          leaderName={s.leader?.name}
+          onConfirm={handleLeaderAbilityConfirm}
+          onCancel={() => setShowLeaderAbilityModal(false)}
+        />
+      )}
+
+      {/* ─── キャラクター選択モーダル ─── */}
+      {charSelectInfo && (
+        <CharacterSelectModal
+          field={s.field}
+          info={charSelectInfo}
+          onConfirm={handleCharSelectConfirm}
+          onCancel={() => setCharSelectInfo(null)}
         />
       )}
 
