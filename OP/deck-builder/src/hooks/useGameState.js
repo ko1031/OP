@@ -228,12 +228,29 @@ export function useGameState() {
 
       // リフレッシュ → ドロー
       if (subPhase === 'refresh') {
-        const newField = prev.field.map(c => ({ ...c, tapped: false }));
-        const newLeader = { ...prev.leader, tapped: false };
-        const restored = prev.donTapped;
+        // フィールドのキャラクターからDONを回収
+        const donFromField = prev.field.reduce((sum, c) => sum + (c.donAttached || 0), 0);
+        const newField = prev.field.map(c => ({ ...c, tapped: false, donAttached: 0 }));
+        // リーダーからDONを回収
+        const donFromLeader = prev.leader.donAttached || 0;
+        const newLeader = { ...prev.leader, tapped: false, donAttached: 0 };
+        // レストDON + アタッチDONをすべてアクティブへ
+        const restored = prev.donTapped + donFromField + donFromLeader;
+        const logs = [];
+        if (prev.donTapped > 0)   logs.push(`レストDON!!×${prev.donTapped}`);
+        if (donFromField > 0)     logs.push(`キャラアタッチDON!!×${donFromField}`);
+        if (donFromLeader > 0)    logs.push(`リーダーアタッチDON!!×${donFromLeader}`);
         return addLog(
-          `リフレッシュ: 全カードアンタップ${restored > 0 ? `・DON!!×${restored}アクティブへ` : ''}`,
-          { ...prev, subPhase: 'draw', field: newField, leader: newLeader, donActive: prev.donActive + restored, donTapped: 0 }
+          `リフレッシュ: 全カードアンタップ${restored > 0 ? `・DON!!×${restored}アクティブへ（${logs.join('、')}）` : ''}`,
+          {
+            ...prev,
+            subPhase: 'draw',
+            field: newField,
+            leader: newLeader,
+            donActive: prev.donActive + restored,
+            donTapped: 0,
+            donLeader: 0,
+          }
         );
       }
 

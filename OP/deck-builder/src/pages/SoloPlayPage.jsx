@@ -11,7 +11,7 @@ const HAND_CARD = { W: 76,  H: 107 };   // 手札
 const DECK_CARD = { W: 72,  H: 101 };   // デッキ/ステージ表示
 const TRASH_CARD= { W: 80,  H: 112 };   // トラッシュ表示
 const DON_CARD  = { W: 64,  H: 90  };   // DON!!カード（手札より少し小さい）
-const DON_MINI  = { W: 30,  H: 42  };   // DON!!アタッチミニカード
+const DON_MINI  = { W: 46,  H: 64  };   // DON!!アタッチミニカード
 
 // ─── フェイズ ──────────────────────────────────────
 const PHASES = [
@@ -127,12 +127,12 @@ function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highl
           style={{
             width:  DON_MINI.W,
             height: DON_MINI.H,
-            right:  -18 - i * 12,
-            bottom: 14 + i * 10,
+            right:  -26 - i * 16,
+            bottom: 16 + i * 12,
             zIndex: i + 1,
             transform: `rotate(${10 + i * 6}deg)`,
-            border: '1.5px solid rgba(253,224,71,0.9)',
-            boxShadow: '2px 3px 8px rgba(0,0,0,0.75)',
+            border: '2px solid rgba(253,224,71,0.95)',
+            boxShadow: '2px 4px 10px rgba(0,0,0,0.8)',
           }}>
           <img
             src={DON_IMG_URL}
