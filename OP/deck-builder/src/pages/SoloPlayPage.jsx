@@ -3,6 +3,7 @@ import { Home, RotateCcw, Shuffle, Anchor, Skull, Swords, X, Zap } from 'lucide-
 import { useGameState, loadSavedDecks, resolveSampleDeck, LEADER_EFFECTS } from '../hooks/useGameState';
 import { SAMPLE_DECKS } from '../utils/deckRules';
 import CardImage from '../components/CardImage';
+import PirateMapBg from '../components/PirateMapBg';
 
 // ─── カードサイズ定数 ─────────────────────────────
 const CARD = { W: 120, H: 168 };   // フィールド・リーダー
@@ -600,72 +601,7 @@ export default function SoloPlayPage({ onNavigate }) {
     <div className={`h-screen ${P.bg} flex flex-col overflow-hidden select-none relative`}>
 
       {/* ─── 海賊地図背景 ─── */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        {/* 航海チャート風グリッド */}
-        <div className="absolute inset-0" style={{
-          backgroundImage: [
-            'linear-gradient(rgba(139,105,20,0.055) 1px, transparent 1px)',
-            'linear-gradient(90deg, rgba(139,105,20,0.055) 1px, transparent 1px)',
-            'linear-gradient(rgba(139,105,20,0.025) 1px, transparent 1px)',
-            'linear-gradient(90deg, rgba(139,105,20,0.025) 1px, transparent 1px)',
-          ].join(','),
-          backgroundSize: '100px 100px, 100px 100px, 20px 20px, 20px 20px',
-        }}/>
-        {/* 波模様SVG */}
-        <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.055 }}>
-          <defs>
-            <pattern id="wavesPM" width="300" height="60" patternUnits="userSpaceOnUse">
-              <path d="M 0 30 Q 75 10 150 30 Q 225 50 300 30" fill="none" stroke="#4090e0" strokeWidth="1.5"/>
-              <path d="M 0 45 Q 75 25 150 45 Q 225 65 300 45" fill="none" stroke="#2060b0" strokeWidth="0.8"/>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#wavesPM)"/>
-        </svg>
-        {/* コンパスローズ（右上装飾） */}
-        <svg className="absolute" style={{ top: 60, right: 20, opacity: 0.07, width: 150, height: 150 }}>
-          <g transform="translate(75,75)">
-            <circle cx="0" cy="0" r="70" fill="none" stroke="#8B6914" strokeWidth="0.8"/>
-            <circle cx="0" cy="0" r="50" fill="none" stroke="#8B6914" strokeWidth="0.5"/>
-            <circle cx="0" cy="0" r="28" fill="none" stroke="#8B6914" strokeWidth="0.5"/>
-            <circle cx="0" cy="0" r="8" fill="none" stroke="#8B6914" strokeWidth="1"/>
-            {/* 主方位線 */}
-            <line x1="0" y1="-70" x2="0" y2="70" stroke="#8B6914" strokeWidth="0.6"/>
-            <line x1="-70" y1="0" x2="70" y2="0" stroke="#8B6914" strokeWidth="0.6"/>
-            {/* 斜め線 */}
-            <line x1="-49" y1="-49" x2="49" y2="49" stroke="#8B6914" strokeWidth="0.3"/>
-            <line x1="49" y1="-49" x2="-49" y2="49" stroke="#8B6914" strokeWidth="0.3"/>
-            {/* 矢印 */}
-            <polygon points="0,-70 -6,-50 6,-50" fill="#8B6914"/>
-            <polygon points="0,70 -6,50 6,50" fill="#8B6914" opacity="0.5"/>
-            <polygon points="-70,0 -50,-6 -50,6" fill="#8B6914" opacity="0.5"/>
-            <polygon points="70,0 50,-6 50,6" fill="#8B6914" opacity="0.5"/>
-            {/* 方位文字 */}
-            <text y="-55" textAnchor="middle" fill="#8B6914" fontSize="12" fontFamily="serif" fontWeight="bold">N</text>
-            <text y="68" textAnchor="middle" fill="#8B6914" fontSize="9" fontFamily="serif">S</text>
-            <text x="-58" y="4" textAnchor="middle" fill="#8B6914" fontSize="9" fontFamily="serif">W</text>
-            <text x="60" y="4" textAnchor="middle" fill="#8B6914" fontSize="9" fontFamily="serif">E</text>
-            {/* 中心点 */}
-            <circle cx="0" cy="0" r="3" fill="#8B6914"/>
-          </g>
-        </svg>
-        {/* 左下 錨マーク */}
-        <svg className="absolute" style={{ bottom: 80, left: 20, opacity: 0.05, width: 80, height: 80 }}>
-          <g transform="translate(40,40)">
-            <circle cx="0" cy="-20" r="8" fill="none" stroke="#8B6914" strokeWidth="2"/>
-            <line x1="0" y1="-12" x2="0" y2="28" stroke="#8B6914" strokeWidth="2"/>
-            <line x1="-18" y1="-4" x2="18" y2="-4" stroke="#8B6914" strokeWidth="2"/>
-            <path d="M-18 28 Q-18 36 0 36 Q18 36 18 28" fill="none" stroke="#8B6914" strokeWidth="2"/>
-          </g>
-        </svg>
-        {/* 大気感：ラジアルグラデーション */}
-        <div className="absolute inset-0" style={{
-          background: [
-            'radial-gradient(ellipse at 10% 40%, rgba(0,25,70,0.18) 0%, transparent 45%)',
-            'radial-gradient(ellipse at 90% 60%, rgba(0,35,20,0.12) 0%, transparent 45%)',
-            'radial-gradient(ellipse at 50% 100%, rgba(60,20,0,0.1) 0%, transparent 40%)',
-          ].join(','),
-        }}/>
-      </div>
+      <PirateMapBg />
 
       {/* ─── ヘッダー ─── */}
       <header className="flex-shrink-0 flex items-center gap-2 px-3 py-1.5 bg-[#080c1e]/95 border-b border-amber-900/30 z-[10] flex-wrap relative">

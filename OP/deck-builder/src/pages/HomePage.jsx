@@ -1,4 +1,5 @@
 import { Layers, Swords, Anchor } from 'lucide-react';
+import PirateMapBg from '../components/PirateMapBg';
 
 // 海賊旗SVG
 function SkullCross({ size = 40, className = '' }) {
@@ -25,6 +26,9 @@ export default function HomePage({ onNavigate }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden"
       style={{ background: 'radial-gradient(ellipse at 50% 0%, #0f1a3a 0%, #06091a 50%, #06091a 100%)' }}>
+
+      {/* 海賊地図背景 */}
+      <PirateMapBg />
 
       {/* 背景: 波紋 */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
