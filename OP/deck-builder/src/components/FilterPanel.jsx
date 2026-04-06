@@ -22,7 +22,6 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
     filters.series ? 1 : 0,
     (filters.costMin != null && filters.costMin !== '') ? 1 : 0,
     (filters.costMax != null && filters.costMax !== '') ? 1 : 0,
-    filters.counterOnly ? 1 : 0,
     filters.triggerOnly ? 1 : 0,
   ].reduce((s, n) => s + n, 0);
 
@@ -135,16 +134,6 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
               <div className="min-w-0">
                 <div className="text-[9px] text-gray-500 mb-1 font-semibold uppercase tracking-wider">特殊</div>
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => onChange({ ...filters, counterOnly: !filters.counterOnly })}
-                    className={`flex-1 py-1 rounded text-xs font-medium border transition-all text-center
-                      ${filters.counterOnly
-                        ? 'bg-orange-600 border-orange-400 text-white'
-                        : 'bg-gray-800 border-gray-600 text-gray-400'
-                      }`}
-                  >
-                    🛡 CNT
-                  </button>
                   <button
                     onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
                     className={`flex-1 py-1 rounded text-xs font-medium border transition-all text-center

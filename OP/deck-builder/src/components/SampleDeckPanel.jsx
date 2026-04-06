@@ -191,12 +191,14 @@ function SampleDeckCard({ sample, cardMap, onCopy }) {
 export default function SampleDeckPanel({ allCards, onCopy, onClose }) {
   const cardMap = buildCardMap(allCards);
 
-  // 日付降順（新しい順）で全デッキを表示
-  const sortedDecks = [...SAMPLE_DECKS].sort((a, b) => {
-    const da = a.date.replace(/\//g, '');
-    const db = b.date.replace(/\//g, '');
-    return db.localeCompare(da);
-  });
+  // 日付降順（新しい順）— "2026/4/2" を Date に変換して比較
+  const parseDate = str => {
+    const [y, m, d] = str.split('/').map(Number);
+    return new Date(y, m - 1, d);
+  };
+  const sortedDecks = [...SAMPLE_DECKS].sort(
+    (a, b) => parseDate(b.date) - parseDate(a.date)
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end">
