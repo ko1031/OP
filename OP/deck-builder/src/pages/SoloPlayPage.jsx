@@ -6,8 +6,15 @@ import CardImage from '../components/CardImage';
 import PirateMapBg from '../components/PirateMapBg';
 
 // ─── カードサイズ定数 ─────────────────────────────
-const CARD = { W: 120, H: 168 };   // フィールド・リーダー
-const HAND_CARD = { W: 96, H: 134 }; // 手札
+const CARD      = { W: 120, H: 168 };   // フィールド・リーダー
+const HAND_CARD = { W: 96,  H: 134 };   // 手札
+const DECK_CARD = { W: 92,  H: 129 };   // デッキ/ステージ表示
+const TRASH_CARD= { W: 100, H: 140 };   // トラッシュ表示
+const DON_CARD  = { W: 36,  H: 50  };   // DON!!カード
+const DON_MINI  = { W: 22,  H: 31  };   // DON!!アタッチミニカード
+const SIDE_W    = 148;                   // 左右カラム幅
+const LEADER_W  = 164;                   // リーダーパネル幅
+const DON_ZONE_W= 264;                   // DON!!ゾーン幅
 
 // ─── フェイズ ──────────────────────────────────────
 const PHASES = [
@@ -20,8 +27,8 @@ const PHASES = [
 
 const P = {
   bg:      'bg-[#06091a]',
-  panel:   'bg-[#0d1530]/80 border border-[#8B6914]/25',
-  label:   'text-[10px] text-amber-400/85 font-bold uppercase tracking-widest',
+  panel:   'bg-white/10 border border-white/15',
+  label:   'text-[10px] text-amber-300/90 font-bold uppercase tracking-widest',
   btnGold: 'bg-gradient-to-b from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-amber-100 font-bold border border-amber-500/60 shadow-amber-900/40 shadow-md transition-all',
   btnRed:  'bg-gradient-to-b from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-red-100 font-bold border border-red-600/50 transition-all',
   btnBlue: 'bg-gradient-to-b from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800 text-blue-100 font-bold border border-blue-600/50 transition-all',
@@ -107,31 +114,79 @@ function StatChip({ icon, value, label, color, clickable }) {
 }
 
 // ─── ゲームカード（フィールド用）──────────────────
+// badge = donAttached 枚数、背面にDON!!ミニカードを重ねて表示
 function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highlight }) {
+  const donCount = badge || 0;
+  const showDon  = donCount > 0 && !tapped; // タップ時は非表示（回転で混乱を避ける）
+  const visibleDon = Math.min(donCount, 4);
+
   return (
-    <div
-      className={`relative flex-shrink-0 cursor-pointer select-none rounded-xl overflow-hidden border-2 transition-all duration-150
-        ${tapped ? 'rotate-90 origin-center opacity-75' : ''}
-        ${highlight ? 'border-amber-400 shadow-amber-400/60 shadow-lg scale-105' : 'border-amber-900/40'}
-        hover:border-amber-500/70 hover:scale-[1.03]`}
-      style={{ width: CARD.W, height: CARD.H }}
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      title={`${faceDown ? '（裏向き）' : (card?.name || '')} | ダブルクリックで効果確認`}
-    >
-      {faceDown ? (
-        <div style={{ width: CARD.W, height: CARD.H }}
-          className="bg-gradient-to-br from-red-900/60 to-[#06091a] flex items-center justify-center">
-          <span className="text-red-600/70 text-4xl">☠</span>
+    // 外側ラッパー: overflow-visible でDON!!ミニカードをはみ出させる
+    <div className="relative flex-shrink-0" style={{ width: CARD.W, height: CARD.H }}>
+
+      {/* ── DON!!アタッチ表示（背面右側に扇状に配置） ── */}
+      {showDon && Array.from({ length: visibleDon }).map((_, i) => (
+        <div key={i}
+          className="absolute rounded overflow-hidden pointer-events-none"
+          style={{
+            width:  DON_MINI.W,
+            height: DON_MINI.H,
+            right:  -8 - i * 9,
+            bottom: 10 + i * 7,
+            zIndex: i + 1,
+            transform: `rotate(${12 + i * 6}deg)`,
+            background: 'linear-gradient(160deg, #fef08a 0%, #fbbf24 50%, #d97706 100%)',
+            border: '1.5px solid rgba(253,224,71,0.8)',
+            boxShadow: '1px 2px 5px rgba(0,0,0,0.6)',
+          }}>
+          <div className="w-full h-full flex flex-col items-center justify-center">
+            <span className="text-amber-900 font-black leading-none" style={{ fontSize: 5 }}>DON</span>
+            <span className="text-amber-900 font-black leading-none" style={{ fontSize: 7 }}>!!</span>
+          </div>
         </div>
-      ) : (
-        <CardImage card={card} className="w-full h-full object-cover" />
-      )}
-      {badge > 0 && (
-        <div className="absolute bottom-1 right-1 bg-amber-500 text-gray-900 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
-          +{badge}
+      ))}
+      {/* 4枚超えは枚数バッジ */}
+      {showDon && donCount > 4 && (
+        <div className="absolute pointer-events-none rounded px-1 font-black text-[8px] leading-tight"
+          style={{
+            right: -6, bottom: 6, zIndex: 6,
+            background: '#fbbf24', color: '#1c1a00',
+            border: '1px solid #fde68a', boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+          }}>
+          +{donCount}
         </div>
       )}
+      {/* タップ時の枚数バッジ（回転中でも見えるよう） */}
+      {tapped && donCount > 0 && (
+        <div className="absolute pointer-events-none rounded-full font-black flex items-center justify-center"
+          style={{
+            top: 2, right: 2, width: 18, height: 18, zIndex: 20, fontSize: 9,
+            background: '#fbbf24', color: '#1c1a00', border: '1px solid #fde68a',
+          }}>
+          {donCount}
+        </div>
+      )}
+
+      {/* ── メインカード（DON!!の手前） ── */}
+      <div
+        className={`absolute inset-0 cursor-pointer select-none rounded-xl overflow-hidden border-2 transition-all duration-150
+          ${tapped ? 'rotate-90 origin-center opacity-75' : ''}
+          ${highlight ? 'border-amber-400 shadow-amber-400/60 shadow-lg scale-105' : 'border-white/25'}
+          hover:border-amber-400/70 hover:scale-[1.03]`}
+        style={{ zIndex: 10 }}
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+        title={`${faceDown ? '（裏向き）' : (card?.name || '')} | ダブルクリックで効果確認`}
+      >
+        {faceDown ? (
+          <div style={{ width: CARD.W, height: CARD.H }}
+            className="bg-gradient-to-br from-red-900/60 to-[#06091a] flex items-center justify-center">
+            <span className="text-red-600/70 text-4xl">☠</span>
+          </div>
+        ) : (
+          <CardImage card={card} className="w-full h-full object-cover" />
+        )}
+      </div>
     </div>
   );
 }
@@ -140,23 +195,46 @@ function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highl
 function EmptySlot() {
   return (
     <div style={{ width: CARD.W, height: CARD.H }}
-      className="rounded-xl border-2 border-dashed border-amber-900/20 flex items-center justify-center flex-shrink-0">
-      <Anchor size={18} className="text-amber-900/20" />
+      className="rounded-xl border-2 border-dashed border-white/15 flex items-center justify-center flex-shrink-0 flex-shrink-0">
+      <Anchor size={18} className="text-white/20" />
     </div>
   );
 }
 
-// ─── DON!!コイン ─────────────────────────────────
-function DonCoin({ active, onClick }) {
+// ─── DON!!カード ─────────────────────────────────
+function DonCard({ active, onClick }) {
   return (
-    <div onClick={onClick}
-      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-black cursor-pointer transition-all select-none
+    <div
+      onClick={active ? onClick : undefined}
+      className={`flex-shrink-0 rounded-md overflow-hidden select-none transition-all duration-150
         ${active
-          ? 'bg-gradient-to-br from-amber-400 to-yellow-600 border-amber-300 text-gray-900 shadow-amber-500/50 shadow-md hover:from-amber-300'
-          : 'bg-[#1a1800] border-amber-900/40 text-amber-900/50'
+          ? 'cursor-pointer hover:scale-105 hover:brightness-110'
+          : 'opacity-50 cursor-default'
         }`}
-      title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}>
-      D
+      style={{
+        width:  DON_CARD.W,
+        height: DON_CARD.H,
+        background: active
+          ? 'linear-gradient(160deg, #fef08a 0%, #fbbf24 45%, #d97706 100%)'
+          : 'linear-gradient(160deg, #292106 0%, #1a1300 100%)',
+        border: active
+          ? '2px solid rgba(253, 224, 71, 0.85)'
+          : '2px solid rgba(92, 68, 10, 0.5)',
+        boxShadow: active
+          ? '0 2px 8px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.2)'
+          : 'none',
+      }}
+      title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}
+    >
+      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5">
+        <span className={`font-black leading-none tracking-tight select-none ${active ? 'text-amber-900' : 'text-amber-800/50'}`}
+          style={{ fontSize: 9 }}>DON</span>
+        <span className={`font-black leading-none select-none ${active ? 'text-amber-900' : 'text-amber-800/50'}`}
+          style={{ fontSize: 13 }}>!!</span>
+        {active && (
+          <span className="text-amber-700/70 leading-none select-none" style={{ fontSize: 7 }}>◆</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -952,9 +1030,8 @@ export default function SoloPlayPage({ onNavigate }) {
   //  行2: [    ] [LEADER (center) + DON!!  ] [         ]
   //  行3: [HAND (flex)                     ] [TRASH    ]
   // ─────────────────────────────────────────────────────
-  const CHAR_ZONE_H = CARD.H + 28; // キャラゾーン固定高さ
-  const LOWER_H = CARD.H + 32;     // リーダー+DONゾーン高さ
-  const SIDE_W = 110;               // 左右カラム幅
+  const CHAR_ZONE_H = CARD.H + 44;  // キャラゾーン固定高さ
+  const LOWER_H     = CARD.H + 72;  // リーダー+DON!!ゾーン高さ（余裕あり）
 
   return (
     <div className={`h-screen ${P.bg} flex flex-col overflow-hidden select-none relative`}>
@@ -1026,13 +1103,13 @@ export default function SoloPlayPage({ onNavigate }) {
           </div>
 
           {/* 中央: キャラクターゾーン */}
-          <div className={`flex-1 ${P.panel} rounded-xl p-2`}
-            style={{ backgroundImage: 'linear-gradient(135deg, rgba(16,60,30,0.12) 0%, transparent 100%)', borderColor: 'rgba(60,180,80,0.18)' }}>
+          <div className={`flex-1 ${P.panel} rounded-xl p-2 overflow-visible`}
+            style={{ borderColor: 'rgba(120,220,120,0.18)' }}>
             <div className="flex items-center gap-2 mb-1.5">
               <span className={P.label}>キャラクター ({s.field.length}/5)</span>
-              <span className="text-[9px] text-amber-800/45 hidden sm:inline">ダブルクリック→効果 / クリック→操作</span>
+              <span className="text-[9px] text-white/35 hidden sm:inline">ダブルクリック→効果 / クリック→操作</span>
             </div>
-            <div className="flex gap-2 items-end overflow-x-auto">
+            <div className="flex gap-3 items-end overflow-x-auto overflow-y-visible pb-1">
               {s.field.map(card => (
                 <GameCard key={card._uid} card={card} tapped={card.tapped} badge={card.donAttached}
                   highlight={selectedCard?.uid === card._uid}
@@ -1047,51 +1124,58 @@ export default function SoloPlayPage({ onNavigate }) {
           {/* 右: デッキ + ステージ */}
           <div className="flex-shrink-0 flex flex-col gap-1.5" style={{ width: SIDE_W }}>
             {/* デッキ */}
-            <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}>
+            <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center gap-1.5`}>
               <div className={P.label}>デッキ</div>
-              <div className="relative cursor-pointer" onClick={() => game.drawCard(1)} title="クリックでドロー">
-                <div className="rounded-xl bg-gradient-to-br from-[#0d1530] to-[#06091a] border-2 border-amber-900/40 flex items-center justify-center hover:border-amber-600/60 transition-colors"
-                  style={{ width: 72, height: 100 }}>
-                  <Anchor size={22} className="text-amber-700/60"/>
+              <div className="relative cursor-pointer group" onClick={() => game.drawCard(1)} title="クリックでドロー">
+                {/* カード裏面スタック表現 */}
+                <div className="absolute rounded-xl bg-gradient-to-br from-blue-900/50 to-[#06091a]"
+                  style={{ width: DECK_CARD.W - 4, height: DECK_CARD.H - 4, top: 4, left: 4 }}/>
+                <div className="relative rounded-xl bg-gradient-to-br from-[#1a2a5e] to-[#06091a] border-2 border-white/20 flex flex-col items-center justify-center gap-1
+                  group-hover:border-amber-400/60 transition-colors"
+                  style={{ width: DECK_CARD.W, height: DECK_CARD.H }}>
+                  <Anchor size={22} className="text-white/40"/>
+                  <span className="text-white/40 text-[9px] font-bold">CLICK</span>
                 </div>
-                <div className="absolute -bottom-1 -right-1 bg-blue-700 text-white text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center">{s.deck.length}</div>
+                <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-black rounded-full w-6 h-6 flex items-center justify-center border border-blue-400/50 shadow-md">
+                  {s.deck.length}
+                </div>
               </div>
-              <div className="flex gap-1 mt-0.5">
-                <div className="text-[8px] text-amber-800/50 text-center flex-1">クリックでドロー</div>
-                <button onClick={game.shuffleDeck} title="デッキをシャッフル（Sキー）"
-                  className="text-amber-700/50 hover:text-amber-400 transition-colors">
-                  <Shuffle size={11}/>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] text-white/35">クリックでドロー</span>
+                <button onClick={game.shuffleDeck} title="シャッフル（S）"
+                  className="text-white/40 hover:text-amber-300 transition-colors">
+                  <Shuffle size={12}/>
                 </button>
               </div>
             </div>
             {/* ステージ */}
-            <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 flex-1`}>
+            <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center gap-1.5 flex-1`}>
               <div className={P.label}>ステージ</div>
               {s.stage ? (
-                <div className="cursor-pointer rounded-xl overflow-hidden border border-purple-700/50 hover:border-purple-500/70 transition-all"
+                <div className="cursor-pointer rounded-xl overflow-hidden border-2 border-purple-400/40 hover:border-purple-300/70 transition-all shadow-lg"
                   onClick={() => handleCardClick(s.stage, 'stage', s.stage._uid)}
                   onDoubleClick={() => handleCardDoubleClick(s.stage)}>
-                  <CardImage card={s.stage} className="object-cover" style={{ width:72, height:100 }}/>
+                  <CardImage card={s.stage} className="object-cover" style={{ width: DECK_CARD.W, height: DECK_CARD.H }}/>
                 </div>
               ) : (
-                <div className="rounded-xl border-2 border-dashed border-amber-900/20 flex items-center justify-center"
-                  style={{ width:72, height:100 }}>
-                  <span className="text-amber-900/25 text-[9px]">なし</span>
+                <div className="rounded-xl border-2 border-dashed border-white/15 flex items-center justify-center"
+                  style={{ width: DECK_CARD.W, height: DECK_CARD.H }}>
+                  <span className="text-white/20 text-xs">なし</span>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── 行2: リーダー(中央) + DON!!ゾーン ── */}
+        {/* ── 行2: リーダー + DON!!ゾーン ── */}
         <div className="flex gap-1.5 flex-shrink-0" style={{ height: LOWER_H }}>
 
           {/* 左: 空白スペーサー（ライフ列と幅合わせ）*/}
           <div style={{ width: SIDE_W }} className="flex-shrink-0" />
 
-          {/* リーダー */}
-          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
-            style={{ width: CARD.W + 24 }}>
+          {/* ── リーダー ── */}
+          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1.5`}
+            style={{ width: LEADER_W, borderColor: 'rgba(255,220,80,0.22)' }}>
             <div className={P.label}>リーダー</div>
             <div className="relative">
               <GameCard
@@ -1103,7 +1187,7 @@ export default function SoloPlayPage({ onNavigate }) {
                 onDoubleClick={() => handleCardDoubleClick(s.leader)}
               />
               {/* リーダー効果バッジ — カード左下にオーバーレイ */}
-              <div className="absolute bottom-1 left-1 z-10">
+              <div className="absolute bottom-1 left-1 z-20">
                 <LeaderEffectBadge
                   leaderEffect={s.leaderEffect}
                   leaderName={s.leader?.name}
@@ -1113,76 +1197,82 @@ export default function SoloPlayPage({ onNavigate }) {
             </div>
           </div>
 
-          {/* DON!!ゾーン */}
-          <div className={`flex-1 ${P.panel} rounded-xl p-3`}
-            style={{ backgroundImage: 'linear-gradient(135deg, rgba(60,40,0,0.15) 0%, transparent 100%)', borderColor: 'rgba(200,160,40,0.22)' }}>
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
-              <div className="text-[11px] text-amber-500/80 font-bold">
-                💛 DON!! ({donTotal}/{s.donMax}) デッキ残{s.donDeck}
-                {s.donMax < 10 && <span className="ml-1 text-amber-600/60 text-[10px]">（上限{s.donMax}）</span>}
+          {/* ── DON!!ゾーン（リーダーと近似幅） ── */}
+          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2`}
+            style={{ width: DON_ZONE_W, borderColor: 'rgba(253,224,71,0.22)' }}>
+            {/* ヘッダー */}
+            <div className="flex items-center justify-between mb-1.5 gap-1 flex-wrap">
+              <div className="text-[11px] text-amber-300/90 font-bold flex items-center gap-1">
+                <span className="text-base leading-none">💛</span>
+                <span>DON!!</span>
+                <span className="text-white/50 font-normal">({donTotal}/{s.donMax})</span>
+                <span className="text-white/35 text-[9px] font-normal">残{s.donDeck}</span>
+                {s.donMax < 10 && <span className="text-amber-400/55 text-[9px]">上限{s.donMax}</span>}
               </div>
               <div className="flex gap-1 flex-wrap">
-                <button onClick={game.tapAllDon}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnRed}`}
-                  title="アクティブDON!!を全てレスト（相手アタック時など）">全レスト</button>
-                <button onClick={game.activateAllDon}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnBlue}`}
-                  title="レストDON!!を全てアクティブ（手動リフレッシュ）">全アクティブ</button>
-                <button onClick={() => game.tapDon(1)}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>レスト×1</button>
-                <button onClick={() => game.returnDonToDeck(1)}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>→デッキ</button>
-                <button onClick={() => game.returnTappedDonToDeck(1)}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGray}`}>レスト→デッキ</button>
-                <button onClick={game.attachDonToLeader}
-                  className={`text-[9px] px-2 py-0.5 rounded border transition-all ${P.btnGold}`}>リーダー+1</button>
+                <button onClick={game.tapAllDon}   className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnRed}`}   title="全レスト">全レスト</button>
+                <button onClick={game.activateAllDon} className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnBlue}`} title="全アクティブ">全アクティブ</button>
+                <button onClick={() => game.tapDon(1)}            className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnGray}`}>×1レスト</button>
+                <button onClick={() => game.returnDonToDeck(1)}   className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnGray}`}>→デッキ</button>
+                <button onClick={() => game.returnTappedDonToDeck(1)} className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnGray}`}>レスト→デッキ</button>
+                <button onClick={game.attachDonToLeader}          className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnGold}`}>リーダー+1</button>
               </div>
             </div>
-            {/* DON!!コイン表示（6枚超えはコンパクト表示） */}
-            <div className="flex gap-2 flex-wrap items-center">
-              {s.donActive <= 6
+
+            {/* DON!!カード表示エリア */}
+            <div className="flex gap-1.5 flex-wrap items-end" style={{ minHeight: DON_CARD.H + 4 }}>
+              {/* アクティブDON!! */}
+              {s.donActive <= 7
                 ? Array.from({ length: s.donActive }).map((_, i) => (
-                    <DonCoin key={`a-${i}`} active={true} onClick={() => game.tapDon(1)}/>
+                    <DonCard key={`a-${i}`} active={true} onClick={() => game.tapDon(1)}/>
                   ))
                 : (
-                  <div className="flex items-center gap-2">
-                    {Array.from({ length: 3 }).map((_, i) => <DonCoin key={i} active={true} onClick={() => game.tapDon(1)}/>)}
-                    <span className="text-amber-400 font-black text-base">×{s.donActive}</span>
+                  <div className="flex items-end gap-1.5">
+                    {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={true} onClick={() => game.tapDon(1)}/>)}
+                    <span className="text-yellow-300 font-black text-sm self-center pb-1">×{s.donActive}</span>
                   </div>
                 )
               }
-              {s.donTapped <= 6
-                ? Array.from({ length: s.donTapped }).map((_, i) => (
-                    <DonCoin key={`t-${i}`} active={false}/>
-                  ))
-                : (
-                  <div className="flex items-center gap-2">
-                    {Array.from({ length: 3 }).map((_, i) => <DonCoin key={i} active={false}/>)}
-                    <span className="text-amber-900/60 font-black text-base">×{s.donTapped}</span>
-                  </div>
-                )
-              }
-              {s.donLeader > 0 && (
-                <span className="text-amber-500 text-[11px] font-bold bg-amber-900/30 px-2 py-0.5 rounded-full border border-amber-800/40 ml-1">
-                  👑+{s.donLeader}
-                </span>
+              {/* 区切り */}
+              {s.donActive > 0 && s.donTapped > 0 && (
+                <div className="self-stretch w-px bg-white/15 mx-0.5"/>
               )}
-              {donTotal === 0 && <span className="text-amber-900/40 text-sm italic">次フェーズでDON!!補充</span>}
+              {/* レストDON!! */}
+              {s.donTapped <= 7
+                ? Array.from({ length: s.donTapped }).map((_, i) => (
+                    <DonCard key={`t-${i}`} active={false}/>
+                  ))
+                : (
+                  <div className="flex items-end gap-1.5">
+                    {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={false}/>)}
+                    <span className="text-white/30 font-black text-sm self-center pb-1">×{s.donTapped}</span>
+                  </div>
+                )
+              }
+              {/* リーダーアタッチ */}
+              {s.donLeader > 0 && (
+                <div className="self-center ml-1 flex items-center gap-0.5 bg-yellow-900/30 border border-yellow-600/40 rounded-lg px-1.5 py-0.5">
+                  <span className="text-yellow-300 text-[10px] font-black">👑+{s.donLeader}</span>
+                </div>
+              )}
+              {donTotal === 0 && (
+                <span className="text-white/25 text-xs italic self-center">次フェーズでDON!!補充</span>
+              )}
             </div>
           </div>
 
-          {/* 右: 空白スペーサー */}
-          <div style={{ width: SIDE_W }} className="flex-shrink-0"/>
+          {/* 右: flex余白 */}
+          <div className="flex-1"/>
         </div>
 
         {/* ── 行3: 手札 + トラッシュ ── */}
         <div className="flex gap-1.5 flex-1 min-h-0">
           {/* 手札 */}
           <div className={`flex-1 ${P.panel} rounded-xl px-3 py-2 flex flex-col min-w-0`}
-            style={{ borderColor: 'rgba(100,140,255,0.20)' }}>
+            style={{ borderColor: 'rgba(100,160,255,0.22)' }}>
             <div className="flex items-center gap-2 mb-1.5 flex-shrink-0">
               <div className={P.label}>手札 ({s.hand.length}枚)</div>
-              <div className="text-[9px] text-amber-800/45 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認</div>
+              <div className="text-[9px] text-white/30 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認</div>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-0.5 items-end">
               {s.hand.map(card => (
@@ -1192,34 +1282,84 @@ export default function SoloPlayPage({ onNavigate }) {
                   onDoubleClick={() => handleCardDoubleClick(card)}
                 />
               ))}
-              {s.hand.length === 0 && <span className="text-amber-900/30 text-sm italic py-3 px-2">手札なし</span>}
+              {s.hand.length === 0 && <span className="text-white/20 text-sm italic py-3 px-2">手札なし</span>}
             </div>
           </div>
 
-          {/* トラッシュ（右下）*/}
-          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
-            style={{ width: SIDE_W }}>
-            <div className={P.label}>トラッシュ</div>
+          {/* トラッシュ（右下）— ファン表示 */}
+          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1.5`}
+            style={{ width: SIDE_W, borderColor: 'rgba(200,80,80,0.22)' }}>
+            <div className={`${P.label} flex items-center gap-1`}>
+              トラッシュ
+              {s.trash.length > 0 && (
+                <span className="text-red-300/70 font-black">({s.trash.length})</span>
+              )}
+            </div>
             {s.trash.length > 0 ? (
-              <div className="relative cursor-pointer" onClick={() => setShowTrash(true)}
-                title="クリックで一覧表示">
-                <CardImage card={s.trash[s.trash.length-1]}
-                  className="rounded-xl border border-amber-900/40 opacity-60 object-cover"
-                  style={{ width:80, height:112 }}/>
-                <div className="absolute -bottom-1 -right-1 bg-amber-900/80 text-amber-300 text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-amber-700/50">
-                  {s.trash.length}
+              <div
+                className="relative cursor-pointer group"
+                onClick={() => setShowTrash(true)}
+                title="クリックで一覧表示"
+                style={{
+                  width: TRASH_CARD.W + 20,
+                  height: TRASH_CARD.H + 16,
+                }}>
+                {/* ファン — 古い方から順に奥に */}
+                {s.trash.length >= 3 && (
+                  <div className="absolute rounded-xl overflow-hidden border border-white/15"
+                    style={{
+                      width: TRASH_CARD.W, height: TRASH_CARD.H,
+                      top: 10, left: 18,
+                      transform: 'rotate(8deg)',
+                      opacity: 0.55, zIndex: 1,
+                    }}>
+                    <CardImage card={s.trash[s.trash.length-3]} className="w-full h-full object-cover"/>
+                  </div>
+                )}
+                {s.trash.length >= 2 && (
+                  <div className="absolute rounded-xl overflow-hidden border border-white/20"
+                    style={{
+                      width: TRASH_CARD.W, height: TRASH_CARD.H,
+                      top: 5, left: 10,
+                      transform: 'rotate(4deg)',
+                      opacity: 0.75, zIndex: 2,
+                    }}>
+                    <CardImage card={s.trash[s.trash.length-2]} className="w-full h-full object-cover"/>
+                  </div>
+                )}
+                {/* 一番上（最新トラッシュ） */}
+                <div className="absolute rounded-xl overflow-hidden border-2 border-red-400/35"
+                  style={{
+                    width: TRASH_CARD.W, height: TRASH_CARD.H,
+                    top: 0, left: 0, zIndex: 3,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                  }}>
+                  <CardImage card={s.trash[s.trash.length-1]} className="w-full h-full object-cover"/>
+                  {/* ホバーオーバーレイ */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    style={{ background: 'rgba(0,0,0,0.45)' }}>
+                    <span className="text-white font-bold text-xs bg-black/40 px-2 py-1 rounded-lg">一覧を見る</span>
+                  </div>
                 </div>
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/40 rounded-xl">
-                  <span className="text-amber-300 text-[9px] font-bold">一覧</span>
+                {/* 枚数バッジ */}
+                <div className="absolute z-[10] font-black rounded-full flex items-center justify-center border-2"
+                  style={{
+                    bottom: 2, right: 2,
+                    width: 22, height: 22, fontSize: 10,
+                    background: '#991b1b', color: '#fca5a5',
+                    borderColor: '#ef4444',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
+                  }}>
+                  {s.trash.length}
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border-2 border-dashed border-amber-900/20 flex items-center justify-center"
-                style={{ width:80, height:112 }}>
-                <span className="text-amber-900/25 text-[9px]">0</span>
+              <div className="rounded-xl border-2 border-dashed border-white/15 flex flex-col items-center justify-center gap-1"
+                style={{ width: TRASH_CARD.W, height: TRASH_CARD.H }}>
+                <span className="text-white/20 text-xs">空</span>
               </div>
             )}
-            <div className="text-[8px] text-amber-800/40">クリックで一覧</div>
+            <div className="text-[9px] text-white/30">クリックで一覧</div>
           </div>
         </div>
       </div>
