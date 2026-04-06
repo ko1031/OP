@@ -62,7 +62,7 @@ export function cpuDecide(cpuSide, playerSide, turn) {
     for (let i = 0; i < remainingPlayerTargets.length; i++) {
       const tgt = remainingPlayerTargets[i];
       if (!tgt.tapped) continue; // アクティブ（起きている）キャラには攻撃不可
-      const defPow = (tgt.power || 0) + (tgt.donAttached || 0) * 1000;
+      const defPow = (tgt.power || 0); // CPUターン: 相手のDONパワーは無効
       if (atkPow >= defPow) {
         // 同パワーも攻撃側勝利
         attacks.push({
@@ -87,9 +87,9 @@ export function cpuDecide(cpuSide, playerSide, turn) {
   // リーダーアタック
   if (!leader.tapped && !leaderEffect?.leaderCannotAttack) {
     const ldrPow = (leader.power || 0) + (leader.donAttached || 0) * 1000;
-    // レスト状態で倒せるキャラがあれば狙う（アクティブキャラは攻撃不可）
+    // レスト状態で倒せるキャラがあれば狙う（アクティブキャラは攻撃不可、相手DON無効）
     const weakChar = remainingPlayerTargets.find(
-      t => t.tapped && ldrPow >= ((t.power || 0) + (t.donAttached || 0) * 1000)
+      t => t.tapped && ldrPow >= (t.power || 0)
     );
     if (weakChar) {
       attacks.push({

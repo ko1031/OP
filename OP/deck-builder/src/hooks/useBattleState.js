@@ -144,8 +144,9 @@ function startCpuAttackOnState(ns, pendingAttacks) {
       finalTargetUid = attack.targetUid;
     }
 
+    // CPUターン: CPUの攻撃側はDONパワー有効、プレイヤーの防御側はDONパワー無効
     const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
-    const defensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
+    const defensePower = (target.power || 0); // 防御側のDONパワーは無効（相手ターン）
     const targetName = targetType === 'leader' ? 'プレイヤーリーダー' : `「${target.name}」`;
     const logMsg = `CPU「${attacker.name}」(${attackPower}) が${targetName}(${defensePower})にアタック！`;
 
@@ -451,6 +452,7 @@ export function useBattleState() {
         if (!target.tapped) return addLog('アクティブ状態のキャラにはアタックできません', prev);
       }
 
+      // プレイヤーターン: プレイヤー攻撃側はDONパワー有効、CPU防御側はDONパワー無効
       const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
 
       // アタッカーをタップ
@@ -463,7 +465,7 @@ export function useBattleState() {
 
       let finalTargetUid = targetUid;
       let finalTargetType = targetType;
-      let finalDefensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
+      let finalDefensePower = (target.power || 0); // 防御側のDONパワーは無効（相手ターン）
       let ns = { ...prev, player: newPlayer };
 
       // ─ CPUブロッカーステップ（リーダーへの攻撃時のみ）───
@@ -477,7 +479,7 @@ export function useBattleState() {
             ns = { ...ns, cpu: c };
             finalTargetUid = blockerUid;
             finalTargetType = 'character';
-            finalDefensePower = (blocker.power || 0) + (blocker.donAttached || 0) * 1000;
+            finalDefensePower = (blocker.power || 0); // CPU防御側のDONパワーは無効（プレイヤーターン）
             ns = addLog(`CPU ブロッカー「${blocker.name}」(${finalDefensePower})で受ける！`, ns);
           }
         }
@@ -595,7 +597,7 @@ export function useBattleState() {
       if (blocker.tapped) return addLog('このキャラはすでにタップ済みです', prev);
 
       const newField = p.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x);
-      const defensePower = (blocker.power || 0) + (blocker.donAttached || 0) * 1000;
+      const defensePower = (blocker.power || 0); // プレイヤー防御側のDONパワーは無効（CPUターン）
 
       return addLog(`「${blocker.name}」でブロック！（防御力: ${defensePower}）`, {
         ...prev,
@@ -1156,6 +1158,55 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: 効果で手札からキャラを無料登場 ────────────────────
+  const playerPlayFromHandFree = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const idx = p.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = p.hand[idx];
+      if (card.card_type !== 'CHARACTER') return addLog('キャラカードのみ登場できます', prev);
+      if (p.field.length >= 5) return addLog('フィールドが満員です', prev);
+      const newHand = p.hand.filter((_, i) => i !== idx);
+      const newField = [...p.field, { ...card, tapped: false, donAttached: 0 }];
+      return addLog(`効果で「${card.name}」を登場！`, {
+        ...prev, player: { ...p, hand: newHand, field: newField },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 効果でトラッシュからキャラを登場 ────────────────────
+  const playerPlayFromTrashFree = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const idx = p.trash.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = p.trash[idx];
+      if (card.card_type !== 'CHARACTER') return addLog('キャラカードのみ登場できます', prev);
+      if (p.field.length >= 5) return addLog('フィールドが満員です', prev);
+      const newTrash = p.trash.filter((_, i) => i !== idx);
+      const newField = [...p.field, { ...card, tapped: false, donAttached: 0, faceDown: false }];
+      return addLog(`効果でトラッシュから「${card.name}」を登場！`, {
+        ...prev, player: { ...p, trash: newTrash, field: newField },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 効果でデッキトップをライフに追加 ──────────────────
+  const playerAddLife = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (p.deck.length === 0) return addLog('デッキにカードがありません', prev);
+      const [card, ...rest] = p.deck;
+      return addLog('デッキトップ1枚をライフに追加', {
+        ...prev, player: { ...p, deck: rest, life: [{ ...card, faceDown: true }, ...p.life] },
+      });
+    });
+  }, []);
+
   const resetBattle = useCallback(() => setState(null), []);
 
   return {
@@ -1205,6 +1256,9 @@ export function useBattleState() {
     playerUseSmokerAbility,
     playerUseAkainuAbility,
     playerAttachDonMulti,
+    playerPlayFromHandFree,
+    playerPlayFromTrashFree,
+    playerAddLife,
     resetBattle,
   };
 }

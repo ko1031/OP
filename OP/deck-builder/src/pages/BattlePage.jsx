@@ -47,7 +47,9 @@ const PHASES = [
 
 // ─── ユーティリティ ───────────────────────────────────────────────────
 function hasTrigger(card) { return /【トリガー】/.test(card?.effect || ''); }
-function calcPower(card) { return (card?.power || 0) + (card?.donAttached || 0) * 1000; }
+// DON!!パワーは自分のターンのみ有効
+// ownerTurn: そのカードの持ち主のターンかどうか
+function calcPower(card, ownerTurn = true) { return (card?.power || 0) + (ownerTurn ? (card?.donAttached || 0) * 1000 : 0); }
 
 // ─── Stat/Tag helpers ─────────────────────────────────────────────
 function Stat({ label, value, red }) {
@@ -114,7 +116,7 @@ function CardDetailModal({ card, onClose }) {
 }
 
 // ─── フィールドカード（一人回しGameCard準拠）─────────────────────────
-function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highlight, size = CARD, showPower = false }) {
+function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highlight, size = CARD, showPower = false, ownerTurn = true }) {
   const donCount = badge || card?.donAttached || 0;
   const visibleDon = Math.min(donCount, 4);
   const { W, H } = size;
@@ -164,7 +166,7 @@ function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highl
       </div>
       {showPower && card?.power && !faceDown && (
         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full border border-amber-700/40 whitespace-nowrap">
-          {calcPower(card).toLocaleString()}
+          {calcPower(card, ownerTurn).toLocaleString()}
         </div>
       )}
     </div>
@@ -382,15 +384,63 @@ function parseEntryEffect(effectText) {
   const m = effectText.match(/【登場時】([\s\S]*?)(?=【|$)/);
   const entryText = m ? m[1].trim() : '';
   const autoActions = [];
-  const drawM = entryText.match(/カード(\d+)枚を引く/);
-  if (drawM && !entryText.includes('場合') && !entryText.includes('ならば') && !entryText.includes('なら'))
-    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+
+  // DON!!コスト（ドン‼-N）
   const donCostM = entryText.match(/ドン‼[ーー−-](\d+)/);
   if (donCostM)
     autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
+
+  // ドロー
+  const drawM = entryText.match(/カード(\d+)枚を引/);
+  if (drawM && !entryText.includes('場合') && !entryText.includes('ならば') && !entryText.includes('なら'))
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+
+  // サーチ（デッキトップN枚を見る）
   const searchM = entryText.match(/デッキの上から(\d+)枚/);
   if (searchM)
     autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+
+  // 手札からキャラを登場させる
+  const playFromHandM = entryText.match(/手札から[^。]*?キャラカード[^。]*?登場させる/);
+  if (playFromHandM) {
+    // パワーやコスト制限を抽出
+    const powerLimitM = entryText.match(/パワー(\d+)以下/);
+    const costLimitM = entryText.match(/コスト(\d+)以下/);
+    const limit = powerLimitM ? { type:'power', value: parseInt(powerLimitM[1]) }
+                : costLimitM  ? { type:'cost',  value: parseInt(costLimitM[1]) } : null;
+    const limitLabel = limit ? (limit.type === 'power' ? `パワー${limit.value}以下` : `コスト${limit.value}以下`) : '';
+    autoActions.push({ id:'playFromHand', limit, icon:'⚔', label:`手札から${limitLabel}キャラを登場（選択）`, color:'text-green-300' });
+  }
+
+  // トラッシュからキャラを登場させる
+  const playFromTrashM = entryText.match(/トラッシュから[^。]*?キャラカード[^。]*?登場させる/);
+  if (playFromTrashM) {
+    const costLimitM = entryText.match(/コスト(\d+)以下/);
+    const limit = costLimitM ? { type:'cost', value: parseInt(costLimitM[1]) } : null;
+    const limitLabel = limit ? `コスト${limit.value}以下` : '';
+    autoActions.push({ id:'playFromTrash', limit, icon:'💀', label:`トラッシュから${limitLabel}キャラを登場（選択）`, color:'text-pink-300' });
+  }
+
+  // レストにする
+  const restM = entryText.match(/レストにする/);
+  if (restM)
+    autoActions.push({ id:'info', icon:'💤', label:'相手キャラをレストにする（手動操作）', color:'text-gray-400' });
+
+  // KOする
+  const koM = entryText.match(/KOする/);
+  if (koM)
+    autoActions.push({ id:'info', icon:'💀', label:'KO効果（手動操作）', color:'text-red-400' });
+
+  // ライフに加える
+  const lifeAddM = entryText.match(/ライフの上に加える/);
+  if (lifeAddM)
+    autoActions.push({ id:'addLife', icon:'❤️', label:'デッキトップ1枚をライフに追加（自動）', color:'text-red-300' });
+
+  // 速攻を得る
+  const rushM = entryText.match(/【速攻】を得る/);
+  if (rushM)
+    autoActions.push({ id:'info', icon:'⚡', label:'速攻を得る（このターンアタック可能）', color:'text-yellow-300' });
+
   return { entryText: entryText || effectText, autoActions };
 }
 
@@ -447,15 +497,71 @@ function parseActiveAbility(card) {
   return { abilityText, autoActions };
 }
 
+// ─── 効果からキャラ登場選択モーダル ──────────────────────────────────
+function PlayFromModal({ source, cards, limit, game, onDone }) {
+  // source: 'hand' or 'trash'
+  const filtered = cards.filter(c => {
+    if (c.card_type !== 'CHARACTER') return false;
+    if (!limit) return true;
+    if (limit.type === 'power') return (c.power || 0) <= limit.value;
+    if (limit.type === 'cost') return (c.cost || 0) <= limit.value;
+    return true;
+  });
+  const limitLabel = limit ? (limit.type === 'power' ? `パワー${limit.value}以下` : `コスト${limit.value}以下`) : '';
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-green-600/40 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-green-400 font-black text-base mb-1">
+            ⚔ {source === 'hand' ? '手札' : 'トラッシュ'}からキャラを登場
+          </div>
+          {limitLabel && <div className="text-green-300/60 text-xs">対象: {limitLabel}のキャラカード</div>}
+        </div>
+        {filtered.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4 max-h-[40vh] overflow-y-auto">
+            {filtered.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => {
+                  if (source === 'hand') game.playerPlayFromHandFree(card._uid);
+                  else game.playerPlayFromTrashFree(card._uid);
+                  onDone();
+                }}>
+                <div className="rounded-xl overflow-hidden border-2 border-green-500/50 group-hover:border-green-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-green-300/80 text-center max-w-[90px] truncate">{card.name}</div>
+                <div className="text-[8px] text-green-400/50">
+                  {card.cost != null ? `C${card.cost}` : ''} {card.power ? `P${card.power}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-600/50 text-sm py-4">対象のキャラカードがありません</div>
+        )}
+        <button onClick={onDone} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>スキップ（登場させない）</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── 効果モーダル（登場時）──────────────────────────────────────────
-function EntryEffectModal({ card, onActivate, onSkip, game }) {
+function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
   const handleActivate = () => {
+    // 即時自動実行アクション
     autoActions.forEach(a => {
       if (a.id === 'draw') game.playerDraw(a.count);
       if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
       if (a.id === 'search') game.playerBeginSearch(a.count);
+      if (a.id === 'addLife') game.playerAddLife();
     });
+    // 連鎖効果（手札/トラッシュから登場）があれば、サーチ解決後にモーダルを出す
+    const chainPlay = autoActions.find(a => a.id === 'playFromHand' || a.id === 'playFromTrash');
+    if (chainPlay && onChainPlay) {
+      onChainPlay(chainPlay);
+    }
     onActivate();
   };
   return (
@@ -859,7 +965,7 @@ function BlockerModal({ attackState, playerField, onBlock, onPass }) {
                   style={{ width: 80, height: 112 }}>
                   <CardImage card={card} className="w-full h-full object-cover" />
                 </div>
-                <div className="text-[9px] text-amber-300 font-black">{calcPower(card).toLocaleString()}</div>
+                <div className="text-[9px] text-amber-300 font-black">{calcPower(card, false).toLocaleString()}</div>
               </div>
             ))}
           </div>
@@ -1134,6 +1240,7 @@ export default function BattlePage({ onNavigate }) {
   const [phaseError, setPhaseError] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const [pendingChainPlay, setPendingChainPlay] = useState(null); // { id:'playFromHand'|'playFromTrash', limit }
 
   const isCpuTurn = state?.activePlayer === 'cpu';
   const isMyTurn  = state?.activePlayer === 'player';
@@ -1442,7 +1549,7 @@ export default function BattlePage({ onNavigate }) {
             {/* CPUリーダー */}
             <div className="flex flex-col items-center gap-0.5">
               <div className="text-[8px] text-blue-400/60 font-bold">LEADER</div>
-              <GameCard card={cs.leader} tapped={cs.leader.tapped} size={CC} showPower
+              <GameCard card={cs.leader} tapped={cs.leader.tapped} size={CC} showPower ownerTurn={isCpuTurn}
                 highlight={isSelectingTarget ? 'target' : null}
                 onClick={() => isSelectingTarget && handleTargetSelect('cpu-leader')}/>
             </div>
@@ -1454,7 +1561,7 @@ export default function BattlePage({ onNavigate }) {
                 const canTarget = isSelectingTarget && card.tapped;
                 return (
                   <div key={card._uid} className="flex flex-col items-center gap-0.5">
-                    <GameCard card={card} tapped={card.tapped} size={CC} showPower
+                    <GameCard card={card} tapped={card.tapped} size={CC} showPower ownerTurn={isCpuTurn}
                       highlight={canTarget ? 'target' : (isSelectingTarget && !card.tapped ? null : null)}
                       onClick={() => canTarget ? handleTargetSelect(card._uid) : (isSelectingTarget && !card.tapped ? showPhaseError('アクティブ状態のキャラにはアタックできません') : null)}/>
                     {isSelectingTarget && !card.tapped && (
@@ -1520,7 +1627,7 @@ export default function BattlePage({ onNavigate }) {
                           onDragOver={e => { if (isValidDrop(`field-card-${card._uid}`)) { e.preventDefault(); e.stopPropagation(); setDragOver(`field-card-${card._uid}`); } }}
                           onDragLeave={e => { e.stopPropagation(); setDragOver(null); }}
                           onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}>
-                          <GameCard card={card} tapped={card.tapped} badge={card.donAttached}
+                          <GameCard card={card} tapped={card.tapped} badge={card.donAttached} ownerTurn={isMyTurn}
                             highlight={isAttacker ? 'attacker' : null}
                             onClick={() => {
                               if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card, context: 'field' });
@@ -1571,7 +1678,7 @@ export default function BattlePage({ onNavigate }) {
                 onDrop={e => { e.preventDefault(); handleDrop('leader'); }}>
                 <div className={P.label}>リーダー</div>
                 <div className="flex-1 flex items-center justify-center">
-                  <GameCard card={ps.leader} tapped={ps.leader.tapped} badge={ps.leader.donAttached}
+                  <GameCard card={ps.leader} tapped={ps.leader.tapped} badge={ps.leader.donAttached} ownerTurn={isMyTurn}
                     highlight={selectedAttackerUid === 'p-leader' ? 'attacker' : null}
                     onClick={() => {
                       if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card: ps.leader, context: 'leader' });
@@ -1813,11 +1920,24 @@ export default function BattlePage({ onNavigate }) {
       )}
 
       {/* 登場時効果 */}
-      {pendingEntryEffect && <EntryEffectModal card={pendingEntryEffect} game={game} onActivate={() => setPendingEntryEffect(null)} onSkip={() => setPendingEntryEffect(null)}/>}
+      {pendingEntryEffect && <EntryEffectModal card={pendingEntryEffect} game={game}
+        onActivate={() => setPendingEntryEffect(null)}
+        onSkip={() => setPendingEntryEffect(null)}
+        onChainPlay={(chainAction) => setPendingChainPlay(chainAction)}/>}
       {/* アタック時効果 */}
       {pendingAttackEffect && <AttackEffectModal card={pendingAttackEffect} game={game} onActivate={() => setPendingAttackEffect(null)} onSkip={() => setPendingAttackEffect(null)}/>}
       {/* イベント効果 */}
       {pendingEventEffect && <EventEffectModal card={pendingEventEffect} game={game} onActivate={() => setPendingEventEffect(null)} onSkip={() => setPendingEventEffect(null)}/>}
+
+      {/* 効果連鎖: 手札/トラッシュからキャラ登場 */}
+      {pendingChainPlay && (ps.searchReveal?.length || 0) === 0 && (
+        <PlayFromModal
+          source={pendingChainPlay.id === 'playFromHand' ? 'hand' : 'trash'}
+          cards={pendingChainPlay.id === 'playFromHand' ? ps.hand : ps.trash}
+          limit={pendingChainPlay.limit}
+          game={game}
+          onDone={() => setPendingChainPlay(null)}/>
+      )}
 
       {/* リーダー起動メイン効果 */}
       {showLeaderAbilityModal && ps.leaderEffect && (
