@@ -1127,7 +1127,7 @@ export default function SoloPlayPage({ onNavigate }) {
   //    └ フェーズ(flex:6) + DON!!デッキ(flex:2) 縦積み
   //  右セクション（行1〜3）:
   //    行1[flex:3]: CHARACTER
-  //    行2[flex:3]: LEADER | STAGE(flex) | DECK(DECK_TRASH_W)
+  //    行2[flex:3]: LEADER(flex) | STAGE(LEFT_COL_W固定) | DECK(DECK_TRASH_W)
   //    行3[flex:2]: COST(flex) | TRASH(DECK_TRASH_W)
   //  行4[flex:2]: HAND（フル幅）
   // ─────────────────────────────────────────────────────
@@ -1227,7 +1227,7 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
             </div>
 
-            {/* 行2 [flex:3]: フェーズ | リーダー | ステージ(flex) | デッキ */}
+            {/* 行2 [flex:3]: フェーズ | リーダー(flex) | ステージ(固定) | デッキ */}
             <div className="flex gap-1.5 min-h-0 overflow-visible" style={{ flex: 3 }}>
 
               {/* フェーズパネル（行2のみ — 行1分短くなる） */}
@@ -1253,9 +1253,9 @@ export default function SoloPlayPage({ onNavigate }) {
                 </button>
               </div>
 
-              {/* リーダー */}
-              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 overflow-visible`}
-                style={{ width: LEADER_PAN_W, borderColor: 'rgba(255,220,80,0.22)' }}>
+              {/* リーダー（flex — 中央配置） */}
+              <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 overflow-visible min-w-0`}
+                style={{ borderColor: 'rgba(255,220,80,0.22)' }}>
                 <div className={P.label}>リーダー</div>
                 <div className="relative flex-1 flex items-center justify-center">
                   <GameCard
@@ -1276,9 +1276,9 @@ export default function SoloPlayPage({ onNavigate }) {
                 </div>
               </div>
 
-              {/* ステージ（flex-1） */}
-              <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 min-w-0`}
-                style={{ borderColor: 'rgba(180,80,220,0.22)' }}>
+              {/* ステージ（固定幅 — ライフ列と同じ） */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(180,80,220,0.22)' }}>
                 <div className={P.label}>ステージ</div>
                 <div className="flex-1 flex items-center justify-center">
                   {s.stage ? (
