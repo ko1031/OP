@@ -430,6 +430,19 @@ function SearchModal({ revealed, onResolve, onCancel }) {
     }
   };
 
+  // 全てのカードを同じ行き先に一括設定
+  const setAllDest = (destVal) => {
+    const newDest = {};
+    revealed.forEach(c => { newDest[c._uid] = destVal; });
+    setDest(newDest);
+    if (destVal === 'top') {
+      // revealed[0]が一番上に来るよう、一番後に選んだ扱いにする
+      setTopOrder(revealed.map(c => c._uid).reverse());
+    } else {
+      setTopOrder([]);
+    }
+  };
+
   const handleConfirm = () => {
     const toHand   = revealed.filter(c => dest[c._uid] === 'hand').map(c => c._uid);
     // topOrder は「先に選んだ = 下」なので toDeckTop[0] が一番上 = 後から追加したもの
@@ -564,7 +577,24 @@ function SearchModal({ revealed, onResolve, onCancel }) {
         )}
 
         {/* フッターボタン */}
-        <div className="flex items-center gap-3 px-5 py-3 border-t border-amber-900/30">
+        <div className="flex flex-col gap-2 px-5 py-3 border-t border-amber-900/30">
+          {/* 一括操作ボタン */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-amber-600/50 flex-shrink-0">一括：</span>
+            <button onClick={() => setAllDest('hand')}
+              className="text-[10px] px-3 py-1 rounded-lg border font-bold bg-emerald-900/40 border-emerald-700/50 text-emerald-200 hover:bg-emerald-800/50 transition-all">
+              全て手札
+            </button>
+            <button onClick={() => setAllDest('bottom')}
+              className="text-[10px] px-3 py-1 rounded-lg border font-bold bg-purple-900/40 border-purple-700/50 text-purple-200 hover:bg-purple-800/50 transition-all">
+              全てデッキ下
+            </button>
+            <button onClick={() => setAllDest('top')}
+              className="text-[10px] px-3 py-1 rounded-lg border font-bold bg-blue-900/40 border-blue-700/50 text-blue-200 hover:bg-blue-800/50 transition-all">
+              全てデッキ上
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
           <div className="text-[10px] text-amber-600/50 flex-1">
             {revealed.filter(c=>dest[c._uid]===null).length > 0
               ? `⚠ あと ${revealed.filter(c=>dest[c._uid]===null).length} 枚未選択`
@@ -584,6 +614,7 @@ function SearchModal({ revealed, onResolve, onCancel }) {
             }`}>
             ✓ 決定
           </button>
+          </div>
         </div>
       </div>
 
@@ -712,6 +743,13 @@ function parseEntryEffect(effectText) {
       icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
   }
 
+  // ── サーチ: 「デッキの上からN枚」
+  const searchM = entryText.match(/デッキの上から(\d+)枚/);
+  if (searchM) {
+    autoActions.push({ id:'search', count: parseInt(searchM[1]),
+      icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  }
+
   return { entryText: entryText || effectText, autoActions };
 }
 
@@ -731,6 +769,10 @@ function parseAttackEffect(card) {
   if (donCostM) {
     autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す`, color:'text-yellow-300' });
   }
+  const searchM = body.match(/デッキの上から(\d+)枚/);
+  if (searchM) {
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  }
   return { attackText, autoActions };
 }
 
@@ -746,7 +788,34 @@ function parseEventEffect(card) {
   if (donCostM) {
     autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
   }
+  const searchM = effectText.match(/デッキの上から(\d+)枚/);
+  if (searchM) {
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  }
   return { effectText, autoActions };
+}
+
+// ─── 起動メイン効果パーサー ──────────────────────
+function parseActiveAbility(card) {
+  const effectText = card?.effect || '';
+  const match = effectText.match(/【起動メイン[^】]*】([\s\S]*?)(?=【|$)/);
+  if (!match) return { abilityText: null, autoActions: [] };
+  const abilityText = match[0].trim();
+  const body = match[1].trim();
+  const autoActions = [];
+  const drawM = body.match(/カード(\d+)枚を引く/);
+  if (drawM && !body.includes('場合') && !body.includes('ならば')) {
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  }
+  const donRetM = body.match(/ドン‼[ーー−-](\d+)/);
+  if (donRetM) {
+    autoActions.push({ id:'donReturn', count: parseInt(donRetM[1]), icon:'💛', label:`DON!!×${donRetM[1]}枚をデッキに戻す`, color:'text-yellow-300' });
+  }
+  const searchM = body.match(/デッキの上から(\d+)枚/);
+  if (searchM) {
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ`, color:'text-purple-300' });
+  }
+  return { abilityText, autoActions };
 }
 
 // ─── 登場時効果モーダル ──────────────────────────
@@ -757,6 +826,7 @@ function EntryEffectModal({ card, onActivate, onSkip, game }) {
     autoActions.forEach(a => {
       if (a.id === 'draw')      game.drawCard(a.count);
       if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
+      if (a.id === 'search')    game.beginSearch(a.count);
     });
     onActivate();
   };
@@ -830,6 +900,7 @@ function AttackEffectModal({ card, onActivate, onSkip, game }) {
     autoActions.forEach(a => {
       if (a.id === 'draw')      game.drawCard(a.count);
       if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
+      if (a.id === 'search')    game.beginSearch(a.count);
     });
     onActivate();
   };
@@ -880,6 +951,7 @@ function EventEffectModal({ card, onActivate, onSkip, game }) {
     autoActions.forEach(a => {
       if (a.id === 'draw')      game.drawCard(a.count);
       if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
+      if (a.id === 'search')    game.beginSearch(a.count);
     });
     onActivate();
   };
@@ -1026,6 +1098,58 @@ function LeaderAbilityModal({ leaderEffect, leaderName, onConfirm, onCancel }) {
         <div className="flex gap-2.5">
           <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">キャンセル</button>
           <button onClick={onConfirm} className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md shadow-amber-900/40 transition-all">⚡ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── キャラクター起動メインモーダル ──────────────
+function CharActiveModal({ card, onActivate, onSkip, game }) {
+  const { abilityText, autoActions } = parseActiveAbility(card);
+  if (!abilityText) return null;
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw')      game.drawCard(a.count);
+      if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
+      if (a.id === 'search')    game.beginSearch(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0">
+            <Zap size={15} className="text-amber-300"/>
+          </div>
+          <div>
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">起動メイン効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+            {card?.power != null && <div className="text-amber-700/60 text-[10px]">パワー{card.power?.toLocaleString()}</div>}
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-amber-900/25 mb-3">
+          <div className="text-[9px] text-amber-600/50 uppercase tracking-wider mb-1.5">【起動メイン】</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{abilityText}</div>
+        </div>
+        {autoActions.length > 0 ? (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (
+              <div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}>
+                <span>{a.icon}</span><span>{a.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">⚠ この効果はゲームボードで手動操作が必要です。</div>
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">発動しない</button>
+          <button onClick={handleActivate} className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md shadow-amber-900/40 transition-all">⚡ 発動する</button>
         </div>
       </div>
     </div>
@@ -1217,6 +1341,8 @@ export default function SoloPlayPage({ onNavigate }) {
   const [pendingEventEffect,  setPendingEventEffect]  = useState(null); // イベント効果待ち
   const [showLeaderAbilityModal, setShowLeaderAbilityModal] = useState(false); // リーダー効果確認
   const [charSelectInfo, setCharSelectInfo] = useState(null); // キャラ選択モーダル情報
+  const [pendingCharAbility, setPendingCharAbility] = useState(null); // キャラ起動メイン効果待ち
+  const [phaseError, setPhaseError] = useState(null); // フェーズエラーメッセージ
   const [dragInfo,  setDragInfo]  = useState(null);  // ドラッグ中カード情報 { card, context }
   const [dragOver,  setDragOver]  = useState(null);  // ホバー中ドロップゾーン名
 
@@ -1332,6 +1458,15 @@ export default function SoloPlayPage({ onNavigate }) {
     if (!selectedCard) return;
     const { card, uid } = selectedCard;
     if (actionId === 'detail') { setDetailCard(card); return; }
+
+    // フェーズチェック
+    const phaseErrMsg = getPhaseActionError(actionId, state?.subPhase);
+    if (phaseErrMsg) {
+      showPhaseError(phaseErrMsg);
+      setSelectedCard(null);
+      return;
+    }
+
     switch (actionId) {
       case 'play': {
         game.playToField(uid);
@@ -1378,6 +1513,39 @@ export default function SoloPlayPage({ onNavigate }) {
       case 'trash-to-hand':      game.returnTrashToHand(uid); break;
     }
     setSelectedCard(null);
+  };
+
+  // ─── フェーズエラーチェック ───
+  const showPhaseError = (msg) => {
+    setPhaseError(msg);
+    setTimeout(() => setPhaseError(null), 2800);
+  };
+
+  const getPhaseActionError = (actionId, phase) => {
+    if (!phase || phase === 'main') return null;
+    const phaseNames = { refresh:'リフレッシュ', draw:'ドロー', don:'DON!!', end:'エンド' };
+    const actionLabels = {
+      play:'キャラを登場させる', stage:'ステージをセット', event:'イベントを使用する',
+      tap:'アタックする', 'tap-leader':'リーダーでアタックする',
+      'attach-don':'DON!!を付与する', 'attach-don-leader':'リーダーにDON!!を付与する',
+    };
+    const blocked = {
+      refresh: ['play','stage','event','tap','tap-leader','attach-don','attach-don-leader'],
+      draw:    ['play','stage','event','tap','tap-leader','attach-don','attach-don-leader'],
+      don:     ['tap','tap-leader'],
+      end:     ['play','stage','event','tap','tap-leader'],
+    };
+    if ((blocked[phase] || []).includes(actionId)) {
+      return `${phaseNames[phase]}フェーズでは「${actionLabels[actionId] || actionId}」はできません`;
+    }
+    return null;
+  };
+
+  // ─── キャラ起動メイン発動 ───
+  const handleCharActiveAbility = (card) => {
+    const err = getPhaseActionError('char-active', state?.subPhase);
+    // 起動メインはメインフェーズのみ（ただし厳密チェックはしない）
+    setPendingCharAbility(card);
   };
 
   // リーダー効果確認モーダルで「発動する」押下時
@@ -1583,22 +1751,39 @@ export default function SoloPlayPage({ onNavigate }) {
                     {dragInfo?.context === 'hand' && dragInfo.card.card_type === 'CHARACTER' && ' / ここにドロップで場に出す'}
                   </span>
                 </div>
-                <div className="flex gap-2 items-end overflow-x-auto overflow-y-visible flex-1 pb-1">
-                  {s.field.map(card => (
-                    <div key={card._uid}
-                      style={dzStyle(`field-card-${card._uid}`)}
-                      className="rounded-xl"
-                      onDragOver={(e) => { if (isValidDrop(`field-card-${card._uid}`)) { e.preventDefault(); e.stopPropagation(); setDragOver(`field-card-${card._uid}`); } }}
-                      onDragLeave={(e) => { e.stopPropagation(); setDragOver(null); }}
-                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}
-                    >
-                    <GameCard card={card} tapped={card.tapped} badge={card.donAttached}
-                      highlight={selectedCard?.uid === card._uid}
-                      onClick={() => handleCardClick(card, 'field', card._uid)}
-                      onDoubleClick={() => handleCardDoubleClick(card)}
-                    />
-                    </div>
-                  ))}
+                <div className="flex gap-4 items-end overflow-x-auto overflow-y-visible flex-1 pb-1 justify-center px-2">
+                  {s.field.map(card => {
+                    const donPad = (card.donAttached || 0) > 0
+                      ? Math.min(card.donAttached, 4) * 16 + 32 : 0;
+                    const hasActive = /【起動メイン】/.test(card.effect || '');
+                    return (
+                      <div key={card._uid}
+                        className="flex flex-col items-center gap-1 flex-shrink-0"
+                        style={{ paddingRight: donPad }}>
+                        <div
+                          style={dzStyle(`field-card-${card._uid}`)}
+                          className="rounded-xl"
+                          onDragOver={(e) => { if (isValidDrop(`field-card-${card._uid}`)) { e.preventDefault(); e.stopPropagation(); setDragOver(`field-card-${card._uid}`); } }}
+                          onDragLeave={(e) => { e.stopPropagation(); setDragOver(null); }}
+                          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}
+                        >
+                          <GameCard card={card} tapped={card.tapped} badge={card.donAttached}
+                            highlight={selectedCard?.uid === card._uid}
+                            onClick={() => handleCardClick(card, 'field', card._uid)}
+                            onDoubleClick={() => handleCardDoubleClick(card)}
+                          />
+                        </div>
+                        {/* 起動メインボタン */}
+                        {hasActive && (
+                          <button onClick={() => handleCharActiveAbility(card)}
+                            style={{ width: CARD.W }}
+                            className={`py-1 rounded-lg font-black text-[9px] ${P.btnGold} flex items-center justify-center gap-0.5 border`}>
+                            <Zap size={8}/> 起動メイン
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                   {Array.from({ length: Math.max(0, 5 - s.field.length) }).map((_, i) => <EmptySlot key={i}/>)}
                 </div>
               </div>
@@ -1649,10 +1834,11 @@ export default function SoloPlayPage({ onNavigate }) {
                     onDoubleClick={() => handleCardDoubleClick(s.leader)}
                   />
                 </div>
-                {/* リーダー効果ボタン（大・センタリング） */}
+                {/* リーダー効果ボタン（リーダーカード幅×1.5・センタリング） */}
                 {s.leaderEffect?.hasActiveAbility && (
                   <button onClick={() => setShowLeaderAbilityModal(true)}
-                    className={`w-full py-2.5 rounded-xl font-black text-xs ${P.btnGold} flex items-center justify-center gap-1.5 shadow-lg`}>
+                    style={{ width: CARD.W * 1.5 }}
+                    className={`py-2.5 rounded-xl font-black text-xs ${P.btnGold} flex items-center justify-center gap-1.5 shadow-lg`}>
                     <Zap size={13}/> 起動メイン効果
                   </button>
                 )}
@@ -1923,6 +2109,16 @@ export default function SoloPlayPage({ onNavigate }) {
         />
       )}
 
+      {/* ─── フェーズエラートースト ─── */}
+      {phaseError && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[90] pointer-events-none">
+          <div className="bg-red-950/97 border-2 border-red-500/80 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-3 backdrop-blur-sm">
+            <span className="text-red-300 text-lg flex-shrink-0">⚠</span>
+            <div className="text-red-200 font-bold text-sm">{phaseError}</div>
+          </div>
+        </div>
+      )}
+
       {/* ─── トリガー発動トースト ─── */}
       {triggerToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[80] pointer-events-none animate-bounce">
@@ -2005,6 +2201,16 @@ export default function SoloPlayPage({ onNavigate }) {
           info={charSelectInfo}
           onConfirm={handleCharSelectConfirm}
           onCancel={() => setCharSelectInfo(null)}
+        />
+      )}
+
+      {/* ─── キャラ起動メインモーダル ─── */}
+      {pendingCharAbility && (
+        <CharActiveModal
+          card={pendingCharAbility}
+          game={game}
+          onActivate={() => setPendingCharAbility(null)}
+          onSkip={() => setPendingCharAbility(null)}
         />
       )}
 
