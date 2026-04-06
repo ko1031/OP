@@ -327,6 +327,7 @@ function ActionMenu({ card, context, onAction, onClose }) {
   }
   if (context === 'field') {
     actions.push({ id:'tap', label: card.tapped ? '↩ アンタップ' : '⚔ タップ（アタック）' });
+    if (/【起動メイン/.test(card.effect || '')) actions.push({ id:'char-active', label:'⚡ 起動メイン効果を発動' });
     actions.push({ id:'attach-don', label:'💛 DON!!アタッチ +1' });
     if ((card.donAttached||0) > 0) actions.push({ id:'detach-don', label:`💛 DON!!を外す（現在+${card.donAttached}）` });
     actions.push({ id:'deck-top', label:'⬆ デッキトップに戻す' });
@@ -411,6 +412,25 @@ function parseEventEffect(card) {
   if (searchM)
     autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
   return { effectText, autoActions };
+}
+
+function parseActiveAbility(card) {
+  const effectText = card?.effect || '';
+  const match = effectText.match(/【起動メイン[^】]*】([\s\S]*?)(?=【|$)/);
+  if (!match) return { abilityText: null, autoActions: [] };
+  const abilityText = match[0].trim();
+  const body = match[1].trim();
+  const autoActions = [];
+  const drawM = body.match(/カード(\d+)枚を引く/);
+  if (drawM && !body.includes('場合') && !body.includes('ならば'))
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  const donRetM = body.match(/ドン‼[ーー−-](\d+)/);
+  if (donRetM)
+    autoActions.push({ id:'donReturn', count: parseInt(donRetM[1]), icon:'💛', label:`DON!!×${donRetM[1]}枚をデッキに戻す`, color:'text-yellow-300' });
+  const searchM = body.match(/デッキの上から(\d+)枚/);
+  if (searchM)
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ`, color:'text-purple-300' });
+  return { abilityText, autoActions };
 }
 
 // ─── 効果モーダル（登場時）──────────────────────────────────────────
@@ -534,6 +554,158 @@ function EventEffectModal({ card, onActivate, onSkip, game }) {
           <button onClick={handleActivate} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnBlue}`}>📜 発動する</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── CharacterSelectModal（リーダー能力キャラ選択）────────────────────
+function CharacterSelectModal({ field, info, onConfirm, onCancel }) {
+  const [chosen, setChosen] = useState([]);
+  const { mode, maxSelect, donPerChar, label } = info;
+  const toggle = (uid) => {
+    if (mode === 'single') { setChosen([uid]); }
+    else { chosen.includes(uid) ? setChosen(c => c.filter(id => id !== uid)) : chosen.length < maxSelect && setChosen(c => [...c, uid]); }
+  };
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0"><span className="text-amber-300 text-base">⚡</span></div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">キャラクター選択</div>
+            <div className="text-amber-200 text-sm leading-tight">{label}</div>
+            {mode === 'multi' && <div className="text-[10px] text-amber-700/60">{chosen.length}/{maxSelect}枚選択中</div>}
+          </div>
+          <button onClick={onCancel}><X size={14} className="text-amber-800/60 hover:text-amber-400"/></button>
+        </div>
+        {field.length === 0 ? (
+          <div className="text-amber-600/60 text-sm text-center py-6">フィールドにキャラクターがいません</div>
+        ) : (
+          <div className="flex flex-wrap gap-3 justify-center mb-4">
+            {field.map(card => {
+              const sel = chosen.includes(card._uid);
+              return (
+                <button key={card._uid} onClick={() => toggle(card._uid)}
+                  className={`relative rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-105
+                    ${sel ? 'border-amber-400 shadow-amber-400/60 shadow-lg scale-105' : 'border-white/20 hover:border-amber-500/60'}`}
+                  style={{ width: CARD.W, height: CARD.H }}>
+                  <CardImage card={card} className="w-full h-full object-cover"/>
+                  {sel && <div className="absolute inset-0 bg-amber-400/25 flex items-center justify-center"><span className="text-amber-200 font-black text-3xl drop-shadow-lg">✓</span></div>}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-1 pb-1 pt-3">
+                    <span className="text-[9px] text-amber-200 font-bold truncate block">{card.name}</span>
+                  </div>
+                  {(card.donAttached||0) > 0 && <div className="absolute top-1 right-1 bg-amber-500 text-gray-900 text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center">+{card.donAttached}</div>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">キャンセル</button>
+          <button onClick={() => chosen.length > 0 && onConfirm(chosen, donPerChar)} disabled={chosen.length === 0}
+            className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md disabled:opacity-40 transition-all">
+            ⚡ 確定（{chosen.length}枚）
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LeaderAbilityModal（リーダー起動メイン効果確認）────────────────
+function LeaderAbilityModal({ leaderEffect, leaderName, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[58] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onCancel}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0"><Zap size={16} className="text-amber-300"/></div>
+          <div>
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">起動メイン効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{leaderName}</div>
+          </div>
+        </div>
+        {leaderEffect.note && <div className="bg-amber-900/20 rounded-xl p-3 border border-amber-800/25 mb-3"><div className="text-amber-200/80 text-[10px] leading-relaxed">{leaderEffect.note}</div></div>}
+        {leaderEffect.activeAbility && <div className="bg-[#131d45]/70 rounded-xl p-3 border border-amber-900/20 mb-4"><div className="text-[9px] text-amber-600/50 uppercase tracking-wider mb-1">効果</div><div className="text-amber-100/90 text-[11px] leading-relaxed">{leaderEffect.activeAbility}</div></div>}
+        <div className="flex gap-2.5">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">キャンセル</button>
+          <button onClick={onConfirm} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnGold}`}>⚡ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CharActiveModal（キャラ起動メイン効果）─────────────────────────
+function CharActiveModal({ card, onActivate, onSkip, game }) {
+  const { abilityText, autoActions } = parseActiveAbility(card);
+  if (!abilityText) return null;
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw')      game.playerDraw(a.count);
+      if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
+      if (a.id === 'search')    game.playerBeginSearch(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0"><Zap size={15} className="text-amber-300"/></div>
+          <div>
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">起動メイン効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+            {card?.power != null && <div className="text-amber-700/60 text-[10px]">パワー{card.power?.toLocaleString()}</div>}
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-amber-900/25 mb-3">
+          <div className="text-[9px] text-amber-600/50 uppercase tracking-wider mb-1.5">【起動メイン】</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{abilityText}</div>
+        </div>
+        {autoActions.length > 0 ? (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (<div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}><span>{a.icon}</span><span>{a.label}</span></div>))}
+          </div>
+        ) : (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">⚠ この効果はゲームボードで手動操作が必要です。</div>
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">発動しない</button>
+          <button onClick={handleActivate} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnGold}`}>⚡ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LeaderEffectBadge（リーダー効果バッジ）─────────────────────────
+function LeaderEffectBadge({ leaderEffect, leaderName, onUseAbility }) {
+  const [open, setOpen] = useState(false);
+  if (!leaderEffect?.note && !leaderEffect?.hasActiveAbility) return null;
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border border-amber-700/40 bg-black/60 text-amber-400 hover:bg-amber-800/40 transition-all backdrop-blur-sm">
+        <Zap size={9} /> 効果
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-1 z-[50] bg-[#0a0f24] border border-amber-700/40 rounded-xl p-3 shadow-2xl w-72">
+          <div className="text-amber-400 text-[10px] font-bold mb-2 flex items-center justify-between">
+            <span>⚡ {leaderName}</span>
+            <button onClick={() => setOpen(false)}><X size={12} className="text-amber-800/60 hover:text-amber-400" /></button>
+          </div>
+          {leaderEffect.note && <div className="text-amber-200/80 text-[10px] leading-relaxed mb-2 bg-amber-900/20 rounded-lg p-2">{leaderEffect.note}</div>}
+          {leaderEffect.activeAbility && <div className="text-amber-300/70 text-[10px] leading-relaxed mb-2 bg-[#131d45]/60 rounded-lg p-2">{leaderEffect.activeAbility}</div>}
+          {leaderEffect.hasActiveAbility && onUseAbility && (
+            <button onClick={() => { onUseAbility(); setOpen(false); }} className={`w-full text-[10px] px-2 py-1.5 rounded-lg font-bold mt-1 ${P.btnGold}`}>
+              ⚡ 起動メイン効果を発動
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -942,6 +1114,12 @@ export default function BattlePage({ onNavigate }) {
   const [pendingEntryEffect, setPendingEntryEffect] = useState(null);
   const [pendingAttackEffect, setPendingAttackEffect] = useState(null);
   const [pendingEventEffect, setPendingEventEffect] = useState(null);
+  const [showLeaderAbilityModal, setShowLeaderAbilityModal] = useState(false);
+  const [charSelectInfo, setCharSelectInfo] = useState(null);
+  const [pendingCharAbility, setPendingCharAbility] = useState(null);
+  const [phaseError, setPhaseError] = useState(null);
+  const [dragInfo, setDragInfo] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
 
   const isCpuTurn = state?.activePlayer === 'cpu';
   const isMyTurn  = state?.activePlayer === 'player';
@@ -963,6 +1141,112 @@ export default function BattlePage({ onNavigate }) {
   }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length]);
 
   useEffect(() => { if (isCpuTurn) { setAttackMode(null); setSelectedAttackerUid(null); } }, [isCpuTurn]);
+
+  // ─── キーボードショートカット ─────────────────────────────────────
+  useEffect(() => {
+    if (!state || state.phase !== 'game') return;
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') { e.preventDefault(); if (isMyTurn) game.advancePhase(); }
+      if (e.code === 'KeyD' && !e.ctrlKey && !e.metaKey) game.playerDraw(1);
+      if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey) game.playerShuffleDeck();
+      if (e.code === 'Escape') { setActionMenu(null); setDetailCard(null); setShowTrash(false); setAttackMode(null); setSelectedAttackerUid(null); setDragInfo(null); setDragOver(null); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [state, game, isMyTurn]);
+
+  // ─── フェーズエラーチェック ─────────────────────────────────────────
+  const showPhaseError = (msg) => { setPhaseError(msg); setTimeout(() => setPhaseError(null), 2800); };
+  const getPhaseActionError = (actionId, phase) => {
+    if (!phase || phase === 'main') return null;
+    const phaseNames = { refresh:'リフレッシュ', draw:'ドロー', don:'DON!!', end:'エンド' };
+    const actionLabels = { play:'キャラを登場させる', stage:'ステージをセット', event:'イベントを使用する', tap:'アタックする', 'tap-leader':'リーダーでアタックする', 'attach-don':'DON!!を付与する', 'attach-don-leader':'リーダーにDON!!を付与する' };
+    const blocked = { refresh:['play','stage','event','tap','tap-leader','attach-don','attach-don-leader'], draw:['play','stage','event','tap','tap-leader','attach-don','attach-don-leader'], don:['tap','tap-leader'], end:['play','stage','event','tap','tap-leader'] };
+    if ((blocked[phase] || []).includes(actionId)) return `${phaseNames[phase]}フェーズでは「${actionLabels[actionId] || actionId}」はできません`;
+    return null;
+  };
+
+  // ─── D&D: ドロップゾーン判定 ──────────────────────────────────────
+  const isValidDrop = (zone) => {
+    if (!dragInfo) return false;
+    const { context, card } = dragInfo;
+    if (context === 'hand') {
+      if (zone === 'field') return card.card_type === 'CHARACTER';
+      if (zone === 'stage') return card.card_type === 'STAGE';
+      if (zone === 'event') return card.card_type === 'EVENT';
+      if (zone === 'trash') return true;
+      if (zone === 'deck') return true;
+    }
+    if (context === 'don-active') {
+      if (zone === 'leader') return true;
+      if (zone.startsWith('field-card-')) return true;
+    }
+    return false;
+  };
+  const dzStyle = (zone) => {
+    if (!isValidDrop(zone)) return {};
+    const hovered = dragOver === zone;
+    return { outline: hovered ? '2px solid rgba(245,215,142,0.9)' : '2px dashed rgba(245,215,142,0.45)', outlineOffset: '-2px', filter: hovered ? 'brightness(1.18)' : 'brightness(1.06)', transition: 'outline 0.1s, filter 0.1s' };
+  };
+  const handleDrop = (zone, extraUid = null) => {
+    if (!dragInfo) return;
+    const { context, card } = dragInfo;
+    if (context === 'hand') {
+      if (zone === 'field' && card.card_type === 'CHARACTER') {
+        game.playerPlayCard(card._uid);
+        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+      } else if (zone === 'stage' && card.card_type === 'STAGE') {
+        game.playerPlayStage(card._uid);
+      } else if (zone === 'event' && card.card_type === 'EVENT') {
+        game.playerPlayEvent(card._uid);
+        if (card.effect) setPendingEventEffect(card);
+      } else if (zone === 'trash') {
+        game.playerTrashCard(card._uid);
+      } else if (zone === 'deck') {
+        game.playerReturnHandToTop(card._uid);
+      }
+    } else if (context === 'don-active') {
+      if (zone === 'leader') { game.playerAttachDon('leader'); }
+      else if (zone.startsWith('field-card-') && extraUid) { game.playerAttachDon(extraUid); }
+    }
+    setDragInfo(null); setDragOver(null);
+  };
+  const handleDragEnd = () => { setDragInfo(null); setDragOver(null); };
+
+  // ─── リーダー起動メイン効果ハンドラー ────────────────────────────
+  const handleLeaderAbilityConfirm = useCallback(() => {
+    if (!state) return;
+    const num = state.player.leader?.card_number;
+    if (num === 'OP15-058') {
+      game.playerUseEnelAbility(1, 4);
+      setShowLeaderAbilityModal(false);
+      setCharSelectInfo({ mode: 'single', maxSelect: 1, donPerChar: 4, label: 'DON!!×4を付与するキャラを1枚選んでください' });
+    } else if (num === 'OP08-001') {
+      setShowLeaderAbilityModal(false);
+      setCharSelectInfo({ mode: 'multi', maxSelect: 3, donPerChar: 1, label: '《動物》か《ドラム王国》のキャラを最大3枚選んでください（DON!!×1ずつ付与）' });
+    } else if (num === 'OP14-020') {
+      game.playerUseMihawkAbility('leader');
+      setShowLeaderAbilityModal(false);
+    } else if (num === 'OP10-001') {
+      game.playerUseSmokerAbility();
+      setShowLeaderAbilityModal(false);
+    } else if (num === 'OP05-041') {
+      game.playerUseAkainuAbility();
+      setShowLeaderAbilityModal(false);
+    } else {
+      setShowLeaderAbilityModal(false);
+    }
+  }, [state, game]);
+
+  const handleCharSelectConfirm = useCallback((chosenUids, donPerChar) => {
+    chosenUids.forEach(uid => game.playerAttachDonMulti(uid, donPerChar));
+    setCharSelectInfo(null);
+  }, [game]);
+
+  const handleCharActiveAbility = useCallback((card) => {
+    setPendingCharAbility(card);
+  }, []);
 
   // ─── ハンドラー ─────────────────────────────────────────────────
   const handleStart = useCallback((playerDeck, cpuDeck, order) => {
@@ -1006,6 +1290,10 @@ export default function BattlePage({ onNavigate }) {
     const card = actionMenu?.card;
     const ctx = actionMenu?.context;
     if (!card || !game) return;
+    if (actionId === 'detail') { setDetailCard(card); setActionMenu(null); return; }
+    if (actionId === 'char-active') { handleCharActiveAbility(card); setActionMenu(null); return; }
+    const phaseErr = getPhaseActionError(actionId, state?.subPhase);
+    if (phaseErr) { showPhaseError(phaseErr); setActionMenu(null); return; }
     switch (actionId) {
       case 'play': {
         game.playerPlayCard(card._uid);
@@ -1165,11 +1453,20 @@ export default function BattlePage({ onNavigate }) {
             {/* 中央: フィールド */}
             <div className="flex-1 flex flex-col gap-3">
               {/* キャラクターゾーン */}
-              <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex gap-3 items-end flex-wrap"
+                onDragOver={e => { if (isValidDrop('field')) { e.preventDefault(); setDragOver('field'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={e => { e.preventDefault(); handleDrop('field'); }}
+                style={dzStyle('field')}>
                 {ps.field.map(card => {
                   const isAttacker = selectedAttackerUid === card._uid;
+                  const fieldZone = `field-card-${card._uid}`;
                   return (
-                    <div key={card._uid} className="flex flex-col items-center gap-0.5">
+                    <div key={card._uid} className="flex flex-col items-center gap-0.5"
+                      onDragOver={e => { if (isValidDrop(fieldZone)) { e.preventDefault(); e.stopPropagation(); setDragOver(fieldZone); } }}
+                      onDragLeave={e => { e.stopPropagation(); setDragOver(null); }}
+                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}
+                      style={dzStyle(fieldZone)}>
                       <GameCard card={card} tapped={card.tapped} showPower
                         highlight={isAttacker ? 'attacker' : null}
                         onClick={() => {
@@ -1185,8 +1482,15 @@ export default function BattlePage({ onNavigate }) {
 
               {/* リーダー行 */}
               <div className="flex items-end gap-4">
-                <div className="flex flex-col items-center gap-0.5">
-                  <div className={P.label}>LEADER</div>
+                <div className="flex flex-col items-center gap-0.5"
+                  onDragOver={e => { if (isValidDrop('leader')) { e.preventDefault(); setDragOver('leader'); } }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={e => { e.preventDefault(); handleDrop('leader'); }}
+                  style={dzStyle('leader')}>
+                  <div className="flex items-center gap-1">
+                    <div className={P.label}>LEADER</div>
+                    <LeaderEffectBadge leaderEffect={ps.leaderEffect} leaderName={ps.leader?.name} onUseAbility={() => setShowLeaderAbilityModal(true)}/>
+                  </div>
                   <GameCard card={ps.leader} tapped={ps.leader.tapped} showPower
                     highlight={selectedAttackerUid === 'p-leader' ? 'attacker' : null}
                     onClick={() => {
@@ -1196,15 +1500,30 @@ export default function BattlePage({ onNavigate }) {
                     onDoubleClick={() => setDetailCard(ps.leader)}/>
                 </div>
                 {/* ステージ */}
-                {ps.stage && (
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className={P.label}>STAGE</div>
-                    <GameCard card={ps.stage} tapped={false} onClick={() => setActionMenu({ card: ps.stage, context: 'stage' })}
-                      onDoubleClick={() => setDetailCard(ps.stage)}/>
-                  </div>
-                )}
+                <div className="flex flex-col items-center gap-0.5"
+                  onDragOver={e => { if (isValidDrop('stage')) { e.preventDefault(); setDragOver('stage'); } }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={e => { e.preventDefault(); handleDrop('stage'); }}
+                  style={dzStyle('stage')}>
+                  {ps.stage ? (
+                    <>
+                      <div className={P.label}>STAGE</div>
+                      <GameCard card={ps.stage} tapped={false} onClick={() => setActionMenu({ card: ps.stage, context: 'stage' })}
+                        onDoubleClick={() => setDetailCard(ps.stage)}/>
+                    </>
+                  ) : (
+                    <>
+                      <div className={P.label}>STAGE</div>
+                      <EmptySlot />
+                    </>
+                  )}
+                </div>
                 {/* デッキ */}
-                <div className="flex flex-col items-center gap-0.5">
+                <div className="flex flex-col items-center gap-0.5"
+                  onDragOver={e => { if (isValidDrop('deck')) { e.preventDefault(); setDragOver('deck'); } }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={e => { e.preventDefault(); handleDrop('deck'); }}
+                  style={dzStyle('deck')}>
                   <div className={P.label}>DECK</div>
                   <div className="rounded-xl border-2 border-amber-900/30 flex items-center justify-center bg-gradient-to-br from-amber-900/20 to-[#06091a]"
                     style={{ width: CARD.W, height: CARD.H }}>
@@ -1215,7 +1534,12 @@ export default function BattlePage({ onNavigate }) {
                   </div>
                 </div>
                 {/* トラッシュ */}
-                <div className="flex flex-col items-center gap-0.5 cursor-pointer" onClick={() => setShowTrash(true)}>
+                <div className="flex flex-col items-center gap-0.5 cursor-pointer"
+                  onClick={() => setShowTrash(true)}
+                  onDragOver={e => { if (isValidDrop('trash')) { e.preventDefault(); setDragOver('trash'); } }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={e => { e.preventDefault(); handleDrop('trash'); }}
+                  style={dzStyle('trash')}>
                   <div className={P.label}>TRASH</div>
                   <div className="rounded-xl border-2 border-amber-900/30 flex items-center justify-center bg-gradient-to-br from-red-900/10 to-[#06091a] hover:border-amber-700/50"
                     style={{ width: CARD.W, height: CARD.H }}>
@@ -1232,13 +1556,19 @@ export default function BattlePage({ onNavigate }) {
                 <div className={P.label}>DON!!</div>
                 {ps.donActive + ps.donTapped <= 8 ? (
                   <>
-                    {Array.from({ length: ps.donActive }).map((_,i) => <DonCard key={`a${i}`} active onClick={() => game.playerTapDon(1)}/>)}
+                    {Array.from({ length: ps.donActive }).map((_,i) => (
+                      <div key={`a${i}`} draggable onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}>
+                        <DonCard active onClick={() => game.playerTapDon(1)}/>
+                      </div>
+                    ))}
                     {ps.donActive > 0 && ps.donTapped > 0 && <div className="w-px h-12 bg-amber-700/30 mx-1"/>}
                     {Array.from({ length: ps.donTapped }).map((_,i) => <DonCard key={`t${i}`} active={false}/>)}
                   </>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <DonCard active onClick={() => game.playerTapDon(1)}/>
+                    <div draggable onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}>
+                      <DonCard active onClick={() => game.playerTapDon(1)}/>
+                    </div>
                     <span className="text-amber-400 font-black text-sm">×{ps.donActive}</span>
                     {ps.donTapped > 0 && <><div className="w-px h-12 bg-amber-700/30 mx-1"/><DonCard active={false}/><span className="text-amber-700/70 font-bold text-sm">×{ps.donTapped}</span></>}
                   </div>
@@ -1254,13 +1584,15 @@ export default function BattlePage({ onNavigate }) {
             <div className="flex gap-2 items-end flex-wrap">
               <div className={`${P.label} self-center mr-1`}>HAND</div>
               {ps.hand.map(card => (
-                <HandCard key={card._uid} card={card}
-                  selected={selectedAttackerUid === card._uid}
-                  onClick={() => {
-                    if (isMyTurn && inMainPhase) setActionMenu({ card, context: 'hand' });
-                    else setDetailCard(card);
-                  }}
-                  onDoubleClick={() => setDetailCard(card)}/>
+                <div key={card._uid} draggable onDragStart={() => setDragInfo({ card, context: 'hand' })} onDragEnd={handleDragEnd}>
+                  <HandCard card={card}
+                    selected={selectedAttackerUid === card._uid}
+                    onClick={() => {
+                      if (isMyTurn && inMainPhase) setActionMenu({ card, context: 'hand' });
+                      else setDetailCard(card);
+                    }}
+                    onDoubleClick={() => setDetailCard(card)}/>
+                </div>
               ))}
               {ps.hand.length === 0 && <span className="text-amber-900/40 text-xs">手札なし</span>}
             </div>
@@ -1292,6 +1624,17 @@ export default function BattlePage({ onNavigate }) {
       {/* イベント効果 */}
       {pendingEventEffect && <EventEffectModal card={pendingEventEffect} game={game} onActivate={() => setPendingEventEffect(null)} onSkip={() => setPendingEventEffect(null)}/>}
 
+      {/* リーダー起動メイン効果 */}
+      {showLeaderAbilityModal && ps.leaderEffect && (
+        <LeaderAbilityModal leaderEffect={ps.leaderEffect} leaderName={ps.leader?.name} onConfirm={handleLeaderAbilityConfirm} onCancel={() => setShowLeaderAbilityModal(false)}/>
+      )}
+
+      {/* キャラクター選択（リーダー能力用）*/}
+      {charSelectInfo && <CharacterSelectModal field={ps.field} info={charSelectInfo} onConfirm={handleCharSelectConfirm} onCancel={() => setCharSelectInfo(null)}/>}
+
+      {/* キャラ起動メイン効果 */}
+      {pendingCharAbility && <CharActiveModal card={pendingCharAbility} game={game} onActivate={() => setPendingCharAbility(null)} onSkip={() => setPendingCharAbility(null)}/>}
+
       {/* サーチモーダル */}
       {(ps.searchReveal?.length || 0) > 0 && (
         <SearchModal revealed={ps.searchReveal} onResolve={game.playerResolveSearch} onCancel={game.playerCancelSearch}/>
@@ -1305,6 +1648,13 @@ export default function BattlePage({ onNavigate }) {
 
       {/* カード詳細 */}
       {detailCard && <CardDetailModal card={detailCard} onClose={() => setDetailCard(null)}/>}
+
+      {/* フェーズエラートースト */}
+      {phaseError && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[80] bg-red-900/95 border border-red-600/60 rounded-xl px-4 py-2.5 text-red-100 text-sm font-bold shadow-2xl animate-bounce">
+          {phaseError}
+        </div>
+      )}
 
       {/* 勝敗 */}
       {state.winner && <WinModal winner={state.winner} onReturn={() => { game.resetBattle(); onNavigate('home'); }} onRematch={handleRematch}/>}

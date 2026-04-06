@@ -1077,6 +1077,79 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── リーダー能力: エネル（OP15-058）────────────────────────────────
+  const playerUseEnelAbility = useCallback((activeCount, restedCount) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (prev.turn < 2) return addLog('エネル効果は第2ターン以降に使用できます', prev);
+      const actualActive = Math.min(activeCount, 1, p.donDeck);
+      const remDeck = p.donDeck - actualActive;
+      const currentInZone = p.donActive + p.donTapped + actualActive;
+      const maxDon = p.leaderEffect?.donMax ?? (p.leaderEffect?.donDeckInit ?? 10);
+      if (currentInZone > maxDon) return addLog('DON!!ゾーンが上限です', prev);
+      return addLog(`【エネル起動メイン】DON!!+${actualActive}アクティブ → キャラにDON!!×${restedCount}付与`, {
+        ...prev, player: { ...p, donActive: p.donActive + actualActive, donDeck: remDeck },
+      });
+    });
+  }, []);
+
+  // ── リーダー能力: ミホーク（OP14-020）────────────────────────────────
+  const playerUseMihawkAbility = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const activate = Math.min(3, p.donTapped);
+      let ns = { ...prev, player: { ...p, donActive: p.donActive + activate, donTapped: p.donTapped - activate } };
+      return addLog(`【ミホーク起動メイン】DON!!×${activate}アクティブ`, ns);
+    });
+  }, []);
+
+  // ── リーダー能力: スモーカー（OP10-001）────────────────────────────
+  const playerUseSmokerAbility = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const hasPower7k = p.field.some(c => (c.power || 0) >= 7000);
+      if (!hasPower7k) return addLog('パワー7000以上のキャラがいません（スモーカー効果不発）', prev);
+      const activate = Math.min(2, p.donTapped);
+      return addLog(`【スモーカー起動メイン】DON!!×${activate}アクティブ`, {
+        ...prev, player: { ...p, donActive: p.donActive + activate, donTapped: p.donTapped - activate },
+      });
+    });
+  }, []);
+
+  // ── リーダー能力: サカズキ（OP05-041）────────────────────────────
+  const playerUseAkainuAbility = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (p.deck.length === 0) return addLog('デッキにカードがありません（サカズキ効果）', prev);
+      const [drawn, ...newDeck] = p.deck;
+      return addLog(`【サカズキ効果】1枚ドロー「${drawn.name}」→手動で手札1枚をトラッシュしてください`, {
+        ...prev, player: { ...p, deck: newDeck, hand: [...p.hand, drawn] },
+      });
+    });
+  }, []);
+
+  // ── DON!!複数アタッチ（リーダー効果用）────────────────────────────
+  const playerAttachDonMulti = useCallback((cardUid, count) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.field.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const actualCount = Math.min(count, p.donTapped);
+      if (actualCount <= 0) return addLog('レストDON!!が足りません', prev);
+      const newField = p.field.map(c =>
+        c._uid === cardUid ? { ...c, donAttached: (c.donAttached || 0) + actualCount } : c
+      );
+      return addLog(`DON!!×${actualCount}を「${card.name}」にアタッチ`, {
+        ...prev, player: { ...p, field: newField, donTapped: p.donTapped - actualCount },
+      });
+    });
+  }, []);
+
   const resetBattle = useCallback(() => setState(null), []);
 
   return {
@@ -1121,6 +1194,11 @@ export function useBattleState() {
     playerShuffleDeck,
     playerFlipLife,
     playerTapDon,
+    playerUseEnelAbility,
+    playerUseMihawkAbility,
+    playerUseSmokerAbility,
+    playerUseAkainuAbility,
+    playerAttachDonMulti,
     resetBattle,
   };
 }
