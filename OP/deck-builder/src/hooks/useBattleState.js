@@ -134,6 +134,7 @@ export function useBattleState() {
   const advancePhase = useCallback(() => {
     setState(prev => {
       if (!prev || prev.phase !== 'game') return prev;
+      if (prev.pendingTrigger) return prev; // トリガー解決待ち中は進行しない
       const { subPhase, turn, activePlayer, playerOrder } = prev;
       const sideKey = activePlayer;
       const s = prev[sideKey];

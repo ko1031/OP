@@ -519,12 +519,18 @@ function WinModal({ winner, onReturn, onRematch }) {
 }
 
 // ─── 保存済みデッキをentries形式に変換 ─────────────────────────
-function resolveSavedDeck(savedDeck, cardMap) {
+// デッキビルダーは {card, count} 形式で保存するため両形式に対応
+function resolveSavedDeck(savedDeck, _cardMap) {
   if (!savedDeck) return null;
   const entries = (savedDeck.deck || [])
-    .map(({ cardNumber, count }) => {
-      const card = cardMap[cardNumber];
-      return card ? { card, count } : null;
+    .map((entry) => {
+      // デッキビルダーが保存する {card: {...}, count} 形式
+      if (entry.card) {
+        return { card: entry.card, count: entry.count };
+      }
+      // フォールバック: {cardNumber, count} 形式
+      const card = _cardMap?.[entry.cardNumber];
+      return card ? { card, count: entry.count } : null;
     })
     .filter(Boolean);
   return { leader: savedDeck.leader, entries, name: savedDeck.name || savedDeck.id };
@@ -542,20 +548,21 @@ function SetupScreen({ onStart, onHome, cardMap }) {
   const [order, setOrder]                   = useState('first');
   const isCardMapReady = Object.keys(cardMap || {}).length > 0;
 
-  // プレイヤーデッキ: 保存済みをentries形式に変換
+  // プレイヤーデッキ: {card, count}形式で保存済みのためcardMap不要
   const playerDeckRaw = savedDecks[playerDeckName] || null;
-  const playerDeck = isCardMapReady ? resolveSavedDeck(playerDeckRaw, cardMap) : null;
+  const playerDeck = resolveSavedDeck(playerDeckRaw, cardMap);
 
-  // CPUデッキ（サンプルはresolveSampleDeck、保存済みはresolveSavedDeckで解決）
+  // CPUデッキ（サンプルはcardMap必須、保存済みは不要）
   let cpuDeckResolved = null;
   if (cpuDeckType === 'sample' && isCardMapReady) {
     const raw = SAMPLE_DECKS[sampleIdx];
     if (raw) cpuDeckResolved = resolveSampleDeck(raw, cardMap);
-  } else if (cpuDeckType === 'saved' && isCardMapReady) {
+  } else if (cpuDeckType === 'saved') {
     cpuDeckResolved = resolveSavedDeck(savedDecks[cpuDeckName] || null, cardMap);
   }
 
-  const canStart = playerDeck && playerDeck.entries?.length > 0 && cpuDeckResolved && cpuDeckResolved.entries?.length > 0 && isCardMapReady;
+  const canStart = playerDeck && playerDeck.entries?.length > 0
+    && cpuDeckResolved && cpuDeckResolved.entries?.length > 0;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6"
@@ -584,14 +591,16 @@ function SetupScreen({ onStart, onHome, cardMap }) {
                 onChange={e => setPlayerDeckName(e.target.value)}
                 className="w-full bg-[#06091a] border border-amber-800/40 rounded-xl px-3 py-2 text-amber-200/80 text-sm focus:outline-none focus:border-amber-600/60"
               >
-                {savedDeckNames.map(n => <option key={n} value={n}>{n}</option>)}
+                {savedDeckNames.map(n => <option key={n} value={n}>{savedDecks[n]?.name || n}</option>)}
               </select>
             )}
-            {playerDeck && (
+            {playerDeck && playerDeck.entries?.length > 0 && (
               <div className="mt-2 text-[10px] text-amber-700/50">
                 リーダー: {playerDeck.leader?.name} / {playerDeck.entries?.length ?? 0}種
-                {!isCardMapReady && <span className="text-amber-900/50 ml-1">（カードマップ読み込み中）</span>}
               </div>
+            )}
+            {playerDeckRaw && (!playerDeck || playerDeck.entries?.length === 0) && (
+              <div className="mt-2 text-[10px] text-red-700/70">デッキが読み込めませんでした</div>
             )}
           </div>
 
@@ -637,7 +646,7 @@ function SetupScreen({ onStart, onHome, cardMap }) {
                 className="w-full bg-[#06091a] border border-blue-800/40 rounded-xl px-3 py-2 text-blue-200/80 text-sm focus:outline-none focus:border-blue-600/60"
               >
                 <option value="">選択してください</option>
-                {savedDeckNames.map(n => <option key={n} value={n}>{n}</option>)}
+                {savedDeckNames.map(n => <option key={n} value={n}>{savedDecks[n]?.name || n}</option>)}
               </select>
             )}
           </div>
@@ -661,6 +670,11 @@ function SetupScreen({ onStart, onHome, cardMap }) {
           </div>
 
           {/* スタートボタン */}
+          {cpuDeckType === 'sample' && !isCardMapReady && (
+            <div className="text-center text-amber-700/60 text-xs animate-pulse">
+              カードデータ読み込み中...
+            </div>
+          )}
           <button
             disabled={!canStart}
             onClick={() => onStart(playerDeck, cpuDeckResolved, order)}
@@ -928,8 +942,8 @@ export default function BattlePage({ onNavigate }) {
           <div className="space-y-2">
             <div className={P.label}>アクション</div>
 
-            {/* フェーズ進行ボタン（プレイヤーターン時のみ）*/}
-            {isMyTurn && !attackMode && (
+            {/* フェーズ進行ボタン（プレイヤーターン時のみ・トリガー解決中は非表示）*/}
+            {isMyTurn && !attackMode && !state?.pendingTrigger && (
               <button
                 onClick={game.advancePhase}
                 className={`w-full py-2.5 rounded-xl text-xs font-black ${P.btnGold} flex items-center justify-center gap-1.5`}
