@@ -60,7 +60,8 @@ export function cpuDecide(cpuSide, playerSide, turn) {
     for (let i = 0; i < remainingPlayerTargets.length; i++) {
       const tgt = remainingPlayerTargets[i];
       const defPow = (tgt.power || 0) + (tgt.donAttached || 0) * 1000;
-      if (atkPow > defPow) {
+      if (atkPow >= defPow) {
+        // 同パワーも攻撃側勝利（Q15/Q16）
         attacks.push({
           attackerUid: attacker._uid, attackerType: 'character',
           targetUid: tgt._uid, targetType: 'character',
@@ -85,7 +86,7 @@ export function cpuDecide(cpuSide, playerSide, turn) {
     const ldrPow = (leader.power || 0) + (leader.donAttached || 0) * 1000;
     // 残りキャラに倒せるものがあれば狙う
     const weakChar = remainingPlayerTargets.find(
-      t => ldrPow > ((t.power || 0) + (t.donAttached || 0) * 1000)
+      t => ldrPow >= ((t.power || 0) + (t.donAttached || 0) * 1000)
     );
     if (weakChar) {
       attacks.push({

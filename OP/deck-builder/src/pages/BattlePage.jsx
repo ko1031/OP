@@ -452,7 +452,7 @@ function AttackResolveModal({ attackState, cpuSide, playerSide, onResolve, onCan
   if (!attackState || attackState.step !== 'resolving') return null;
   const atkPow = attackState.attackPower || 0;
   const defPow = attackState.defensePower || 0;
-  const wins = atkPow > defPow;
+  const wins = atkPow >= defPow; // 同パワーも攻撃側勝利（FAQ Q15/Q16）
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">

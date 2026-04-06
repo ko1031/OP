@@ -175,7 +175,10 @@ export function useBattleState() {
 
       // ─── DON!! → メイン ───
       if (subPhase === 'don') {
-        const gain = turn === 1 ? 1 : 2;
+        // 先攻1ターン目のみDON!! +1枚（後攻は1ターン目から+2枚）
+        const isFirstPlayer = (activePlayer === 'player' && playerOrder === 'first')
+                           || (activePlayer === 'cpu'    && playerOrder === 'second');
+        const gain = (turn === 1 && isFirstPlayer) ? 1 : 2;
         const inZone = s.donActive + s.donTapped;
         const actual = Math.min(gain, s.donDeck, Math.max(0, s.donMax - inZone));
         return addLog(`[${label}] DON!!+${actual}枚`, {
@@ -363,7 +366,8 @@ export function useBattleState() {
 
       let ns = { ...prev, attackState: null };
 
-      if (attackPower > defensePower) {
+      if (attackPower >= defensePower) {
+        // 攻撃パワー ≧ 防御パワー → 攻撃側が勝つ（Q15/Q16: 同パワーも攻撃側勝利）
         if (targetType === 'character') {
           const target = defSide.field.find(x => x._uid === targetUid);
           const donBack = target?.donAttached || 0;
@@ -377,8 +381,9 @@ export function useBattleState() {
             },
           });
         } else {
-          // リーダーへダメージ → ライフめくり
+          // リーダーへダメージ
           if (defSide.life.length > 0) {
+            // ライフがある → 上から1枚めくって手札へ（トリガーあればペンディング）
             const [lifeCard, ...restLife] = defSide.life;
             const triggered = hasTrigger(lifeCard);
             ns = addLog(
@@ -391,15 +396,14 @@ export function useBattleState() {
             if (triggered) {
               return { ...ns, pendingTrigger: { card: lifeCard, owner: defKey } };
             }
-            if (restLife.length === 0) {
-              return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns, winner: atkKey });
-            }
+            // ライフが0になってもすぐに敗北ではない（次のダメージステップで判定）
           } else {
+            // ライフ0の状態でリーダーに攻撃が通った → 敗北
             return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns, winner: atkKey });
           }
         }
       } else {
-        ns = addLog(`アタック失敗（${attackPower} ≦ ${defensePower}）`, ns);
+        ns = addLog(`アタック失敗（${attackPower} < ${defensePower}）`, ns);
       }
       return ns;
     });
@@ -410,19 +414,25 @@ export function useBattleState() {
     setState(prev => {
       if (!prev || !prev.pendingTrigger) return prev;
       const { card, owner } = prev.pendingTrigger;
-      const atkKey = owner === 'player' ? 'cpu' : 'player'; // トリガー発動側の相手 = 攻撃側
       const ns = { ...prev, pendingTrigger: null };
+
       if (!activate) {
-        // スキップしてもライフが0なら勝敗確定
-        const ownerSide = ns[owner];
-        if (ownerSide.life.length === 0) {
-          return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns, winner: atkKey });
-        }
-        return addLog(`トリガー「${card.name}」スキップ`, ns);
+        // 発動しない → カードは手札にそのまま（すでにresolveAttackで手札に追加済み）
+        return addLog(`トリガー「${card.name}」スキップ（手札へ）`, ns);
       }
 
+      // 発動する → カードを手札からトラッシュへ移動し、効果発動
+      // （ライフからめくられたカードはresolveAttackで手札に追加済み）
+      let applied = {
+        ...ns,
+        [owner]: {
+          ...ns[owner],
+          hand: ns[owner].hand.filter(c => c._uid !== card._uid),
+          trash: [...ns[owner].trash, { ...card, faceDown: false }],
+        },
+      };
+
       const actions = parseTriggerActions(card);
-      let applied = ns;
       for (const a of actions) {
         const side = applied[owner];
         if (a.id === 'draw') {
@@ -440,12 +450,8 @@ export function useBattleState() {
           });
         }
       }
-      applied = addLog(`トリガー「${card.name}」発動`, applied);
-      // トリガー解決後もライフが0なら勝敗確定
-      if (applied[owner].life.length === 0) {
-        return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...applied, winner: atkKey });
-      }
-      return applied;
+      // ライフが0になってもここで勝敗は決しない（次のダメージステップで判定）
+      return addLog(`トリガー「${card.name}」発動（トラッシュへ）`, applied);
     });
   }, [addLog]);
 
@@ -546,7 +552,8 @@ export function useBattleState() {
         const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
         const defensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
 
-        if (attackPower > defensePower) {
+        if (attackPower >= defensePower) {
+          // 攻撃パワー ≧ 防御パワー → 攻撃側が勝つ（Q15/Q16: 同パワーも攻撃側勝利）
           if (targetType === 'character') {
             const donBack = target.donAttached || 0;
             ns = addLog(`CPU「${attacker.name}」(${attackPower}) が「${target.name}」をKO！`, {
@@ -562,6 +569,7 @@ export function useBattleState() {
             // リーダーへダメージ
             const plr = ns.player;
             if (plr.life.length > 0) {
+              // ライフがある → 上から1枚めくって手札へ（トリガーあればペンディング）
               const [lifeCard, ...restLife] = plr.life;
               const triggered = hasTrigger(lifeCard);
               ns = addLog(
@@ -571,19 +579,20 @@ export function useBattleState() {
                   player: { ...plr, life: restLife, hand: [...plr.hand, { ...lifeCard, faceDown: false }] },
                 }
               );
-              if (triggered && cpuDecideTrigger(lifeCard)) {
+              if (triggered) {
                 // プレイヤーのトリガーをペンディング（残りのアタックはスキップ）
                 ns = { ...ns, pendingTrigger: { card: lifeCard, owner: 'player' } };
                 break;
               }
-              if (restLife.length === 0) {
-                ns = addLog('プレイヤーのライフが0！CPUの勝利！', { ...ns, winner: 'cpu' });
-                break;
-              }
+              // ライフ0になってもすぐに敗北ではない（次のダメージステップで判定）
+            } else {
+              // ライフ0の状態でリーダーに攻撃が通った → プレイヤー敗北
+              ns = addLog('プレイヤーのライフが0の状態でリーダーにダメージ！CPUの勝利！', { ...ns, winner: 'cpu' });
+              break;
             }
           }
         } else {
-          ns = addLog(`CPU「${attacker.name}」(${attackPower}) のアタック失敗（${defensePower}）`, ns);
+          ns = addLog(`CPU「${attacker.name}」(${attackPower}) のアタック失敗（${attackPower} < ${defensePower}）`, ns);
         }
       }
 
