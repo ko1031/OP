@@ -447,6 +447,123 @@ function TriggerModal({ card, onActivate, onSkip }) {
   );
 }
 
+// ─── ブロッカーステップモーダル（CPU攻撃時、プレイヤーがブロッカーを選ぶ）────
+function BlockerModal({ attackState, playerField, onBlock, onPass }) {
+  if (!attackState || attackState.step !== 'blocker' || attackState.owner !== 'cpu') return null;
+  const blockers = playerField.filter(c => /【ブロッカー】/.test(c.effect || '') && !c.tapped);
+  const { attackPower } = attackState;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
+        <div className="text-center mb-4">
+          <div className="text-amber-400 font-black text-lg mb-1">⚔️ ブロッカーステップ</div>
+          <div className="text-amber-200/70 text-sm mb-1">CPUの攻撃力: <span className="text-red-300 font-black">{attackPower.toLocaleString()}</span></div>
+          <div className="text-amber-700/50 text-xs">ブロッカーを選んで受けますか？</div>
+        </div>
+
+        {blockers.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4">
+            {blockers.map(card => (
+              <div key={card._uid}
+                className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onBlock(card._uid)}>
+                <div className="rounded-xl overflow-hidden border-2 border-amber-500/50 group-hover:border-amber-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-amber-300 font-black">{calcPower(card).toLocaleString()}</div>
+                <div className="text-[8px] text-amber-600/70">タップでブロック</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-800/50 text-sm mb-4">ブロッカーなし</div>
+        )}
+
+        <button onClick={onPass}
+          className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>
+          パスする（ブロックしない）
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── カウンターステップモーダル（CPU攻撃時、プレイヤーがカウンターを選ぶ）──
+function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
+  if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
+  const { attackPower, defensePower, targetType } = attackState;
+  const willSurvive = defensePower >= attackPower;
+  // カウンター値を持つ手札のみ表示（CHARACTER のみ）
+  const counterCards = playerHand.filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-purple-400 font-black text-lg mb-2">🛡️ カウンターステップ</div>
+
+          {/* 攻撃力 vs 防御力 */}
+          <div className="flex items-center justify-center gap-4 my-2">
+            <div className="text-center">
+              <div className="text-[10px] text-red-400/60 mb-0.5">攻撃力</div>
+              <div className="font-black text-2xl text-red-300">{attackPower.toLocaleString()}</div>
+            </div>
+            <div className="text-xl font-black text-amber-600/70">VS</div>
+            <div className="text-center">
+              <div className="text-[10px] text-blue-400/60 mb-0.5">防御力</div>
+              <div className={`font-black text-2xl transition-colors ${willSurvive ? 'text-green-300' : 'text-blue-300'}`}>
+                {defensePower.toLocaleString()}
+              </div>
+            </div>
+          </div>
+          <div className={`text-sm font-bold ${willSurvive ? 'text-green-400' : 'text-red-400'}`}>
+            {willSurvive
+              ? '✓ ダメージ防御成功！'
+              : `あと ${(attackPower - defensePower).toLocaleString()} 以上のカウンターが必要`}
+          </div>
+          {targetType === 'character' && (
+            <div className="text-[10px] text-amber-700/50 mt-1">※キャラへの攻撃はカウンター不可（リーダーのみ）</div>
+          )}
+        </div>
+
+        {/* カウンターカード一覧（リーダーへの攻撃のみカウンター可能）*/}
+        {targetType === 'leader' && counterCards.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[10px] text-purple-400/60 font-bold uppercase text-center mb-2">
+              カウンターカード（クリックで発動）
+            </div>
+            <div className="flex gap-2 flex-wrap justify-center">
+              {counterCards.map(card => (
+                <div key={card._uid}
+                  className="flex flex-col items-center gap-1 cursor-pointer group"
+                  onClick={() => onCounter(card._uid)}>
+                  <div className="rounded-xl overflow-hidden border-2 border-purple-500/50 group-hover:border-purple-400 group-hover:scale-105 transition-all"
+                    style={{ width: 68, height: 95 }}>
+                    <CardImage card={card} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="text-[9px] text-purple-300 font-black bg-purple-900/40 px-1.5 py-0.5 rounded-full border border-purple-700/50">
+                    +{card.counter.toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {targetType === 'leader' && counterCards.length === 0 && (
+          <div className="text-center text-amber-800/40 text-xs mb-3">カウンターできるカードなし</div>
+        )}
+
+        <button onClick={onConfirm}
+          className={`w-full py-2.5 rounded-xl text-sm font-black ${willSurvive ? P.btnGreen : P.btnGold}`}>
+          {willSurvive ? '防御確定！' : 'このまま受ける（ダメージ）'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── 解決確認モーダル（アタック）────────────────────────────────
 function AttackResolveModal({ attackState, cpuSide, playerSide, onResolve, onCancel }) {
   if (!attackState || attackState.step !== 'resolving') return null;
@@ -776,7 +893,8 @@ export default function BattlePage({ onNavigate }) {
   useEffect(() => {
     if (!state || state.phase !== 'game' || state.winner) return;
     if (!isCpuTurn) return;
-    if (state.pendingTrigger) return; // トリガー待ち（プレイヤー/CPU問わず停止）
+    if (state.pendingTrigger) return; // トリガー待ち
+    if (state.attackState) return;   // ブロッカー/カウンターステップ（プレイヤー入力待ち）
 
     // リフレッシュ/ドロー/DON!!フェーズ: 自動進行
     if (['refresh', 'draw', 'don'].includes(subPhase)) {
@@ -790,13 +908,23 @@ export default function BattlePage({ onNavigate }) {
       return () => clearTimeout(t);
     }
 
-    // メインフェーズ: CPU行動実行（runCpuMainPhaseが内部でendへ自動進行）
+    // メインフェーズ
     if (subPhase === 'main') {
+      // アタックキューが残っている場合（トリガー解決後など）続きを処理
+      if ((state.cpuPendingAttacks?.length || 0) > 0) {
+        const t = setTimeout(() => game.processCpuPendingAttack(), 600);
+        return () => clearTimeout(t);
+      }
+      // 新規CPU行動実行
       const t = setTimeout(() => game.runCpuMainPhase(), 1200);
       return () => clearTimeout(t);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger]);
+  }, [
+    state?.activePlayer, state?.subPhase, state?.winner,
+    state?.pendingTrigger, state?.attackState,
+    state?.cpuPendingAttacks?.length,
+  ]);
 
   // CPUターン中はアタックモードをリセット
   useEffect(() => {
@@ -844,6 +972,23 @@ export default function BattlePage({ onNavigate }) {
     game.resolveAttack();
     setAttackMode(null);
     setSelectedAttackerUid(null);
+  }, [game]);
+
+  // ─── ブロッカー/カウンターステップ操作 ───────────────────────────
+  const handlePlayerBlock = useCallback((blockerUid) => {
+    game.playerBlock(blockerUid);
+  }, [game]);
+
+  const handlePlayerPassBlock = useCallback(() => {
+    game.playerPassBlock();
+  }, [game]);
+
+  const handlePlayerCounter = useCallback((cardUid) => {
+    game.playerCounter(cardUid);
+  }, [game]);
+
+  const handlePlayerConfirmCounter = useCallback(() => {
+    game.playerConfirmCounter();
   }, [game]);
 
   // ─── 各種表示分岐 ─────────────────────────────────────────────
@@ -1017,7 +1162,23 @@ export default function BattlePage({ onNavigate }) {
         <AutoCpuTrigger game={game} card={state.pendingTrigger.card} />
       )}
 
-      {/* アタック解決 */}
+      {/* ブロッカーステップ（CPU攻撃 → プレイヤーがブロッカーを選ぶ）*/}
+      <BlockerModal
+        attackState={state.attackState}
+        playerField={ps.field}
+        onBlock={handlePlayerBlock}
+        onPass={handlePlayerPassBlock}
+      />
+
+      {/* カウンターステップ（CPU攻撃 → プレイヤーがカウンターを選ぶ）*/}
+      <CounterModal
+        attackState={state.attackState}
+        playerHand={ps.hand}
+        onCounter={handlePlayerCounter}
+        onConfirm={handlePlayerConfirmCounter}
+      />
+
+      {/* アタック解決（プレイヤー攻撃 → CPU自動カウンター後の確認）*/}
       {state.attackState?.step === 'resolving' && state.attackState?.owner === 'player' && (
         <AttackResolveModal
           attackState={state.attackState}

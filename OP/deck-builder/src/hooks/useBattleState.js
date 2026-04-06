@@ -28,13 +28,161 @@ function hasTrigger(card) {
 function parseTriggerActions(card) {
   const eff = card?.effect || '';
   const actions = [];
-  // ドロー
   const drawM = eff.match(/【トリガー】[^。\n]*?(\d+)枚(?:を)?ドロー/);
   if (drawM) actions.push({ id: 'draw', count: parseInt(drawM[1]) });
-  // DONデッキに戻す
   const donM = eff.match(/【トリガー】[^。\n]*?DON!![ーー−-](\d+)/);
   if (donM) actions.push({ id: 'donReturn', count: parseInt(donM[1]) });
   return actions;
+}
+
+// ─── モジュールレベルヘルパー ──────────────────────────────────────────
+// バトルログ追加（純粋関数）
+function addLog(msg, prev) {
+  return {
+    ...prev,
+    battleLog: [{ msg, ts: Date.now() }, ...(prev.battleLog || [])].slice(0, 100),
+  };
+}
+
+// CPU自動カウンター判断
+// ターゲットがリーダーで攻撃が通る場合のみカウンターを使う
+function cpuAutoCounter(cpuSide, targetType, attackPower, defensePower) {
+  if (targetType !== 'leader' || attackPower < defensePower) {
+    return { bonus: 0, cards: [] };
+  }
+  const needed = attackPower - defensePower + 1;
+  const candidates = cpuSide.hand
+    .filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0)
+    .sort((a, b) => (b.counter || 0) - (a.counter || 0));
+  let bonus = 0;
+  const used = [];
+  for (const card of candidates) {
+    if (bonus >= needed) break;
+    bonus += card.counter;
+    used.push(card);
+  }
+  // カウンターしても防げない場合は使わない
+  if (bonus < needed) return { bonus: 0, cards: [] };
+  return { bonus, cards: used };
+}
+
+// ダメージステップの解決（プレイヤー/CPU共通）
+function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackPower, defensePower) {
+  if (attackPower >= defensePower) {
+    if (targetType === 'character') {
+      const defSide = ns[defKey];
+      const target = defSide.field.find(x => x._uid === targetUid);
+      if (!target) return ns;
+      const donBack = target.donAttached || 0;
+      return addLog(`KO！「${target.name}」（DON!!×${donBack}返還）`, {
+        ...ns,
+        [defKey]: {
+          ...defSide,
+          field: defSide.field.filter(x => x._uid !== targetUid),
+          trash: [...defSide.trash, target],
+          donActive: defSide.donActive + donBack,
+        },
+      });
+    } else {
+      // リーダーへダメージ
+      const defSide = ns[defKey];
+      if (defSide.life.length > 0) {
+        const [lifeCard, ...restLife] = defSide.life;
+        const triggered = hasTrigger(lifeCard);
+        const newNs = addLog(
+          `${defKey === 'cpu' ? 'CPU' : 'プレイヤー'}ライフ ${defSide.life.length} → ${restLife.length}枚。「${lifeCard.name}」${triggered ? '【トリガー】！' : ''}`,
+          { ...ns, [defKey]: { ...defSide, life: restLife, hand: [...defSide.hand, { ...lifeCard, faceDown: false }] } }
+        );
+        if (triggered) {
+          return { ...newNs, pendingTrigger: { card: lifeCard, owner: defKey } };
+        }
+        return newNs;
+      } else {
+        return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！（ライフ0でリーダーにダメージ）`, { ...ns, winner: atkKey });
+      }
+    }
+  } else {
+    return addLog(`アタック失敗（${attackPower} < ${defensePower}）`, ns);
+  }
+}
+
+// CPU攻撃キューから次のアタックを開始する
+// リーダーへの攻撃 → ブロッカーステップ or カウンターステップ（プレイヤー操作）
+// キャラへの攻撃 → 自動ダメージ解決（ブロッカー/カウンター不可）
+function startCpuAttackOnState(ns, pendingAttacks) {
+  let attacks = [...pendingAttacks];
+  while (attacks.length > 0) {
+    const [attack, ...remaining] = attacks;
+    attacks = remaining;
+
+    // ループ内で最新の ns から再取得（auto-resolve後に状態が変わるため）
+    const c = ns.cpu;
+    const p = ns.player;
+
+    const attacker = attack.attackerType === 'leader'
+      ? c.leader
+      : c.field.find(x => x._uid === attack.attackerUid);
+    if (!attacker || attacker.tapped) continue;
+
+    // アタッカーをタップ
+    const newCpu = attack.attackerType === 'leader'
+      ? { ...c, leader: { ...c.leader, tapped: true } }
+      : { ...c, field: c.field.map(x => x._uid === attack.attackerUid ? { ...x, tapped: true } : x) };
+
+    // ターゲット取得
+    let target, targetType, finalTargetUid;
+    if (attack.targetType === 'leader') {
+      target = p.leader;
+      targetType = 'leader';
+      finalTargetUid = 'player-leader';
+    } else {
+      target = p.field.find(x => x._uid === attack.targetUid);
+      if (!target) continue; // ターゲットが既にいなければスキップ
+      targetType = 'character';
+      finalTargetUid = attack.targetUid;
+    }
+
+    const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
+    const defensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
+    const targetName = targetType === 'leader' ? 'プレイヤーリーダー' : `「${target.name}」`;
+    const logMsg = `CPU「${attacker.name}」(${attackPower}) が${targetName}(${defensePower})にアタック！`;
+
+    if (targetType === 'leader') {
+      // ─ リーダーへの攻撃: ブロッカー/カウンターステップ（プレイヤー操作必要）─
+      const newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
+      const playerBlockers = p.field.filter(x => /【ブロッカー】/.test(x.effect || '') && !x.tapped);
+      const step = playerBlockers.length > 0 ? 'blocker' : 'counter';
+      return {
+        ...newNs,
+        attackState: {
+          attackerUid: attack.attackerUid,
+          attackerType: attack.attackerType,
+          owner: 'cpu',
+          targetUid: finalTargetUid,
+          targetType: 'leader',
+          attackPower,
+          defensePower,
+          counterBonus: 0,
+          step,
+        },
+      };
+    } else {
+      // ─ キャラへの攻撃: ブロッカー/カウンター不可、自動ダメージ解決 ─
+      let newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
+      newNs = resolveDamageOnState(newNs, 'cpu', 'player', 'character', finalTargetUid, attackPower, defensePower);
+      if (newNs.winner || newNs.pendingTrigger) {
+        return newNs; // 勝利またはトリガーで一旦停止
+      }
+      ns = newNs; // 状態更新して次のアタックへ
+      // attacks はすでに remaining になっているのでループ継続
+    }
+  }
+
+  // 全アタック終了
+  if (!ns.winner && !ns.pendingTrigger) {
+    return addLog('[CPU] エンドフェーズへ', { ...ns, subPhase: 'end', cpuPendingAttacks: [] });
+  }
+  return { ...ns, cpuPendingAttacks: [] };
 }
 
 // 各サイドの初期状態を構築
@@ -74,11 +222,6 @@ function buildSide(leader, deckCards, prefix) {
 export function useBattleState() {
   const [state, setState] = useState(null);
 
-  const addLog = useCallback((msg, prev) => ({
-    ...prev,
-    battleLog: [{ msg, ts: Date.now() }, ...(prev.battleLog || [])].slice(0, 100),
-  }), []);
-
   // ── 対戦開始 ─────────────────────────────────────────────────────
   const startBattle = useCallback((playerLeader, playerDeckEntries, cpuLeader, cpuDeckEntries, playerOrder) => {
     const flatDeck = entries => (entries || []).flatMap(({ card, count }) =>
@@ -98,6 +241,7 @@ export function useBattleState() {
       cpu: cSide,
       attackState: null,
       pendingTrigger: null,
+      cpuPendingAttacks: [],
       cpuThinking: false,
       battleLog: [{ msg: `対戦開始！ ${playerLeader?.name} vs CPU(${cpuLeader?.name})`, ts: Date.now() }],
       winner: null,
@@ -113,12 +257,11 @@ export function useBattleState() {
       const newHand = combined.splice(0, 5);
       return addLog('プレイヤーマリガン', { ...prev, player: { ...p, hand: newHand, deck: combined } });
     });
-  }, [addLog]);
+  }, []);
 
   const confirmMulligan = useCallback(() => {
     setState(prev => {
       if (!prev || prev.phase !== 'mulligan') return prev;
-      // CPU: 平均コストが高ければマリガン
       let ns = prev;
       const avgCost = prev.cpu.hand.reduce((s, c) => s + (c.cost || 0), 0) / prev.cpu.hand.length;
       if (avgCost > 4.5) {
@@ -128,7 +271,7 @@ export function useBattleState() {
       }
       return addLog('マリガン確定！ゲーム開始', { ...ns, phase: 'game', subPhase: 'refresh' });
     });
-  }, [addLog]);
+  }, []);
 
   // ── フェーズ進行 ──────────────────────────────────────────────────
   const advancePhase = useCallback(() => {
@@ -140,7 +283,6 @@ export function useBattleState() {
       const s = prev[sideKey];
       const label = activePlayer === 'player' ? 'プレイヤー' : 'CPU';
 
-      // ─── リフレッシュ → ドロー ───
       if (subPhase === 'refresh') {
         const donFromField = s.field.reduce((sum, c) => sum + (c.donAttached || 0), 0);
         const donFromLeader = s.leader.donAttached || 0;
@@ -154,7 +296,6 @@ export function useBattleState() {
         });
       }
 
-      // ─── ドロー → DON!! ───
       if (subPhase === 'draw') {
         const isFirstPlayer = (activePlayer === 'player' && playerOrder === 'first')
                            || (activePlayer === 'cpu'    && playerOrder === 'second');
@@ -174,9 +315,7 @@ export function useBattleState() {
         });
       }
 
-      // ─── DON!! → メイン ───
       if (subPhase === 'don') {
-        // 先攻1ターン目のみDON!! +1枚（後攻は1ターン目から+2枚）
         const isFirstPlayer = (activePlayer === 'player' && playerOrder === 'first')
                            || (activePlayer === 'cpu'    && playerOrder === 'second');
         const gain = (turn === 1 && isFirstPlayer) ? 1 : 2;
@@ -189,12 +328,10 @@ export function useBattleState() {
         });
       }
 
-      // ─── メイン → エンド ───
       if (subPhase === 'main') {
         return addLog(`[${label}] エンドフェーズ`, { ...prev, subPhase: 'end' });
       }
 
-      // ─── エンド → 次ターン ───
       if (subPhase === 'end') {
         let ns = prev;
         const eff = s.leaderEffect?.onEndPhase;
@@ -220,7 +357,7 @@ export function useBattleState() {
 
       return prev;
     });
-  }, [addLog]);
+  }, []);
 
   // ── プレイヤー: カードプレイ ──────────────────────────────────────
   const playerPlayCard = useCallback((cardUid) => {
@@ -241,7 +378,7 @@ export function useBattleState() {
         ...prev, player: { ...afterDon, hand: newHand, field: newField },
       });
     });
-  }, [addLog]);
+  }, []);
 
   // ── プレイヤー: DON!!アタッチ ─────────────────────────────────────
   const playerAttachDon = useCallback((targetUid) => {
@@ -264,7 +401,7 @@ export function useBattleState() {
         ...prev, player: { ...p, donActive: p.donActive - 1, field: newField },
       });
     });
-  }, [addLog]);
+  }, []);
 
   // ── プレイヤー: アタッカー選択 ────────────────────────────────────
   const playerSelectAttacker = useCallback((attackerUid) => {
@@ -286,15 +423,15 @@ export function useBattleState() {
         ...prev, attackState: { attackerUid, attackerType, owner: 'player', step: 'select-target' },
       });
     });
-  }, [addLog]);
+  }, []);
 
-  // ── プレイヤー: ターゲット選択 → アタック解決 ─────────────────────
+  // ── プレイヤー: ターゲット選択 → CPUブロッカー → CPU自動カウンター → 解決待ち
   const playerSelectTarget = useCallback((targetUid) => {
     setState(prev => {
       if (!prev || !prev.attackState || prev.attackState.step !== 'select-target') return prev;
       const { attackerUid, attackerType } = prev.attackState;
       const p = prev.player;
-      const c = prev.cpu;
+      let c = prev.cpu;
 
       const attacker = attackerType === 'leader' ? p.leader : p.field.find(x => x._uid === attackerUid);
       if (!attacker) return prev;
@@ -310,7 +447,7 @@ export function useBattleState() {
 
       const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
 
-      // タップ
+      // アタッカーをタップ
       let newPlayer = p;
       if (attackerType === 'leader') {
         newPlayer = { ...p, leader: { ...p.leader, tapped: true } };
@@ -318,97 +455,65 @@ export function useBattleState() {
         newPlayer = { ...p, field: p.field.map(x => x._uid === attackerUid ? { ...x, tapped: true } : x) };
       }
 
-      // ブロッカー確認（リーダーへの攻撃時のみ）
+      let finalTargetUid = targetUid;
+      let finalTargetType = targetType;
+      let finalDefensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
+      let ns = { ...prev, player: newPlayer };
+
+      // ─ CPUブロッカーステップ（リーダーへの攻撃時のみ）───
       if (targetType === 'leader') {
         const blockers = c.field.filter(x => /【ブロッカー】/.test(x.effect || '') && !x.tapped);
         if (blockers.length > 0) {
           const blockerUid = cpuDecideBlocker(blockers, attackPower, c.life.length);
           if (blockerUid) {
             const blocker = c.field.find(x => x._uid === blockerUid);
-            const newCpuField = c.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x);
-            const defensePower = (blocker.power || 0) + (blocker.donAttached || 0) * 1000;
-            return addLog(`CPU ブロッカー「${blocker.name}」で受ける！`, {
-              ...prev,
-              player: newPlayer,
-              cpu: { ...c, field: newCpuField },
-              attackState: {
-                attackerUid, attackerType, owner: 'player',
-                targetUid: blockerUid, targetType: 'character',
-                attackPower, defensePower,
-                step: 'resolving',
-              },
-            });
+            c = { ...c, field: c.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x) };
+            ns = { ...ns, cpu: c };
+            finalTargetUid = blockerUid;
+            finalTargetType = 'character';
+            finalDefensePower = (blocker.power || 0) + (blocker.donAttached || 0) * 1000;
+            ns = addLog(`CPU ブロッカー「${blocker.name}」(${finalDefensePower})で受ける！`, ns);
           }
         }
       }
 
-      const defensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
-      return addLog(`「${attacker.name}」(${attackPower}) → ${targetType === 'leader' ? 'CPUリーダー' : target.name}(${defensePower})`, {
-        ...prev,
-        player: newPlayer,
+      // ─ CPUカウンターステップ（自動）─────────────────────────
+      const counterResult = cpuAutoCounter(ns.cpu, finalTargetType, attackPower, finalDefensePower);
+      if (counterResult.cards.length > 0) {
+        const usedUids = new Set(counterResult.cards.map(x => x._uid));
+        const newCpuHand = ns.cpu.hand.filter(x => !usedUids.has(x._uid));
+        const newCpuTrash = [...ns.cpu.trash, ...counterResult.cards.map(x => ({ ...x, faceDown: false }))];
+        ns = addLog(
+          `CPU カウンター「${counterResult.cards.map(x => x.name).join('・')}」+${counterResult.bonus}！（防御力: ${finalDefensePower} → ${finalDefensePower + counterResult.bonus}）`,
+          { ...ns, cpu: { ...ns.cpu, hand: newCpuHand, trash: newCpuTrash } }
+        );
+        finalDefensePower += counterResult.bonus;
+      }
+
+      const defLabel = finalTargetType === 'leader' ? 'CPUリーダー' : (ns.cpu.field.find(x => x._uid === finalTargetUid)?.name || '');
+      return addLog(`「${attacker.name}」(${attackPower}) → ${defLabel}(${finalDefensePower})`, {
+        ...ns,
         attackState: {
           attackerUid, attackerType, owner: 'player',
-          targetUid, targetType,
-          attackPower, defensePower,
+          targetUid: finalTargetUid, targetType: finalTargetType,
+          attackPower, defensePower: finalDefensePower,
+          counterBonus: counterResult.bonus,
           step: 'resolving',
         },
       });
     });
-  }, [addLog]);
+  }, []);
 
-  // ── アタック解決 ─────────────────────────────────────────────────
+  // ── アタック解決（プレイヤーが攻撃した場合）────────────────────────
   const resolveAttack = useCallback(() => {
     setState(prev => {
       if (!prev || !prev.attackState || prev.attackState.step !== 'resolving') return prev;
-      const { attackerUid, attackerType, targetUid, targetType, owner, attackPower, defensePower } = prev.attackState;
-      const atkKey = owner;
-      const defKey = owner === 'player' ? 'cpu' : 'player';
-      const defSide = prev[defKey];
-
-      let ns = { ...prev, attackState: null };
-
-      if (attackPower >= defensePower) {
-        // 攻撃パワー ≧ 防御パワー → 攻撃側が勝つ（Q15/Q16: 同パワーも攻撃側勝利）
-        if (targetType === 'character') {
-          const target = defSide.field.find(x => x._uid === targetUid);
-          const donBack = target?.donAttached || 0;
-          ns = addLog(`KO！「${target?.name}」（DON!!×${donBack}返還）`, {
-            ...ns,
-            [defKey]: {
-              ...defSide,
-              field: defSide.field.filter(x => x._uid !== targetUid),
-              trash: [...defSide.trash, target],
-              donActive: defSide.donActive + donBack,
-            },
-          });
-        } else {
-          // リーダーへダメージ
-          if (defSide.life.length > 0) {
-            // ライフがある → 上から1枚めくって手札へ（トリガーあればペンディング）
-            const [lifeCard, ...restLife] = defSide.life;
-            const triggered = hasTrigger(lifeCard);
-            ns = addLog(
-              `${defKey === 'cpu' ? 'CPU' : 'プレイヤー'}ライフ ${defSide.life.length} → ${restLife.length}枚。「${lifeCard.name}」${triggered ? '【トリガー】！' : ''}`,
-              {
-                ...ns,
-                [defKey]: { ...defSide, life: restLife, hand: [...defSide.hand, { ...lifeCard, faceDown: false }] },
-              }
-            );
-            if (triggered) {
-              return { ...ns, pendingTrigger: { card: lifeCard, owner: defKey } };
-            }
-            // ライフが0になってもすぐに敗北ではない（次のダメージステップで判定）
-          } else {
-            // ライフ0の状態でリーダーに攻撃が通った → 敗北
-            return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns, winner: atkKey });
-          }
-        }
-      } else {
-        ns = addLog(`アタック失敗（${attackPower} < ${defensePower}）`, ns);
-      }
-      return ns;
+      if (prev.attackState.owner !== 'player') return prev;
+      const { attackerUid, attackerType, targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      const ns = { ...prev, attackState: null };
+      return resolveDamageOnState(ns, 'player', 'cpu', targetType, targetUid, attackPower, defensePower);
     });
-  }, [addLog]);
+  }, []);
 
   // ── トリガー処理 ─────────────────────────────────────────────────
   const resolveTrigger = useCallback((activate) => {
@@ -418,12 +523,11 @@ export function useBattleState() {
       const ns = { ...prev, pendingTrigger: null };
 
       if (!activate) {
-        // 発動しない → カードは手札にそのまま（すでにresolveAttackで手札に追加済み）
+        // 発動しない → カードは手札にそのまま（すでにresolveAttack/runCpuMainPhaseで手札に追加済み）
         return addLog(`トリガー「${card.name}」スキップ（手札へ）`, ns);
       }
 
-      // 発動する → カードを手札からトラッシュへ移動し、効果発動
-      // （ライフからめくられたカードはresolveAttackで手札に追加済み）
+      // 発動する → カードを手札からトラッシュへ移動
       let applied = {
         ...ns,
         [owner]: {
@@ -451,16 +555,14 @@ export function useBattleState() {
           });
         }
       }
-      // ライフが0になってもここで勝敗は決しない（次のダメージステップで判定）
       return addLog(`トリガー「${card.name}」発動（トラッシュへ）`, applied);
     });
-  }, [addLog]);
+  }, []);
 
-  // ── アタック選択キャンセル ────────────────────────────────────────
+  // ── アタックキャンセル ─────────────────────────────────────────
   const cancelAttack = useCallback(() => {
     setState(prev => {
       if (!prev) return prev;
-      // アタッカーのタップを戻す
       if (prev.attackState?.owner === 'player') {
         const { attackerUid, attackerType } = prev.attackState;
         const p = prev.player;
@@ -476,11 +578,110 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: ブロッカーでブロック（CPU攻撃時）─────────────────
+  const playerBlock = useCallback((blockerUid) => {
+    setState(prev => {
+      if (!prev?.attackState || prev.attackState.step !== 'blocker') return prev;
+      if (prev.attackState.owner !== 'cpu') return prev;
+      const p = prev.player;
+      const blocker = p.field.find(x => x._uid === blockerUid);
+      if (!blocker || !/【ブロッカー】/.test(blocker.effect || '')) return addLog('このキャラはブロッカーではありません', prev);
+      if (blocker.tapped) return addLog('このキャラはすでにタップ済みです', prev);
+
+      const newField = p.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x);
+      const defensePower = (blocker.power || 0) + (blocker.donAttached || 0) * 1000;
+
+      return addLog(`「${blocker.name}」でブロック！（防御力: ${defensePower}）`, {
+        ...prev,
+        player: { ...p, field: newField },
+        attackState: {
+          ...prev.attackState,
+          targetUid: blockerUid,
+          targetType: 'character',
+          defensePower,
+          counterBonus: 0,
+          step: 'counter',
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: ブロッカーステップスキップ ─────────────────────────
+  const playerPassBlock = useCallback(() => {
+    setState(prev => {
+      if (!prev?.attackState || prev.attackState.step !== 'blocker') return prev;
+      return addLog('ブロッカーなし', { ...prev, attackState: { ...prev.attackState, step: 'counter' } });
+    });
+  }, []);
+
+  // ── プレイヤー: カウンター発動（CPU攻撃時）────────────────────────
+  const playerCounter = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev?.attackState || prev.attackState.step !== 'counter') return prev;
+      if (prev.attackState.owner !== 'cpu') return prev;
+      const p = prev.player;
+      const card = p.hand.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      const counterVal = card.counter || 0;
+      if (counterVal <= 0) return addLog('このカードにはカウンター値がありません', prev);
+
+      const newHand = p.hand.filter(c => c._uid !== cardUid);
+      const newTrash = [...p.trash, { ...card, faceDown: false }];
+      const newDefense = prev.attackState.defensePower + counterVal;
+
+      return addLog(`カウンター「${card.name}」+${counterVal}！（防御力: ${newDefense}）`, {
+        ...prev,
+        player: { ...p, hand: newHand, trash: newTrash },
+        attackState: {
+          ...prev.attackState,
+          defensePower: newDefense,
+          counterBonus: (prev.attackState.counterBonus || 0) + counterVal,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: カウンターステップ確定 → ダメージ解決 → 次のアタックへ
+  const playerConfirmCounter = useCallback(() => {
+    setState(prev => {
+      if (!prev?.attackState || prev.attackState.step !== 'counter') return prev;
+      if (prev.attackState.owner !== 'cpu') return prev;
+      const { targetUid, targetType, attackPower, defensePower } = prev.attackState;
+
+      let ns = { ...prev, attackState: null };
+      ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower);
+
+      // トリガーや勝利があれば一旦停止
+      if (ns.winner || ns.pendingTrigger) {
+        return ns;
+      }
+
+      // 次のCPU攻撃へ
+      return startCpuAttackOnState(ns, ns.cpuPendingAttacks || []);
+    });
+  }, []);
+
+  // ── CPU残りアタックを処理（トリガー解決後に呼ばれる）─────────────────
+  const processCpuPendingAttack = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.winner || prev.pendingTrigger || prev.attackState) return prev;
+      const pending = prev.cpuPendingAttacks || [];
+      if (pending.length === 0) {
+        // 全アタック終了、エンドフェーズへ
+        if (prev.subPhase === 'main' && prev.activePlayer === 'cpu') {
+          return addLog('[CPU] エンドフェーズへ', { ...prev, subPhase: 'end' });
+        }
+        return prev;
+      }
+      return startCpuAttackOnState(prev, pending);
+    });
+  }, []);
+
   // ── CPU メインフェーズ全自動実行 ─────────────────────────────────
-  // BattlePage.jsxのuseEffectから呼ばれる
   const runCpuMainPhase = useCallback(() => {
     setState(prev => {
       if (!prev || prev.activePlayer !== 'cpu' || prev.subPhase !== 'main') return prev;
+      if (prev.cpuPendingAttacks?.length > 0) return prev; // 既にアタックキュー処理中
       const decisions = cpuDecide(prev.cpu, prev.player, prev.turn);
       let ns = { ...prev };
 
@@ -490,8 +691,8 @@ export function useBattleState() {
         const idx = c.hand.findIndex(x => x._uid === play.uid);
         if (idx < 0) continue;
         const card = c.hand[idx];
+        if ((card.cost || 0) > c.donActive) continue;
         const afterDon = autoTapDon(c, card.cost || 0);
-        if (afterDon.donActive < 0 || (card.cost || 0) > c.donActive) continue; // 念のためガード
         const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0 }];
         const newHand = afterDon.hand.filter((_, i) => i !== idx);
         ns = addLog(`CPU「${card.name}」登場`, { ...ns, cpu: { ...afterDon, hand: newHand, field: newField } });
@@ -521,91 +722,17 @@ export function useBattleState() {
         }
       }
 
-      // 3. アタック
-      for (const atk of decisions.attacks) {
-        if (ns.winner) break;
-        const c = ns.cpu;
-        const p = ns.player;
-
-        // アタッカー取得
-        const attacker = atk.attackerType === 'leader' ? c.leader : c.field.find(x => x._uid === atk.attackerUid);
-        if (!attacker || attacker.tapped) continue;
-
-        // ターゲット取得
-        let target, targetType;
-        if (atk.targetType === 'leader') {
-          target = p.leader; targetType = 'leader';
-        } else {
-          target = p.field.find(x => x._uid === atk.targetUid);
-          targetType = 'character';
-          if (!target) continue;
-        }
-
-        // アタッカーをタップ
-        let newCpu;
-        if (atk.attackerType === 'leader') {
-          newCpu = { ...c, leader: { ...c.leader, tapped: true } };
-        } else {
-          newCpu = { ...c, field: c.field.map(x => x._uid === atk.attackerUid ? { ...x, tapped: true } : x) };
-        }
-        ns = { ...ns, cpu: newCpu };
-
-        const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
-        const defensePower = (target.power || 0) + (target.donAttached || 0) * 1000;
-
-        if (attackPower >= defensePower) {
-          // 攻撃パワー ≧ 防御パワー → 攻撃側が勝つ（Q15/Q16: 同パワーも攻撃側勝利）
-          if (targetType === 'character') {
-            const donBack = target.donAttached || 0;
-            ns = addLog(`CPU「${attacker.name}」(${attackPower}) が「${target.name}」をKO！`, {
-              ...ns,
-              player: {
-                ...ns.player,
-                field: ns.player.field.filter(x => x._uid !== atk.targetUid),
-                trash: [...ns.player.trash, target],
-                donActive: ns.player.donActive + donBack,
-              },
-            });
-          } else {
-            // リーダーへダメージ
-            const plr = ns.player;
-            if (plr.life.length > 0) {
-              // ライフがある → 上から1枚めくって手札へ（トリガーあればペンディング）
-              const [lifeCard, ...restLife] = plr.life;
-              const triggered = hasTrigger(lifeCard);
-              ns = addLog(
-                `CPU「${attacker.name}」(${attackPower}) がリーダーにダメージ！ライフ残り${restLife.length}枚${triggered ? '【トリガー】！' : ''}`,
-                {
-                  ...ns,
-                  player: { ...plr, life: restLife, hand: [...plr.hand, { ...lifeCard, faceDown: false }] },
-                }
-              );
-              if (triggered) {
-                // プレイヤーのトリガーをペンディング（残りのアタックはスキップ）
-                ns = { ...ns, pendingTrigger: { card: lifeCard, owner: 'player' } };
-                break;
-              }
-              // ライフ0になってもすぐに敗北ではない（次のダメージステップで判定）
-            } else {
-              // ライフ0の状態でリーダーに攻撃が通った → プレイヤー敗北
-              ns = addLog('プレイヤーのライフが0の状態でリーダーにダメージ！CPUの勝利！', { ...ns, winner: 'cpu' });
-              break;
-            }
-          }
-        } else {
-          ns = addLog(`CPU「${attacker.name}」(${attackPower}) のアタック失敗（${attackPower} < ${defensePower}）`, ns);
-        }
+      // 3. アタック: 全アタックをキューに入れて順次実行
+      const attackQueue = decisions.attacks;
+      if (attackQueue.length === 0) {
+        return addLog('[CPU] エンドフェーズへ', { ...ns, subPhase: 'end', cpuPendingAttacks: [] });
       }
 
-      // メインフェーズ完了 → トリガーや勝利がなければエンドフェーズへ自動進行
-      if (!ns.winner && !ns.pendingTrigger) {
-        ns = addLog('[CPU] エンドフェーズへ', { ...ns, subPhase: 'end' });
-      }
-      return ns;
+      return startCpuAttackOnState({ ...ns, cpuPendingAttacks: [] }, attackQueue);
     });
-  }, [addLog]);
+  }, []);
 
-  // ── プレイヤー: 手動アクション（ドロー、DONレスト等）────────────
+  // ── プレイヤー手動操作 ─────────────────────────────────────────
   const playerDraw = useCallback((count = 1) => {
     setState(prev => {
       if (!prev) return prev;
@@ -616,7 +743,7 @@ export function useBattleState() {
         ...prev, player: { ...p, deck: p.deck.slice(n), hand: [...p.hand, ...p.deck.slice(0, n)] },
       });
     });
-  }, [addLog]);
+  }, []);
 
   const playerTrashCard = useCallback((cardUid) => {
     setState(prev => {
@@ -629,7 +756,7 @@ export function useBattleState() {
         ...prev, player: { ...p, hand: p.hand.filter((_, i) => i !== idx), trash: [...p.trash, card] },
       });
     });
-  }, [addLog]);
+  }, []);
 
   const playerTapDon = useCallback((count = 1) => {
     setState(prev => {
@@ -641,7 +768,7 @@ export function useBattleState() {
         ...prev, player: { ...p, donActive: p.donActive - n, donTapped: p.donTapped + n },
       });
     });
-  }, [addLog]);
+  }, []);
 
   const resetBattle = useCallback(() => setState(null), []);
 
@@ -658,6 +785,11 @@ export function useBattleState() {
     resolveAttack,
     resolveTrigger,
     cancelAttack,
+    playerBlock,
+    playerPassBlock,
+    playerCounter,
+    playerConfirmCounter,
+    processCpuPendingAttack,
     runCpuMainPhase,
     playerDraw,
     playerTrashCard,
