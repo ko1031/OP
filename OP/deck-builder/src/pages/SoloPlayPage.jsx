@@ -11,7 +11,7 @@ const HAND_CARD = { W: 76,  H: 107 };   // 手札
 const DECK_CARD = { W: 72,  H: 101 };   // デッキ/ステージ表示
 const TRASH_CARD= { W: 80,  H: 112 };   // トラッシュ表示
 const DON_CARD  = { W: 64,  H: 90  };   // DON!!カード（手札より少し小さい）
-const DON_MINI  = { W: 17,  H: 24  };   // DON!!アタッチミニカード
+const DON_MINI  = { W: 30,  H: 42  };   // DON!!アタッチミニカード
 
 // ─── フェイズ ──────────────────────────────────────
 const PHASES = [
@@ -111,56 +111,60 @@ function StatChip({ icon, value, label, color, clickable }) {
 }
 
 // ─── ゲームカード（フィールド用）──────────────────
-// badge = donAttached 枚数、背面にDON!!ミニカードを重ねて表示
+// badge = donAttached 枚数、右側にDON!!ミニカードを扇状に表示
 function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highlight }) {
-  const donCount = badge || 0;
-  const showDon  = donCount > 0 && !tapped; // タップ時は非表示（回転で混乱を避ける）
+  const donCount   = badge || 0;
   const visibleDon = Math.min(donCount, 4);
 
   return (
     // 外側ラッパー: overflow-visible でDON!!ミニカードをはみ出させる
     <div className="relative flex-shrink-0" style={{ width: CARD.W, height: CARD.H }}>
 
-      {/* ── DON!!アタッチ表示（背面右側に扇状に配置） ── */}
-      {showDon && Array.from({ length: visibleDon }).map((_, i) => (
+      {/* ── DON!!アタッチ表示（右側に扇状・タップ中も表示） ── */}
+      {donCount > 0 && !tapped && Array.from({ length: visibleDon }).map((_, i) => (
         <div key={i}
-          className="absolute rounded overflow-hidden pointer-events-none"
+          className="absolute rounded-lg overflow-hidden pointer-events-none"
           style={{
             width:  DON_MINI.W,
             height: DON_MINI.H,
-            right:  -8 - i * 9,
-            bottom: 10 + i * 7,
+            right:  -18 - i * 12,
+            bottom: 14 + i * 10,
             zIndex: i + 1,
-            transform: `rotate(${12 + i * 6}deg)`,
-            background: 'linear-gradient(160deg, #fef08a 0%, #fbbf24 50%, #d97706 100%)',
-            border: '1.5px solid rgba(253,224,71,0.8)',
-            boxShadow: '1px 2px 5px rgba(0,0,0,0.6)',
+            transform: `rotate(${10 + i * 6}deg)`,
+            border: '1.5px solid rgba(253,224,71,0.9)',
+            boxShadow: '2px 3px 8px rgba(0,0,0,0.75)',
           }}>
-          <div className="w-full h-full flex flex-col items-center justify-center">
-            <span className="text-amber-900 font-black leading-none" style={{ fontSize: 5 }}>DON</span>
-            <span className="text-amber-900 font-black leading-none" style={{ fontSize: 7 }}>!!</span>
-          </div>
+          <img
+            src={DON_IMG_URL}
+            alt="DON!!"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            draggable={false}
+          />
         </div>
       ))}
-      {/* 4枚超えは枚数バッジ */}
-      {showDon && donCount > 4 && (
-        <div className="absolute pointer-events-none rounded px-1 font-black text-[8px] leading-tight"
+
+      {/* 非タップ時: 枚数バッジ（1枚以上で常に表示） */}
+      {donCount > 0 && !tapped && (
+        <div className="absolute pointer-events-none rounded-full font-black flex items-center justify-center"
           style={{
-            right: -6, bottom: 6, zIndex: 6,
+            right: -6, bottom: 4, zIndex: 20,
+            width: 22, height: 22, fontSize: 11,
             background: '#fbbf24', color: '#1c1a00',
-            border: '1px solid #fde68a', boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+            border: '2px solid #fde68a', boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
           }}>
           +{donCount}
         </div>
       )}
-      {/* タップ時の枚数バッジ（回転中でも見えるよう） */}
+
+      {/* タップ時: 左上に枚数バッジ（回転しても見やすい位置） */}
       {tapped && donCount > 0 && (
         <div className="absolute pointer-events-none rounded-full font-black flex items-center justify-center"
           style={{
-            top: 2, right: 2, width: 18, height: 18, zIndex: 20, fontSize: 9,
-            background: '#fbbf24', color: '#1c1a00', border: '1px solid #fde68a',
+            top: 2, left: 2, width: 22, height: 22, zIndex: 20, fontSize: 11,
+            background: '#fbbf24', color: '#1c1a00',
+            border: '2px solid #fde68a', boxShadow: '0 2px 6px rgba(0,0,0,0.6)',
           }}>
-          {donCount}
+          +{donCount}
         </div>
       )}
 
