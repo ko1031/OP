@@ -2,7 +2,8 @@
 // BattlePage.jsx — CPU対戦ページ（一人回しレイアウト準拠）
 // ─────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Home, Swords, ChevronRight, X, Bot, User, RotateCcw, Anchor, Skull, Zap, Shuffle } from 'lucide-react';
+import { Home, Swords, ChevronRight, X, Bot, User, RotateCcw, Anchor, Skull, Zap, Shuffle, Eye } from 'lucide-react';
+import PirateMapBg from '../components/PirateMapBg';
 import { useBattleState } from '../hooks/useBattleState';
 import { loadSavedDecks, resolveSampleDeck, LEADER_EFFECTS } from '../hooks/useGameState';
 import { SAMPLE_DECKS } from '../utils/deckRules';
@@ -11,10 +12,16 @@ import CardImage from '../components/CardImage';
 // ─── カードサイズ定数（一人回しと同じ）─────────────────────────────
 const CARD      = { W: 96,  H: 134 };
 const HAND_CARD = { W: 76,  H: 107 };
+const DECK_CARD = { W: 72,  H: 101 };
+const TRASH_CARD= { W: 80,  H: 112 };
 const DON_CARD  = { W: 64,  H: 90  };
 const DON_MINI  = { W: 46,  H: 64  };
 // CPU用（少し縮小）
 const CC = { W: 64, H: 90 };
+
+// ─── レイアウト定数（一人回しと同じ）──────────────────────────────
+const LEFT_COL_W   = 240;
+const DECK_TRASH_W = 248;
 
 const DON_IMG_URL = `${import.meta.env.BASE_URL}don-card.png`;
 
@@ -175,9 +182,12 @@ function EmptySlot({ size = CARD }) {
 }
 
 // ─── 手札カード（一人回しHandCard準拠）──────────────────────────────
-function HandCard({ card, selected, onClick, onDoubleClick }) {
+function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragEnd }) {
   return (
     <div
+      draggable={!!onDragStart}
+      onDragStart={onDragStart ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={`relative flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-110 hover:-translate-y-2
@@ -206,13 +216,17 @@ function HandCard({ card, selected, onClick, onDoubleClick }) {
 }
 
 // ─── DON!!カード ────────────────────────────────────────────────────
-function DonCard({ active, onClick }) {
+function DonCard({ active, onClick, onDragStart, onDragEnd }) {
+  const canDrag = active && !!onDragStart;
   return (
     <div onClick={active ? onClick : undefined}
+      draggable={canDrag}
+      onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
+      onDragEnd={canDrag ? onDragEnd : undefined}
       className={`flex-shrink-0 select-none transition-all duration-150 rounded overflow-hidden
         ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : 'opacity-40 cursor-default grayscale brightness-75'}`}
       style={{ width: DON_CARD.W, height: DON_CARD.H, boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none' }}
-      title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}>
+      title={active ? 'DON!!（ドラッグでアタッチ / クリックでレスト）' : 'DON!!（レスト済み）'}>
       <img src={DON_IMG_URL} alt="DON!!" style={{ width: DON_CARD.W, height: DON_CARD.H, objectFit: 'cover', display: 'block' }} draggable={false} />
     </div>
   );
@@ -1354,144 +1368,197 @@ export default function BattlePage({ onNavigate }) {
   const ps = state.player;
   const cs = state.cpu;
   const isSelectingTarget = attackMode === 'select-target';
+  const donTotal = ps.donActive + ps.donTapped;
+  const activePhaseIdx = PHASES.findIndex(p => p.id === subPhase);
 
   return (
-    <div className={`min-h-screen flex flex-col ${P.bg} overflow-hidden`}>
+    <div className={`h-screen ${P.bg} flex flex-col overflow-hidden select-none relative`}>
+
+      <PirateMapBg />
 
       {/* ═══ ヘッダー ═══ */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b border-amber-900/20 bg-black/30">
-        <button onClick={() => onNavigate('home')} className={`p-1.5 rounded-lg ${P.btnGray}`}><Home size={14}/></button>
-        <PhaseBar subPhase={subPhase} isMyTurn={isMyTurn && !attackMode && !state.pendingTrigger} onAdvance={game.advancePhase}/>
-        <div className="flex items-center gap-2 ml-auto">
+      <header className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-[#080c1e]/98 border-b border-amber-900/35 z-[10] relative"
+        style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.4)' }}>
+        <button onClick={() => onNavigate('home')} title="ホームに戻る"
+          className="text-amber-700/60 hover:text-amber-400 transition-colors flex-shrink-0 p-0.5 rounded hover:bg-amber-900/20">
+          <Home size={16}/>
+        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0 bg-amber-900/20 border border-amber-800/30 rounded-lg px-2 py-0.5">
+          <Skull size={11} className="text-amber-500/80"/>
+          <span className="text-amber-300 font-black text-sm">T{state.turn}</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isMyTurn ? 'bg-amber-800/40 text-amber-400' : 'bg-blue-900/40 text-blue-400'}`}>
+            {isMyTurn ? 'あなた' : 'CPU'}
+          </span>
+        </div>
+        <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
           <StatChip icon="📚" value={ps.deck.length} label="デッキ"/>
           <StatChip icon="✋" value={ps.hand.length} label="手札"/>
-          <StatChip icon="❤️" value={ps.life.length} label="ライフ" color="red"/>
-          <StatChip icon="🗑" value={ps.trash.length} label="トラッシュ" onClick={() => setShowTrash(true)}/>
-          <button onClick={() => setShowLog(v => !v)} className={`text-[10px] px-2 py-0.5 rounded-lg border ${showLog ? 'bg-amber-700/30 border-amber-600/50 text-amber-300' : 'bg-[#0d1530]/60 border-amber-900/30 text-amber-600/50'}`}>LOG</button>
+          <StatChip icon="❤️" value={ps.life.length} label="LIFE" color="red"/>
+          <button onClick={() => setShowTrash(true)} title="トラッシュを確認">
+            <StatChip icon="🗑" value={ps.trash.length} label="トラッシュ"/>
+          </button>
         </div>
-        <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-bold ${isMyTurn ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-blue-500/15 border-blue-500/40 text-blue-300'}`}>
-          {isMyTurn ? <User size={12}/> : <Bot size={12}/>}
-          {isMyTurn ? 'あなた' : 'CPU'}
-          <span className="text-white/30 ml-1">T{state.turn}</span>
+        <div className="flex-1"/>
+        {/* CPU情報 */}
+        <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 bg-blue-900/20 border border-blue-800/30 rounded-lg px-1.5 py-0.5 text-[10px] text-blue-400/80 font-bold"><Bot size={10}/>CPU</div>
+          <StatChip icon="❤️" value={cs.life.length} label="CPUライフ" color="red"/>
+          <StatChip icon="💛" value={`${cs.donActive}/${cs.donActive+cs.donTapped}`} label="DON!!"/>
+          <StatChip icon="📚" value={cs.deck.length} label="CPUデッキ"/>
+          <StatChip icon="✋" value={cs.hand.length} label="CPU手札"/>
         </div>
-      </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button onClick={() => game.playerDraw(1)} className={`text-xs px-2.5 py-1 rounded-lg border ${P.btnBlue}`}>+ドロー</button>
+          <button onClick={() => setShowLog(v=>!v)}
+            className={`text-[10px] px-1.5 py-0.5 rounded border transition-all ${showLog ? 'bg-amber-800/40 border-amber-600/50 text-amber-300' : 'border-amber-900/30 text-amber-800/50 hover:text-amber-400'}`}>LOG</button>
+        </div>
+      </header>
 
       {/* ═══ メインエリア ═══ */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden p-1.5 gap-1.5 min-h-0 relative z-[1]">
 
-        {/* 左サイドバー: ログ（トグル） */}
-        {showLog && (
-          <div className="flex-shrink-0 w-56 flex flex-col gap-2 p-3 border-r border-amber-900/15 bg-black/20 overflow-y-auto">
-            <div className={P.label}>バトルログ</div>
-            <BattleLog logs={state.battleLog}/>
-          </div>
-        )}
-
-        {/* メインボード */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-
-          {/* ── CPU ボード（上段・コンパクト）── */}
-          <div className={`flex-shrink-0 p-3 border-b border-blue-900/20 ${isCpuTurn ? 'bg-blue-900/8' : 'bg-black/20'}`}>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5 bg-black/30 border border-blue-800/30 rounded-lg px-2.5 py-1"><Bot size={12} className="text-blue-400"/><span className="text-blue-300/80 text-[10px] font-bold">CPU</span></div>
-              <StatChip icon="❤️" value={cs.life.length} label="CPUライフ" color="red"/>
-              <StatChip icon="💛" value={`${cs.donActive}/${cs.donActive+cs.donTapped}`} label="DON!!"/>
-              <StatChip icon="📚" value={cs.deck.length} label="CPUデッキ"/>
-              <StatChip icon="✋" value={cs.hand.length} label="CPU手札"/>
-              {isCpuTurn && <div className="text-blue-400/70 text-xs animate-pulse ml-auto"><Bot size={14} className="inline mr-1"/>思考中...</div>}
-            </div>
-            <div className="flex items-end gap-3 mt-2 flex-wrap">
-              {/* CPUリーダー */}
-              <div className="flex flex-col items-center gap-0.5">
-                <div className="text-[8px] text-blue-400/60 font-bold">LEADER</div>
-                <GameCard card={cs.leader} tapped={cs.leader.tapped} size={CC} showPower
-                  highlight={isSelectingTarget ? 'target' : null}
-                  onClick={() => isSelectingTarget && handleTargetSelect('cpu-leader')}/>
-              </div>
-              {/* CPUフィールド */}
-              <div className="flex gap-2 items-end flex-wrap flex-1">
-                {cs.field.length === 0 && <EmptySlot size={CC}/>}
-                {cs.field.map(card => (
-                  <div key={card._uid} className="flex flex-col items-center gap-0.5">
-                    <GameCard card={card} tapped={card.tapped} size={CC} showPower
-                      highlight={isSelectingTarget ? 'target' : null}
-                      onClick={() => isSelectingTarget && handleTargetSelect(card._uid)}/>
-                  </div>
+        {/* ── CPU ボード（コンパクト・flex:2）── */}
+        <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 relative`}
+          style={{ borderColor: isCpuTurn ? 'rgba(60,130,255,0.35)' : 'rgba(60,130,255,0.15)' }}>
+          {isCpuTurn && <div className="absolute top-1 right-2 text-blue-400/70 text-[10px] animate-pulse font-bold"><Bot size={12} className="inline mr-0.5"/>思考中...</div>}
+          <div className="flex items-end gap-3 flex-wrap justify-center">
+            {/* CPUライフ */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="text-[8px] text-red-400/60 font-bold uppercase tracking-widest">LIFE</div>
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: cs.life.length }).map((_,i) => (
+                  <div key={i} className="w-3 h-5 bg-red-700/60 border border-red-500/40 rounded-sm"/>
                 ))}
+                {cs.life.length === 0 && <Skull size={14} className="text-red-900/40"/>}
               </div>
-              {/* CPU手札（裏向き） */}
-              <div className="flex gap-0.5 flex-wrap max-w-[120px]">
-                {cs.hand.map((_, i) => (
-                  <div key={i} className="rounded overflow-hidden border border-blue-800/40"
-                    style={{ width: 36, height: 50, background: 'linear-gradient(135deg, #0a1535, #0d1e4a)' }}>
-                    <div className="w-full h-full flex items-center justify-center"><span className="text-blue-700/40 font-black text-[7px]">OP</span></div>
-                  </div>
-                ))}
-              </div>
+              <div className="text-red-400/70 text-[9px] font-bold">{cs.life.length}</div>
+            </div>
+            {/* CPUリーダー */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="text-[8px] text-blue-400/60 font-bold">LEADER</div>
+              <GameCard card={cs.leader} tapped={cs.leader.tapped} size={CC} showPower
+                highlight={isSelectingTarget ? 'target' : null}
+                onClick={() => isSelectingTarget && handleTargetSelect('cpu-leader')}/>
+            </div>
+            {/* CPUフィールド */}
+            <div className="flex gap-2 items-end flex-wrap">
+              {cs.field.length === 0 && <EmptySlot size={CC}/>}
+              {cs.field.map(card => (
+                <div key={card._uid} className="flex flex-col items-center gap-0.5">
+                  <GameCard card={card} tapped={card.tapped} size={CC} showPower
+                    highlight={isSelectingTarget ? 'target' : null}
+                    onClick={() => isSelectingTarget && handleTargetSelect(card._uid)}/>
+                </div>
+              ))}
+            </div>
+            {/* CPU手札（裏向き） */}
+            <div className="flex gap-0.5 flex-wrap max-w-[120px]">
+              {cs.hand.map((_, i) => (
+                <div key={i} className="rounded overflow-hidden border border-blue-800/40"
+                  style={{ width: 32, height: 45, background: 'linear-gradient(135deg, #0a1535, #0d1e4a)' }}>
+                  <div className="w-full h-full flex items-center justify-center"><span className="text-blue-700/40 font-black text-[6px]">OP</span></div>
+                </div>
+              ))}
             </div>
           </div>
+          {/* アタックターゲット選択ガイド */}
+          {isSelectingTarget && (
+            <div className="flex items-center justify-center gap-2 mt-1.5">
+              <div className="text-[10px] text-red-400/80 animate-pulse font-bold">↑ CPUのカードをクリックしてターゲット選択</div>
+              <button onClick={handleCancelAttack} className={`text-[10px] px-2 py-0.5 rounded-lg ${P.btnGray}`}><X size={10} className="inline mr-0.5"/>キャンセル</button>
+            </div>
+          )}
+        </div>
 
-          {/* ── セパレーター ── */}
-          <div className="flex items-center gap-2 px-3 py-1 flex-shrink-0">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-800/30 to-transparent"/>
-            <div className="px-2 py-0.5 rounded-full bg-amber-900/20 border border-amber-800/30 text-amber-700/50 text-[9px] font-bold">BATTLE FIELD</div>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-800/30 to-transparent"/>
-            {/* アタック指示 */}
-            {isSelectingTarget && <div className="text-[9px] text-red-400/70 animate-pulse font-bold">← CPUのカードをクリックしてターゲット選択</div>}
-            {attackMode === 'select-target' && (
-              <button onClick={handleCancelAttack} className={`text-[10px] px-2 py-1 rounded-lg ${P.btnGray}`}><X size={10} className="inline mr-0.5"/>キャンセル</button>
-            )}
+        {/* ── プレイヤーボード（一人回しグリッドレイアウト準拠）── */}
+        <div className="flex gap-1.5 min-h-0" style={{ flex: 8 }}>
+
+          {/* ──── ライフ列（行1〜3の全高をカバー）──── */}
+          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center justify-center overflow-visible`}
+            style={{ width: LEFT_COL_W, borderColor: 'rgba(220,50,50,0.22)' }}>
+            <LifeStack life={ps.life} onFlip={game.playerFlipLife}/>
           </div>
 
-          {/* ── プレイヤーボード（下段・一人回しレイアウト準拠）── */}
-          <div className={`flex-1 flex p-3 gap-3 ${isMyTurn ? 'bg-amber-900/5' : 'bg-black/15'}`}>
-            {/* 左: ライフスタック */}
-            <div className="flex-shrink-0" style={{ width: 110 }}>
-              <LifeStack life={ps.life} onFlip={game.playerFlipLife}/>
-            </div>
+          {/* ──── 中央+右セクション（行1〜3を縦積み）──── */}
+          <div className="flex-1 flex flex-col gap-1.5 min-w-0">
 
-            {/* 中央: フィールド */}
-            <div className="flex-1 flex flex-col gap-3">
-              {/* キャラクターゾーン */}
-              <div className="flex gap-3 items-end flex-wrap"
+            {/* 行1: キャラクターゾーン */}
+            <div className="min-h-0 overflow-visible" style={{ flex: 3 }}>
+              <div className={`h-full ${P.panel} rounded-xl p-2 flex flex-col min-w-0 overflow-visible`}
+                style={{ borderColor: 'rgba(120,220,120,0.18)', ...dzStyle('field') }}
                 onDragOver={e => { if (isValidDrop('field')) { e.preventDefault(); setDragOver('field'); } }}
                 onDragLeave={() => setDragOver(null)}
-                onDrop={e => { e.preventDefault(); handleDrop('field'); }}
-                style={dzStyle('field')}>
-                {ps.field.map(card => {
-                  const isAttacker = selectedAttackerUid === card._uid;
-                  const fieldZone = `field-card-${card._uid}`;
-                  return (
-                    <div key={card._uid} className="flex flex-col items-center gap-0.5"
-                      onDragOver={e => { if (isValidDrop(fieldZone)) { e.preventDefault(); e.stopPropagation(); setDragOver(fieldZone); } }}
-                      onDragLeave={e => { e.stopPropagation(); setDragOver(null); }}
-                      onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}
-                      style={dzStyle(fieldZone)}>
-                      <GameCard card={card} tapped={card.tapped} showPower
-                        highlight={isAttacker ? 'attacker' : null}
-                        onClick={() => {
-                          if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card, context: 'field' });
-                          else if (attackMode === null && !isCpuTurn) setActionMenu({ card, context: 'field' });
-                        }}
-                        onDoubleClick={() => setDetailCard(card)}/>
+                onDrop={e => { e.preventDefault(); handleDrop('field'); }}>
+                <div className="flex items-center gap-2 mb-1 flex-shrink-0">
+                  <span className={P.label}>キャラクター ({ps.field.length}/5)</span>
+                  <span className="text-[9px] text-white/35 hidden lg:inline">
+                    ダブルクリック→効果 / クリック→操作
+                    {dragInfo?.context === 'hand' && dragInfo.card.card_type === 'CHARACTER' && ' / ここにドロップで場に出す'}
+                  </span>
+                </div>
+                <div className="flex gap-4 items-end overflow-x-auto overflow-y-visible flex-1 pb-1 justify-center px-2">
+                  {ps.field.map(card => {
+                    const donPad = (card.donAttached || 0) > 0 ? Math.min(card.donAttached, 4) * 16 + 32 : 0;
+                    const hasActive = /【起動メイン】/.test(card.effect || '');
+                    const isAttacker = selectedAttackerUid === card._uid;
+                    return (
+                      <div key={card._uid} className="flex flex-col items-center gap-1 flex-shrink-0" style={{ paddingRight: donPad }}>
+                        <div style={dzStyle(`field-card-${card._uid}`)} className="rounded-xl"
+                          onDragOver={e => { if (isValidDrop(`field-card-${card._uid}`)) { e.preventDefault(); e.stopPropagation(); setDragOver(`field-card-${card._uid}`); } }}
+                          onDragLeave={e => { e.stopPropagation(); setDragOver(null); }}
+                          onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}>
+                          <GameCard card={card} tapped={card.tapped} badge={card.donAttached}
+                            highlight={isAttacker ? 'attacker' : null}
+                            onClick={() => {
+                              if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card, context: 'field' });
+                              else if (attackMode === null && !isCpuTurn) setActionMenu({ card, context: 'field' });
+                            }}
+                            onDoubleClick={() => setDetailCard(card)}/>
+                        </div>
+                        {hasActive && (
+                          <button onClick={() => handleCharActiveAbility(card)} style={{ width: CARD.W }}
+                            className={`py-1 rounded-lg font-black text-[9px] ${P.btnGold} flex items-center justify-center gap-0.5 border`}>
+                            <Zap size={8}/> 起動メイン
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {Array.from({ length: Math.max(0, 5 - ps.field.length) }).map((_, i) => <EmptySlot key={i}/>)}
+                </div>
+              </div>
+            </div>
+
+            {/* 行2: フェーズ | リーダー(flex) | ステージ(固定) | デッキ */}
+            <div className="flex gap-1.5 min-h-0 overflow-visible" style={{ flex: 3 }}>
+
+              {/* フェーズパネル */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col justify-between min-h-0`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(200,160,50,0.25)' }}>
+                <div className="flex flex-col gap-0.5 flex-1 justify-around">
+                  {PHASES.map((p, i) => (
+                    <div key={p.id} className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-lg text-[10px] font-bold transition-all
+                      ${i === activePhaseIdx ? 'bg-amber-600/40 text-amber-200 border border-amber-500/60' : i < activePhaseIdx ? 'text-amber-900/35 line-through' : 'text-amber-700/50'}`}>
+                      <span className="text-sm leading-none">{p.icon}</span><span>{p.label}</span>
                     </div>
-                  );
-                })}
-                {Array.from({ length: Math.max(0, 5 - ps.field.length) }).map((_,i) => <EmptySlot key={`e${i}`}/>)}
+                  ))}
+                </div>
+                {isMyTurn && (
+                  <button onClick={game.advancePhase} className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
+                    {subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
+                  </button>
+                )}
               </div>
 
-              {/* リーダー行 */}
-              <div className="flex items-end gap-4">
-                <div className="flex flex-col items-center gap-0.5"
-                  onDragOver={e => { if (isValidDrop('leader')) { e.preventDefault(); setDragOver('leader'); } }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={e => { e.preventDefault(); handleDrop('leader'); }}
-                  style={dzStyle('leader')}>
-                  <div className="flex items-center gap-1">
-                    <div className={P.label}>LEADER</div>
-                    <LeaderEffectBadge leaderEffect={ps.leaderEffect} leaderName={ps.leader?.name} onUseAbility={() => setShowLeaderAbilityModal(true)}/>
-                  </div>
-                  <GameCard card={ps.leader} tapped={ps.leader.tapped} showPower
+              {/* リーダー（flex中央配置） */}
+              <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-2 overflow-visible min-w-0`}
+                style={{ borderColor: 'rgba(255,220,80,0.22)', ...dzStyle('leader') }}
+                onDragOver={e => { if (isValidDrop('leader')) { e.preventDefault(); setDragOver('leader'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={e => { e.preventDefault(); handleDrop('leader'); }}>
+                <div className={P.label}>リーダー</div>
+                <div className="flex-1 flex items-center justify-center">
+                  <GameCard card={ps.leader} tapped={ps.leader.tapped} badge={ps.leader.donAttached}
                     highlight={selectedAttackerUid === 'p-leader' ? 'attacker' : null}
                     onClick={() => {
                       if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card: ps.leader, context: 'leader' });
@@ -1499,104 +1566,219 @@ export default function BattlePage({ onNavigate }) {
                     }}
                     onDoubleClick={() => setDetailCard(ps.leader)}/>
                 </div>
-                {/* ステージ */}
-                <div className="flex flex-col items-center gap-0.5"
-                  onDragOver={e => { if (isValidDrop('stage')) { e.preventDefault(); setDragOver('stage'); } }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={e => { e.preventDefault(); handleDrop('stage'); }}
-                  style={dzStyle('stage')}>
+                {ps.leaderEffect?.hasActiveAbility && (
+                  <button onClick={() => setShowLeaderAbilityModal(true)} style={{ width: CARD.W * 1.5 }}
+                    className={`py-2.5 rounded-xl font-black text-xs ${P.btnGold} flex items-center justify-center gap-1.5 shadow-lg`}>
+                    <Zap size={13}/> 起動メイン効果
+                  </button>
+                )}
+                {ps.leaderEffect?.note && !ps.leaderEffect?.hasActiveAbility && (
+                  <div className="text-[9px] text-amber-500/55 text-center leading-tight px-1 line-clamp-2">{ps.leaderEffect.note}</div>
+                )}
+              </div>
+
+              {/* ステージ（固定幅） */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(180,80,220,0.22)', ...dzStyle('stage') }}
+                onDragOver={e => { if (isValidDrop('stage')) { e.preventDefault(); setDragOver('stage'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={e => { e.preventDefault(); handleDrop('stage'); }}>
+                <div className={P.label}>ステージ</div>
+                <div className="flex-1 flex items-center justify-center">
                   {ps.stage ? (
-                    <>
-                      <div className={P.label}>STAGE</div>
-                      <GameCard card={ps.stage} tapped={false} onClick={() => setActionMenu({ card: ps.stage, context: 'stage' })}
-                        onDoubleClick={() => setDetailCard(ps.stage)}/>
-                    </>
+                    <div className="cursor-pointer rounded-xl overflow-hidden border-2 border-purple-400/40 hover:border-purple-300/70 transition-all shadow-lg"
+                      onClick={() => setActionMenu({ card: ps.stage, context: 'stage' })}
+                      onDoubleClick={() => setDetailCard(ps.stage)}>
+                      <CardImage card={ps.stage} className="object-cover" style={{ width: DECK_CARD.W, height: DECK_CARD.H }}/>
+                    </div>
                   ) : (
-                    <>
-                      <div className={P.label}>STAGE</div>
-                      <EmptySlot />
-                    </>
+                    <div className="rounded-xl border-2 border-dashed border-white/15 flex items-center justify-center"
+                      style={{ width: DECK_CARD.W, height: DECK_CARD.H }}>
+                      <span className="text-white/20 text-xs">なし</span>
+                    </div>
                   )}
                 </div>
-                {/* デッキ */}
-                <div className="flex flex-col items-center gap-0.5"
-                  onDragOver={e => { if (isValidDrop('deck')) { e.preventDefault(); setDragOver('deck'); } }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={e => { e.preventDefault(); handleDrop('deck'); }}
-                  style={dzStyle('deck')}>
-                  <div className={P.label}>DECK</div>
-                  <div className="rounded-xl border-2 border-amber-900/30 flex items-center justify-center bg-gradient-to-br from-amber-900/20 to-[#06091a]"
-                    style={{ width: CARD.W, height: CARD.H }}>
-                    <div className="text-center">
-                      <div className="text-amber-500/60 text-2xl">📚</div>
-                      <div className="text-amber-500/80 text-sm font-black">{ps.deck.length}</div>
+              </div>
+
+              {/* デッキ */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: DECK_TRASH_W, borderColor: 'rgba(60,120,220,0.22)', ...dzStyle('deck') }}
+                onDragOver={e => { if (isValidDrop('deck')) { e.preventDefault(); setDragOver('deck'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={e => { e.preventDefault(); handleDrop('deck'); }}>
+                <div className={P.label}>デッキ</div>
+                <div className="flex-1 flex flex-col items-center justify-center gap-1">
+                  <div className="relative cursor-pointer group" onClick={() => game.playerDraw(1)} title="クリックでドロー">
+                    <div className="absolute rounded-xl bg-gradient-to-br from-blue-900/50 to-[#06091a]"
+                      style={{ width: DECK_CARD.W - 4, height: DECK_CARD.H - 4, top: 4, left: 4 }}/>
+                    <div className="relative rounded-xl bg-gradient-to-br from-[#1a2a5e] to-[#06091a] border-2 border-white/20 flex flex-col items-center justify-center gap-1 group-hover:border-amber-400/60 transition-colors"
+                      style={{ width: DECK_CARD.W, height: DECK_CARD.H }}>
+                      <Anchor size={18} className="text-white/40"/>
+                      <span className="text-white/40 text-[9px] font-bold">CLICK</span>
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-blue-400/50 shadow-md">
+                      {ps.deck.length}
                     </div>
                   </div>
-                </div>
-                {/* トラッシュ */}
-                <div className="flex flex-col items-center gap-0.5 cursor-pointer"
-                  onClick={() => setShowTrash(true)}
-                  onDragOver={e => { if (isValidDrop('trash')) { e.preventDefault(); setDragOver('trash'); } }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={e => { e.preventDefault(); handleDrop('trash'); }}
-                  style={dzStyle('trash')}>
-                  <div className={P.label}>TRASH</div>
-                  <div className="rounded-xl border-2 border-amber-900/30 flex items-center justify-center bg-gradient-to-br from-red-900/10 to-[#06091a] hover:border-amber-700/50"
-                    style={{ width: CARD.W, height: CARD.H }}>
-                    <div className="text-center">
-                      <div className="text-red-500/50 text-2xl">🗑</div>
-                      <div className="text-red-400/70 text-sm font-black">{ps.trash.length}</div>
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-white/30">ドロー</span>
+                    <button onClick={game.playerShuffleDeck} title="シャッフル（S）" className="text-white/40 hover:text-amber-300 transition-colors"><Shuffle size={11}/></button>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* DON!!ゾーン */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className={P.label}>DON!!</div>
-                {ps.donActive + ps.donTapped <= 8 ? (
-                  <>
-                    {Array.from({ length: ps.donActive }).map((_,i) => (
-                      <div key={`a${i}`} draggable onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}>
-                        <DonCard active onClick={() => game.playerTapDon(1)}/>
+            {/* 行3: DON!!デッキ | コストエリア | トラッシュ */}
+            <div className="flex gap-1.5 min-h-0" style={{ flex: 2 }}>
+
+              {/* DON!!デッキパネル */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center justify-center gap-1 min-h-0`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(253,224,71,0.25)' }}>
+                <div className={P.label}>DON!!デッキ</div>
+                <div className="relative">
+                  <div className="absolute rounded-lg"
+                    style={{ width: DON_CARD.W + 6, height: DON_CARD.H + 6, top: 4, left: 4, background: 'linear-gradient(160deg, #3d2a00 0%, #1a1300 100%)', border: '1.5px solid rgba(180,120,10,0.35)' }}/>
+                  <div className="relative rounded overflow-hidden" style={{ width: DON_CARD.W + 6, height: DON_CARD.H + 6 }}>
+                    <DonCard active={false}/>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-amber-600 text-amber-900 text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-amber-400/60 shadow-md">{ps.donDeck}</div>
+                </div>
+                <div className="text-[9px] text-amber-600/60">残{ps.donDeck}枚</div>
+              </div>
+
+              {/* コストエリア */}
+              <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col min-w-0`}
+                style={{ borderColor: 'rgba(253,224,71,0.22)' }}>
+                <div className="flex items-center justify-between mb-1 gap-1 flex-wrap flex-shrink-0">
+                  <div className="text-[10px] text-amber-300/90 font-bold flex items-center gap-1">
+                    <span>💛</span><span>コストエリア</span>
+                    <span className="text-white/50 font-normal">({donTotal})</span>
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    <button onClick={() => game.playerTapDon(1)} className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnGray}`}>×1レスト</button>
+                    <button onClick={() => game.playerAttachDon('leader')} className={`text-[9px] px-1.5 py-0.5 rounded border ${P.btnGold}`}>リーダー+1</button>
+                  </div>
+                </div>
+                <div className="flex gap-1.5 flex-wrap items-end flex-1 overflow-y-auto" style={{ minHeight: DON_CARD.H + 2 }}>
+                  {ps.donActive <= 8
+                    ? Array.from({ length: ps.donActive }).map((_, i) => (
+                        <DonCard key={`a-${i}`} active={true} onClick={() => game.playerTapDon(1)}
+                          onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}/>
+                      ))
+                    : (
+                      <div className="flex items-end gap-1.5">
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <DonCard key={i} active={true} onClick={() => game.playerTapDon(1)}
+                            onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}/>
+                        ))}
+                        <span className="text-yellow-300 font-black text-sm self-center pb-1">×{ps.donActive}</span>
                       </div>
-                    ))}
-                    {ps.donActive > 0 && ps.donTapped > 0 && <div className="w-px h-12 bg-amber-700/30 mx-1"/>}
-                    {Array.from({ length: ps.donTapped }).map((_,i) => <DonCard key={`t${i}`} active={false}/>)}
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div draggable onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}>
-                      <DonCard active onClick={() => game.playerTapDon(1)}/>
+                    )
+                  }
+                  {ps.donActive > 0 && ps.donTapped > 0 && <div className="self-stretch w-px bg-white/15 mx-0.5"/>}
+                  {ps.donTapped <= 8
+                    ? Array.from({ length: ps.donTapped }).map((_, i) => <DonCard key={`t-${i}`} active={false}/>)
+                    : (
+                      <div className="flex items-end gap-1.5">
+                        {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={false}/>)}
+                        <span className="text-white/30 font-black text-sm self-center pb-1">×{ps.donTapped}</span>
+                      </div>
+                    )
+                  }
+                  {(ps.leader.donAttached||0) > 0 && (
+                    <div className="self-center ml-1 flex items-center gap-0.5 bg-yellow-900/30 border border-yellow-600/40 rounded-lg px-1.5 py-0.5">
+                      <span className="text-yellow-300 text-[10px] font-black">👑+{ps.leader.donAttached}</span>
                     </div>
-                    <span className="text-amber-400 font-black text-sm">×{ps.donActive}</span>
-                    {ps.donTapped > 0 && <><div className="w-px h-12 bg-amber-700/30 mx-1"/><DonCard active={false}/><span className="text-amber-700/70 font-bold text-sm">×{ps.donTapped}</span></>}
+                  )}
+                  {donTotal === 0 && <span className="text-white/25 text-xs italic self-center">次フェーズでDON!!補充</span>}
+                </div>
+              </div>
+
+              {/* トラッシュ */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: DECK_TRASH_W, borderColor: 'rgba(200,80,80,0.22)', ...dzStyle('trash') }}
+                onDragOver={e => { if (isValidDrop('trash')) { e.preventDefault(); setDragOver('trash'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={e => { e.preventDefault(); handleDrop('trash'); }}>
+                <div className={`${P.label} flex items-center gap-1`}>
+                  トラッシュ {ps.trash.length > 0 && <span className="text-red-300/70 font-black">({ps.trash.length})</span>}
+                </div>
+                {ps.trash.length > 0 ? (
+                  <div className="relative cursor-pointer group flex-1 w-full flex items-center justify-center overflow-visible"
+                    onClick={() => setShowTrash(true)} title="クリックで一覧表示">
+                    {ps.trash.length >= 2 && (
+                      <div className="absolute rounded-xl overflow-hidden border border-white/20"
+                        style={{ width: TRASH_CARD.W, height: TRASH_CARD.H, top: 4, left: 10, transform: 'rotate(4deg)', opacity: 0.75, zIndex: 2 }}>
+                        <CardImage card={ps.trash[ps.trash.length-2]} className="w-full h-full object-cover"/>
+                      </div>
+                    )}
+                    <div className="absolute rounded-xl overflow-hidden border-2 border-red-400/35"
+                      style={{ width: TRASH_CARD.W, height: TRASH_CARD.H, top: 0, left: 0, zIndex: 3, boxShadow: '0 4px 16px rgba(0,0,0,0.5)' }}>
+                      <CardImage card={ps.trash[ps.trash.length-1]} className="w-full h-full object-cover"/>
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                        <span className="text-white font-bold text-[10px] bg-black/40 px-1.5 py-0.5 rounded">一覧</span>
+                      </div>
+                    </div>
+                    <div className="absolute font-black rounded-full flex items-center justify-center border"
+                      style={{ bottom: -2, right: 4, width: 18, height: 18, fontSize: 9, zIndex: 10, background: '#991b1b', color: '#fca5a5', borderColor: '#ef4444' }}>
+                      {ps.trash.length}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-white/15 w-full">
+                    <span className="text-white/20 text-xs">空</span>
                   </div>
                 )}
-                {ps.donLeader > 0 && <span className="text-amber-400/70 text-[10px] ml-2">👑+{ps.donLeader}</span>}
-                <span className="text-amber-700/40 text-[10px] ml-auto">DON!!デッキ残: {ps.donDeck}</span>
+                <div className="text-[9px] text-white/30">クリックで一覧</div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* ── 手札ゾーン（最下段）── */}
-          <div className="flex-shrink-0 border-t border-amber-900/20 bg-black/30 p-3">
-            <div className="flex gap-2 items-end flex-wrap">
-              <div className={`${P.label} self-center mr-1`}>HAND</div>
+        {/* ── 手札（フル幅・一人回し準拠）── */}
+        <div className="flex gap-1.5 min-h-0" style={{ flex: 2 }}>
+          <div className={`flex-1 ${P.panel} rounded-xl px-3 py-2 flex flex-col min-w-0`}
+            style={{ borderColor: 'rgba(100,160,255,0.22)' }}>
+            <div className="flex items-center gap-2 mb-1 flex-shrink-0">
+              <div className={P.label}>手札 ({ps.hand.length}枚)</div>
+              <div className="text-[9px] text-white/30 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認 / ドラッグ→各ゾーンに直接配置</div>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-0.5 items-end flex-1 justify-center">
               {ps.hand.map(card => (
-                <div key={card._uid} draggable onDragStart={() => setDragInfo({ card, context: 'hand' })} onDragEnd={handleDragEnd}>
-                  <HandCard card={card}
-                    selected={selectedAttackerUid === card._uid}
-                    onClick={() => {
-                      if (isMyTurn && inMainPhase) setActionMenu({ card, context: 'hand' });
-                      else setDetailCard(card);
-                    }}
-                    onDoubleClick={() => setDetailCard(card)}/>
-                </div>
+                <HandCard key={card._uid} card={card}
+                  selected={selectedAttackerUid === card._uid}
+                  onClick={() => {
+                    if (isMyTurn && inMainPhase) setActionMenu({ card, context: 'hand' });
+                    else setDetailCard(card);
+                  }}
+                  onDoubleClick={() => setDetailCard(card)}
+                  onDragStart={() => setDragInfo({ card, context: 'hand' })}
+                  onDragEnd={handleDragEnd}/>
               ))}
-              {ps.hand.length === 0 && <span className="text-amber-900/40 text-xs">手札なし</span>}
+              {ps.hand.length === 0 && <span className="text-white/20 text-sm italic self-center px-2">手札なし</span>}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ─── ログ ─── */}
+      {showLog && (
+        <div className="fixed bottom-0 right-0 w-72 max-h-60 bg-[#080c1e]/97 border border-amber-900/40 rounded-tl-xl overflow-y-auto p-3 z-30">
+          <div className="text-[10px] text-amber-600/70 font-bold mb-1 flex items-center gap-1"><Skull size={10}/> バトルログ</div>
+          <BattleLog logs={state.battleLog}/>
+        </div>
+      )}
+
+      {/* ─── キーボードショートカットヒント ─── */}
+      <div className="fixed bottom-2 right-2 z-20 pointer-events-none">
+        <div className="flex flex-col gap-0.5 bg-[#080c1e]/70 border border-amber-900/25 rounded-lg px-2.5 py-1.5 backdrop-blur-sm">
+          <div className="text-[9px] text-amber-700/70 font-bold uppercase tracking-wider mb-0.5">ショートカット</div>
+          {[['Space', '次フェーズ'], ['D', 'ドロー'], ['S', 'シャッフル'], ['Esc', '選択解除']].map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1.5 text-[9px]">
+              <kbd className="bg-amber-900/30 border border-amber-800/40 text-amber-500/80 px-1 rounded font-mono leading-none py-0.5">{k}</kbd>
+              <span className="text-amber-800/60">{v}</span>
+            </div>
+          ))}
         </div>
       </div>
 
