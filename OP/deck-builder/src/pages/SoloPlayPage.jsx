@@ -199,61 +199,30 @@ function EmptySlot() {
 }
 
 // ─── DON!!カード ─────────────────────────────────
+const DON_IMG_URL = `${import.meta.env.BASE_URL}don-card.png`;
+
 function DonCard({ active, onClick }) {
-  const W = DON_CARD.W, H = DON_CARD.H;
-  const cx = W / 2, cy = H * 0.42; // 放射線の中心
-  const lineCount = 28; // 放射線の数
-  const R = Math.max(W, H) * 1.6;
   return (
     <div
       onClick={active ? onClick : undefined}
-      className={`flex-shrink-0 select-none transition-all duration-150 relative overflow-hidden rounded
-        ${active ? 'cursor-pointer hover:scale-105' : 'opacity-45 cursor-default'}`}
+      className={`flex-shrink-0 select-none transition-all duration-150 rounded overflow-hidden
+        ${active
+          ? 'cursor-pointer hover:scale-105 hover:brightness-105'
+          : 'opacity-40 cursor-default grayscale brightness-75'
+        }`}
       style={{
-        width: W, height: H,
-        border: '2px solid #111',
-        boxShadow: active ? '0 3px 10px rgba(0,0,0,0.55)' : 'none',
+        width:  DON_CARD.W,
+        height: DON_CARD.H,
+        boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none',
       }}
       title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}
     >
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-        {/* 白背景 */}
-        <rect width={W} height={H} fill={active ? '#ffffff' : '#d0d0d0'}/>
-
-        {/* 放射線（漫画の集中線） */}
-        {Array.from({ length: lineCount }).map((_, i) => {
-          const startAngle = (i / lineCount) * Math.PI * 2;
-          const midAngle   = ((i + 0.5) / lineCount) * Math.PI * 2;
-          const endAngle   = ((i + 1) / lineCount) * Math.PI * 2;
-          const sx = cx + Math.cos(startAngle) * R;
-          const sy = cy + Math.sin(startAngle) * R;
-          const mx = cx + Math.cos(midAngle) * R;
-          const my = cy + Math.sin(midAngle) * R;
-          const ex = cx + Math.cos(endAngle) * R;
-          const ey = cy + Math.sin(endAngle) * R;
-          return (
-            <polygon key={i}
-              points={`${cx},${cy} ${sx},${sy} ${mx},${my} ${ex},${ey}`}
-              fill={i % 2 === 0 ? '#111111' : '#eeeeee'}
-            />
-          );
-        })}
-
-        {/* 中心白円（テキスト可読性確保） */}
-        <ellipse cx={cx} cy={cy} rx={W * 0.38} ry={H * 0.28} fill={active ? '#ffffff' : '#cccccc'}/>
-
-        {/* 「ドン!!」テキスト */}
-        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle"
-          fontSize={W * 0.42} fontWeight="900" fontFamily="'Helvetica Neue', Arial, sans-serif"
-          fill="#0a0a0a" style={{ letterSpacing: '-1px' }}>ドン!!</text>
-
-        {/* 下部黒帯 */}
-        <rect x="0" y={H - 22} width={W} height="22" fill="#0a0a0a"/>
-        <text x={cx} y={H - 13} textAnchor="middle"
-          fontSize="6" fill="#ffffff" fontFamily="serif">ドン!!カード</text>
-        <text x={cx} y={H - 4} textAnchor="middle"
-          fontSize="5.5" fill="#f5d020" fontFamily="serif">自分のターン +1000</text>
-      </svg>
+      <img
+        src={DON_IMG_URL}
+        alt="DON!!"
+        style={{ width: DON_CARD.W, height: DON_CARD.H, objectFit: 'cover', display: 'block' }}
+        draggable={false}
+      />
     </div>
   );
 }
@@ -707,6 +676,106 @@ function SearchStartPanel({ deckCount, onBegin, onClose }) {
   );
 }
 
+// ─── 登場時効果パーサー ──────────────────────────
+function parseEntryEffect(effectText) {
+  if (!effectText) return { entryText: '', autoActions: [] };
+
+  // 【登場時】セクションを抽出（次の【】が来るまで）
+  const m = effectText.match(/【登場時】([\s\S]*?)(?=【|$)/);
+  const entryText = m ? m[1].trim() : '';
+
+  const autoActions = [];
+
+  // ── シンプルドロー: 「カードN枚を引く」（条件句なし）
+  const drawM = entryText.match(/カード(\d+)枚を引く/);
+  if (drawM && !entryText.includes('場合') && !entryText.includes('ならば') && !entryText.includes('なら')) {
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]),
+      icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  }
+
+  // ── DON!!コスト: 「ドン‼ー(N)」または「ドン‼-N」
+  const donCostM = entryText.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM) {
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]),
+      icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
+  }
+
+  return { entryText: entryText || effectText, autoActions };
+}
+
+// ─── 登場時効果モーダル ──────────────────────────
+function EntryEffectModal({ card, onActivate, onSkip, game }) {
+  const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
+
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw')      game.drawCard(a.count);
+      if (a.id === 'donReturn') game.returnDonToDeck(a.count);
+    });
+    onActivate();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm"
+      onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full"
+        onClick={e => e.stopPropagation()}>
+
+        {/* ヘッダー */}
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-amber-300 text-base">⚡</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">登場時効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+            {card?.cost != null && (
+              <div className="text-amber-700/60 text-[10px]">コスト{card.cost}{card.power != null ? ` ／ パワー${card.power?.toLocaleString()}` : ''}</div>
+            )}
+          </div>
+        </div>
+
+        {/* 効果テキスト */}
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-amber-900/25 mb-3">
+          <div className="text-[9px] text-amber-600/50 uppercase tracking-wider mb-1.5">【登場時】</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{entryText}</div>
+        </div>
+
+        {/* 自動実行アクション */}
+        {autoActions.length > 0 && (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (
+              <div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}>
+                <span>{a.icon}</span><span>{a.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {autoActions.length === 0 && (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">
+              ⚠ この効果はゲームボードで手動操作が必要です。「発動する」を押した後、各ボタンで処理してください。
+            </div>
+          </div>
+        )}
+
+        {/* ボタン */}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip}
+            className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">
+            発動しない
+          </button>
+          <button onClick={handleActivate}
+            className="flex-1 py-2 rounded-xl text-sm font-black bg-gradient-to-b from-amber-600 to-amber-800 border border-amber-500/60 text-amber-100 hover:from-amber-500 shadow-md shadow-amber-900/40 transition-all">
+            ⚡ 発動する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── リーダー効果バッジ ─────────────────────────
 function LeaderEffectBadge({ leaderEffect, leaderName, onUseAbility }) {
   const [open, setOpen] = useState(false);
@@ -884,9 +953,10 @@ export default function SoloPlayPage({ onNavigate }) {
   const [detailCard, setDetailCard] = useState(null);
   const [showLog, setShowLog] = useState(false);
   const [showSearchStart, setShowSearchStart] = useState(false);
-  const [showTrash, setShowTrash] = useState(false);      // トラッシュ一覧
-  const [triggerToast, setTriggerToast] = useState(null); // トリガー発動通知
-  const [prevHandLen, setPrevHandLen] = useState(0);      // ライフトリガー検出用
+  const [showTrash, setShowTrash] = useState(false);            // トラッシュ一覧
+  const [triggerToast, setTriggerToast] = useState(null);       // トリガー発動通知
+  const [prevHandLen, setPrevHandLen] = useState(0);            // ライフトリガー検出用
+  const [pendingEntryEffect, setPendingEntryEffect] = useState(null); // 登場時効果待ち
 
   const game = useGameState();
   const { state } = game;
@@ -940,7 +1010,15 @@ export default function SoloPlayPage({ onNavigate }) {
     const { card, uid } = selectedCard;
     if (actionId === 'detail') { setDetailCard(card); return; }
     switch (actionId) {
-      case 'play':               game.playToField(uid); break;
+      case 'play': {
+        game.playToField(uid);
+        // 【登場時】効果を持つ場合はモーダルを表示
+        const hasEntry = card.effect && /【登場時】/.test(card.effect);
+        if (hasEntry) {
+          setPendingEntryEffect(card);
+        }
+        break;
+      }
       case 'stage':              game.playStage(uid); break;
       case 'event':              game.trashHandCard(uid); break;
       case 'trash-hand':         game.trashHandCard(uid); break;
@@ -1465,6 +1543,16 @@ export default function SoloPlayPage({ onNavigate }) {
           deckCount={state?.deck?.length ?? 0}
           onBegin={(n) => { game.beginSearch(n); setShowSearchStart(false); }}
           onClose={() => setShowSearchStart(false)}
+        />
+      )}
+
+      {/* ─── 登場時効果モーダル ─── */}
+      {pendingEntryEffect && (
+        <EntryEffectModal
+          card={pendingEntryEffect}
+          game={game}
+          onActivate={() => setPendingEntryEffect(null)}
+          onSkip={() => setPendingEntryEffect(null)}
         />
       )}
 
