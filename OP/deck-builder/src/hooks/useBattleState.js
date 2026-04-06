@@ -770,6 +770,313 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: フィールドカードタップ/アンタップ ────────────────────
+  const playerToggleField = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.field.find(c => c._uid === uid);
+      if (!card) return prev;
+      const next = !card.tapped;
+      return addLog(`「${card.name}」を${next ? 'タップ' : 'アンタップ'}`, {
+        ...prev, player: { ...p, field: p.field.map(c => c._uid === uid ? { ...c, tapped: next } : c) },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: リーダータップ/アンタップ ────────────────────────────
+  const playerToggleLeader = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const next = !p.leader.tapped;
+      return addLog(`リーダーを${next ? 'タップ' : 'アンタップ'}`, {
+        ...prev, player: { ...p, leader: { ...p.leader, tapped: next } },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: フィールドカードKO（トラッシュ）───────────────────────
+  const playerTrashFieldCard = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.field.find(c => c._uid === uid);
+      if (!card) return prev;
+      const donBack = card.donAttached || 0;
+      return addLog(`「${card.name}」KO → トラッシュ（DON!!×${donBack}返還）`, {
+        ...prev, player: {
+          ...p,
+          field: p.field.filter(c => c._uid !== uid),
+          trash: [...p.trash, card],
+          donActive: p.donActive + donBack,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: DONデタッチ（フィールドカード）────────────────────────
+  const playerDetachDon = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.field.find(c => c._uid === uid);
+      if (!card || (card.donAttached || 0) <= 0) return prev;
+      return addLog(`「${card.name}」からDON!!を外す`, {
+        ...prev, player: {
+          ...p,
+          field: p.field.map(c => c._uid === uid ? { ...c, donAttached: c.donAttached - 1 } : c),
+          donActive: p.donActive + 1,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: DONデタッチ（リーダー）──────────────────────────────
+  const playerDetachDonLeader = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if ((p.leader.donAttached || 0) <= 0) return prev;
+      return addLog('リーダーからDON!!を外す', {
+        ...prev, player: {
+          ...p,
+          leader: { ...p.leader, donAttached: p.leader.donAttached - 1 },
+          donActive: p.donActive + 1, donLeader: p.donLeader - 1,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 手札→デッキトップ/ボトム ─────────────────────────────
+  const playerReturnHandToTop = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.hand.find(c => c._uid === uid);
+      if (!card) return prev;
+      return addLog(`「${card.name}」をデッキトップへ`, {
+        ...prev, player: { ...p, hand: p.hand.filter(c => c._uid !== uid), deck: [card, ...p.deck] },
+      });
+    });
+  }, []);
+
+  const playerReturnHandToBottom = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.hand.find(c => c._uid === uid);
+      if (!card) return prev;
+      return addLog(`「${card.name}」をデッキボトムへ`, {
+        ...prev, player: { ...p, hand: p.hand.filter(c => c._uid !== uid), deck: [...p.deck, card] },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: フィールド→デッキトップ/ボトム ────────────────────────
+  const playerReturnFieldToTop = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.field.find(c => c._uid === uid);
+      if (!card) return prev;
+      const donBack = card.donAttached || 0;
+      return addLog(`「${card.name}」をデッキトップへ`, {
+        ...prev, player: {
+          ...p, field: p.field.filter(c => c._uid !== uid),
+          deck: [card, ...p.deck], donActive: p.donActive + donBack,
+        },
+      });
+    });
+  }, []);
+
+  const playerReturnFieldToBottom = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.field.find(c => c._uid === uid);
+      if (!card) return prev;
+      const donBack = card.donAttached || 0;
+      return addLog(`「${card.name}」をデッキボトムへ`, {
+        ...prev, player: {
+          ...p, field: p.field.filter(c => c._uid !== uid),
+          deck: [...p.deck, card], donActive: p.donActive + donBack,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: トラッシュ→手札/デッキトップ ──────────────────────────
+  const playerReturnTrashToHand = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.trash.find(c => c._uid === uid);
+      if (!card) return prev;
+      return addLog(`「${card.name}」をトラッシュから手札へ`, {
+        ...prev, player: { ...p, trash: p.trash.filter(c => c._uid !== uid), hand: [...p.hand, card] },
+      });
+    });
+  }, []);
+
+  const playerReturnTrashToDeckTop = useCallback((uid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.trash.find(c => c._uid === uid);
+      if (!card) return prev;
+      return addLog(`「${card.name}」をトラッシュからデッキトップへ`, {
+        ...prev, player: { ...p, trash: p.trash.filter(c => c._uid !== uid), deck: [card, ...p.deck] },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: ステージプレイ ──────────────────────────────────────
+  const playerPlayStage = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev || prev.activePlayer !== 'player' || prev.subPhase !== 'main') return prev;
+      const p = prev.player;
+      const idx = p.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = p.hand[idx];
+      if (card.card_type !== 'STAGE') return prev;
+      const cost = card.cost || 0;
+      if (p.donActive < cost) return addLog(`コスト${cost}が足りません`, prev);
+      const afterDon = autoTapDon(p, cost);
+      const newHand = afterDon.hand.filter((_, i) => i !== idx);
+      const oldStage = afterDon.stage;
+      const newTrash = oldStage ? [...afterDon.trash, oldStage] : afterDon.trash;
+      return addLog(`ステージ「${card.name}」セット${oldStage ? `（旧「${oldStage.name}」トラッシュ）` : ''}`, {
+        ...prev, player: { ...afterDon, hand: newHand, stage: { ...card, tapped: false }, trash: newTrash },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: イベント使用 ──────────────────────────────────────
+  const playerPlayEvent = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev || prev.activePlayer !== 'player' || prev.subPhase !== 'main') return prev;
+      const p = prev.player;
+      const idx = p.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = p.hand[idx];
+      if (card.card_type !== 'EVENT') return prev;
+      const cost = card.cost || 0;
+      if (p.donActive < cost) return addLog(`コスト${cost}が足りません`, prev);
+      const afterDon = autoTapDon(p, cost);
+      const newHand = afterDon.hand.filter((_, i) => i !== idx);
+      return addLog(`イベント「${card.name}」（コスト${cost}）使用`, {
+        ...prev, player: { ...afterDon, hand: newHand, trash: [...afterDon.trash, card] },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: サーチ ────────────────────────────────────────────
+  const playerBeginSearch = useCallback((count) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const n = Math.min(count, p.deck.length);
+      if (n <= 0) return addLog('デッキにカードがありません', prev);
+      const revealed = p.deck.slice(0, n);
+      return addLog(`デッキ上${n}枚を確認`, {
+        ...prev, player: { ...p, deck: p.deck.slice(n), searchReveal: revealed },
+      });
+    });
+  }, []);
+
+  const playerResolveSearch = useCallback(({ toHand, toDeckTop, toDeckBottom }) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const rev = p.searchReveal || [];
+      if (rev.length === 0) return prev;
+      const handCards = rev.filter(c => toHand?.includes(c._uid));
+      const topCards = (toDeckTop || []).map(uid => rev.find(c => c._uid === uid)).filter(Boolean);
+      const bottomCards = rev.filter(c => toDeckBottom?.includes(c._uid));
+      // 未割当カードはデッキボトムへ
+      const assignedUids = new Set([...(toHand || []), ...(toDeckTop || []), ...(toDeckBottom || [])]);
+      const unassigned = rev.filter(c => !assignedUids.has(c._uid));
+      return addLog(`サーチ完了（手札${handCards.length}枚）`, {
+        ...prev,
+        player: {
+          ...p,
+          searchReveal: [],
+          hand: [...p.hand, ...handCards],
+          deck: [...topCards.reverse(), ...p.deck, ...bottomCards, ...unassigned],
+        },
+      });
+    });
+  }, []);
+
+  const playerCancelSearch = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const rev = p.searchReveal || [];
+      return addLog('サーチキャンセル', {
+        ...prev, player: { ...p, searchReveal: [], deck: [...rev, ...p.deck] },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: DON!!優先返却（効果コスト用）────────────────────────
+  const playerReturnDonToDeckPriority = useCallback((count) => {
+    setState(prev => {
+      if (!prev) return prev;
+      let p = { ...prev.player };
+      let remaining = count;
+      // 優先: タップ済み → アクティブ
+      const fromTapped = Math.min(remaining, p.donTapped);
+      p.donTapped -= fromTapped; p.donDeck += fromTapped; remaining -= fromTapped;
+      if (remaining > 0) {
+        const fromActive = Math.min(remaining, p.donActive);
+        p.donActive -= fromActive; p.donDeck += fromActive; remaining -= fromActive;
+      }
+      return addLog(`DON!!×${count - remaining}枚をデッキに返却`, { ...prev, player: p });
+    });
+  }, []);
+
+  // ── プレイヤー: デッキシャッフル ──────────────────────────────────
+  const playerShuffleDeck = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      return addLog('デッキをシャッフル', {
+        ...prev, player: { ...prev.player, deck: shuffle(prev.player.deck) },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: ライフめくり ──────────────────────────────────────
+  const playerFlipLife = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (p.life.length === 0) return addLog('ライフなし', prev);
+      const [top, ...rest] = p.life;
+      const triggered = hasTrigger(top);
+      const ns = addLog(`ライフめくり: 「${top.name}」${triggered ? '【トリガー】！' : ''}`, {
+        ...prev, player: { ...p, life: rest, hand: [...p.hand, { ...top, faceDown: false }] },
+      });
+      if (triggered) {
+        return { ...ns, pendingTrigger: { card: top, owner: 'player' } };
+      }
+      return ns;
+    });
+  }, []);
+
+  // ── プレイヤー: ステージトラッシュ ────────────────────────────────
+  const playerTrashStage = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (!p.stage) return prev;
+      return addLog(`ステージ「${p.stage.name}」トラッシュ`, {
+        ...prev, player: { ...p, stage: null, trash: [...p.trash, p.stage] },
+      });
+    });
+  }, []);
+
   const resetBattle = useCallback(() => setState(null), []);
 
   return {
@@ -779,7 +1086,11 @@ export function useBattleState() {
     confirmMulligan,
     advancePhase,
     playerPlayCard,
+    playerPlayStage,
+    playerPlayEvent,
     playerAttachDon,
+    playerDetachDon,
+    playerDetachDonLeader,
     playerSelectAttacker,
     playerSelectTarget,
     resolveAttack,
@@ -793,6 +1104,22 @@ export function useBattleState() {
     runCpuMainPhase,
     playerDraw,
     playerTrashCard,
+    playerTrashFieldCard,
+    playerTrashStage,
+    playerToggleField,
+    playerToggleLeader,
+    playerReturnHandToTop,
+    playerReturnHandToBottom,
+    playerReturnFieldToTop,
+    playerReturnFieldToBottom,
+    playerReturnTrashToHand,
+    playerReturnTrashToDeckTop,
+    playerBeginSearch,
+    playerResolveSearch,
+    playerCancelSearch,
+    playerReturnDonToDeckPriority,
+    playerShuffleDeck,
+    playerFlipLife,
     playerTapDon,
     resetBattle,
   };

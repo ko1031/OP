@@ -1,25 +1,28 @@
 // ─────────────────────────────────────────────────────────────────────
-// BattlePage.jsx — CPU対戦ページ
+// BattlePage.jsx — CPU対戦ページ（一人回しレイアウト準拠）
 // ─────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Home, Swords, ChevronRight, X, Bot, User, RotateCcw } from 'lucide-react';
+import { Home, Swords, ChevronRight, X, Bot, User, RotateCcw, Anchor, Skull, Zap, Shuffle } from 'lucide-react';
 import { useBattleState } from '../hooks/useBattleState';
-import { loadSavedDecks, resolveSampleDeck } from '../hooks/useGameState';
+import { loadSavedDecks, resolveSampleDeck, LEADER_EFFECTS } from '../hooks/useGameState';
 import { SAMPLE_DECKS } from '../utils/deckRules';
 import CardImage from '../components/CardImage';
 
-// ─── カードサイズ定数 ─────────────────────────────────────────────────
-const PC  = { W: 90,  H: 126 };  // プレイヤーフィールド・リーダー
-const PH  = { W: 72,  H: 101 };  // プレイヤー手札
-const CC  = { W: 64,  H: 90  };  // CPUフィールド・リーダー
-const CH  = { W: 48,  H: 67  };  // CPU手札（裏面のみ）
-const DM  = { W: 38,  H: 53  };  // DON!!ミニアタッチ
+// ─── カードサイズ定数（一人回しと同じ）─────────────────────────────
+const CARD      = { W: 96,  H: 134 };
+const HAND_CARD = { W: 76,  H: 107 };
+const DON_CARD  = { W: 64,  H: 90  };
+const DON_MINI  = { W: 46,  H: 64  };
+// CPU用（少し縮小）
+const CC = { W: 64, H: 90 };
+
+const DON_IMG_URL = `${import.meta.env.BASE_URL}don-card.png`;
 
 // ─── カラー定義 ───────────────────────────────────────────────────────
 const P = {
   bg:      'bg-[#06091a]',
-  panel:   'bg-white/8 border border-white/12',
-  label:   'text-[10px] text-amber-300/80 font-bold uppercase tracking-widest',
+  panel:   'bg-white/10 border border-white/15',
+  label:   'text-[10px] text-amber-300/90 font-bold uppercase tracking-widest',
   btnGold: 'bg-gradient-to-b from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-amber-100 font-bold border border-amber-500/60 shadow-md transition-all',
   btnRed:  'bg-gradient-to-b from-red-700 to-red-900 hover:from-red-600 hover:to-red-800 text-red-100 font-bold border border-red-600/50 transition-all',
   btnBlue: 'bg-gradient-to-b from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800 text-blue-100 font-bold border border-blue-600/50 transition-all',
@@ -27,62 +30,131 @@ const P = {
   btnGreen:'bg-gradient-to-b from-green-700 to-green-900 hover:from-green-600 hover:to-green-800 text-green-100 font-bold border border-green-600/50 transition-all',
 };
 
-const PHASES = ['refresh','draw','don','main','end'];
-const PHASE_LABELS = { refresh:'リフレッシュ', draw:'ドロー', don:'DON!!', main:'メイン', end:'エンド' };
+const PHASES = [
+  { id: 'refresh', label: 'リフレッシュ', icon: '🔄' },
+  { id: 'draw',    label: 'ドロー',       icon: '📚' },
+  { id: 'don',     label: 'DON!!',        icon: '💛' },
+  { id: 'main',    label: 'メイン',       icon: '⚔'  },
+  { id: 'end',     label: 'エンド',       icon: '⏹'  },
+];
 
 // ─── ユーティリティ ───────────────────────────────────────────────────
 function hasTrigger(card) { return /【トリガー】/.test(card?.effect || ''); }
 function calcPower(card) { return (card?.power || 0) + (card?.donAttached || 0) * 1000; }
 
-// ─── ゲームカード（フィールド用・プレイヤー）────────────────────────
-function GameCard({ card, tapped, faceDown, onClick, highlight, dimmed, size = PC, showPower = false }) {
-  const { W, H } = size;
-  const donCount = card?.donAttached || 0;
-  const visibleDon = Math.min(donCount, 4);
+// ─── Stat/Tag helpers ─────────────────────────────────────────────
+function Stat({ label, value, red }) {
   return (
-    <div className="relative flex-shrink-0" style={{ width: W, height: H }}>
-      {/* DON!!アタッチ（右側に扇状）*/}
-      {donCount > 0 && Array.from({ length: visibleDon }).map((_, i) => (
-        <div key={i} className="absolute rounded pointer-events-none overflow-hidden"
-          style={{
-            width: DM.W, height: DM.H,
-            right: -(DM.W * (0.4 + i * 0.6) + 2),
-            bottom: 4 + i * 6,
-            zIndex: 10 + i,
-            transform: `rotate(${-10 + i * 7}deg)`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.7)',
-          }}>
-          <div className="w-full h-full bg-yellow-500/20 border border-yellow-500/50 rounded flex items-center justify-center">
-            <span className="text-yellow-400 font-black text-[10px]">DON</span>
+    <div className="bg-[#131d45]/60 rounded-lg p-2 border border-amber-900/20">
+      <div className="text-[9px] text-amber-600/50 uppercase tracking-wider">{label}</div>
+      <div className={`font-black text-xl ${red ? 'text-red-400' : 'text-amber-300'}`}>{value}</div>
+    </div>
+  );
+}
+function Tag({ children }) {
+  return <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-400 border border-amber-800/40">{children}</span>;
+}
+
+// ─── カード詳細モーダル（一人回しと同じ）─────────────────────────────
+function CardDetailModal({ card, onClose }) {
+  if (!card) return null;
+  const typeColor = { LEADER:'text-yellow-400', CHARACTER:'text-green-400', EVENT:'text-blue-400', STAGE:'text-purple-400' };
+  const typeLabel = { LEADER:'リーダー', CHARACTER:'キャラクター', EVENT:'イベント', STAGE:'ステージ' };
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0a0f24] border border-amber-700/40 rounded-2xl shadow-2xl max-w-[540px] w-full max-h-[92vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-4 border-b border-amber-900/30">
+          <div>
+            <div className={`text-xs font-bold ${typeColor[card.card_type] || 'text-gray-400'}`}>{typeLabel[card.card_type]}</div>
+            <div className="text-amber-100 font-black text-lg leading-tight">{card.name}</div>
+            <div className="text-amber-700/60 text-xs mt-0.5">{card.card_number}{card.colors?.length > 0 && ` • ${card.colors.join('/')}`}</div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-500 hover:bg-amber-800/40"><X size={16}/></button>
+        </div>
+        <div className="flex gap-4 p-4">
+          <div className="flex-shrink-0">
+            <CardImage card={card} className="w-48 h-[272px] object-cover rounded-xl border border-amber-900/40 shadow-xl" />
+          </div>
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {card.cost != null && <Stat label="コスト" value={card.cost} />}
+              {card.power != null && <Stat label="パワー" value={card.power?.toLocaleString()} />}
+              {card.counter != null && <Stat label="カウンター" value={card.counter?.toLocaleString()} />}
+              {card.life != null && <Stat label="ライフ" value={card.life} red />}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {card.attribute && <Tag>{card.attribute}</Tag>}
+              {card.traits?.map(t => <Tag key={t}>《{t}》</Tag>)}
+            </div>
+            {card.effect && (
+              <div className="bg-[#080c20]/80 rounded-xl p-3 border border-amber-900/20">
+                <div className="text-[9px] text-amber-600/60 uppercase tracking-wider mb-1.5">効果</div>
+                <div className="text-amber-100/90 text-xs leading-relaxed whitespace-pre-line">{card.effect}</div>
+              </div>
+            )}
+            {card.trigger && (
+              <div className="bg-[#0f1520]/80 rounded-xl p-3 border border-blue-900/20">
+                <div className="text-[9px] text-blue-500/60 uppercase tracking-wider mb-1.5">トリガー</div>
+                <div className="text-blue-200/80 text-xs leading-relaxed whitespace-pre-line">{card.trigger}</div>
+              </div>
+            )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── フィールドカード（一人回しGameCard準拠）─────────────────────────
+function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highlight, size = CARD, showPower = false }) {
+  const donCount = badge || card?.donAttached || 0;
+  const visibleDon = Math.min(donCount, 4);
+  const { W, H } = size;
+  return (
+    <div className="relative flex-shrink-0" style={{ width: W, height: H }}>
+      {donCount > 0 && !tapped && Array.from({ length: visibleDon }).map((_, i) => (
+        <div key={i} className="absolute rounded-lg overflow-hidden pointer-events-none"
+          style={{
+            width: DON_MINI.W * (W / CARD.W), height: DON_MINI.H * (W / CARD.W),
+            right: (-26 - i * 14) * (W / CARD.W), bottom: (16 + i * 10) * (W / CARD.W),
+            zIndex: i + 1, transform: `rotate(${10 + i * 6}deg)`,
+            border: '2px solid rgba(253,224,71,0.95)', boxShadow: '2px 4px 10px rgba(0,0,0,0.8)',
+          }}>
+          <img src={DON_IMG_URL} alt="DON!!" style={{ width: '100%', height: '100%', objectFit: 'cover' }} draggable={false} />
+        </div>
       ))}
-      {/* メインカード */}
+      {donCount > 0 && !tapped && (
+        <div className="absolute pointer-events-none rounded-full font-black flex items-center justify-center"
+          style={{ right: -4, bottom: 2, zIndex: 20, width: 20, height: 20, fontSize: 10,
+            background: '#fbbf24', color: '#1c1a00', border: '2px solid #fde68a', boxShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
+          +{donCount}
+        </div>
+      )}
+      {tapped && donCount > 0 && (
+        <div className="absolute pointer-events-none rounded-full font-black flex items-center justify-center"
+          style={{ top: 2, left: 2, width: 20, height: 20, zIndex: 20, fontSize: 10,
+            background: '#fbbf24', color: '#1c1a00', border: '2px solid #fde68a', boxShadow: '0 2px 6px rgba(0,0,0,0.6)' }}>
+          +{donCount}
+        </div>
+      )}
       <div
+        className={`absolute inset-0 cursor-pointer select-none rounded-xl overflow-hidden border-2 transition-all duration-150
+          ${tapped ? 'rotate-90 origin-center opacity-75' : ''}
+          ${highlight === 'attacker' ? 'border-amber-400 shadow-amber-400/60 shadow-lg scale-105'
+            : highlight === 'target' ? 'border-red-500 shadow-red-500/60 shadow-lg scale-105'
+            : 'border-white/25'}
+          hover:border-amber-400/70 hover:scale-[1.03]`}
+        style={{ zIndex: 10, boxShadow: highlight ? undefined : '0 4px 12px rgba(0,0,0,0.5)' }}
         onClick={onClick}
-        className="absolute inset-0 rounded-lg overflow-hidden cursor-pointer select-none transition-all duration-150"
-        style={{
-          transform: tapped ? 'rotate(90deg) translateX(17%)' : 'none',
-          transformOrigin: 'center center',
-          boxShadow: highlight === 'attacker'
-            ? '0 0 0 3px #f59e0b, 0 0 18px rgba(245,158,11,0.7)'
-            : highlight === 'target'
-            ? '0 0 0 3px #ef4444, 0 0 18px rgba(239,68,68,0.7)'
-            : '0 4px 12px rgba(0,0,0,0.5)',
-          filter: dimmed ? 'brightness(0.4)' : 'none',
-          opacity: dimmed ? 0.6 : 1,
-        }}
+        onDoubleClick={onDoubleClick}
       >
         {faceDown
-          ? <div className="w-full h-full bg-gradient-to-br from-blue-900 to-blue-950 flex items-center justify-center border border-blue-700/40 rounded-lg">
-              <span className="text-blue-400/50 text-lg font-black">OP</span>
+          ? <div className="w-full h-full bg-gradient-to-br from-red-900/60 to-[#06091a] flex items-center justify-center">
+              <span className="text-red-600/70 text-3xl">☠</span>
             </div>
-          : <CardImage card={card} className="w-full h-full object-cover" />
-        }
-        {/* タップオーバーレイ */}
-        {tapped && <div className="absolute inset-0 bg-blue-900/25 rounded-lg" />}
+          : <CardImage card={card} className="w-full h-full object-cover" />}
       </div>
-      {/* パワー表示 */}
       {showPower && card?.power && !faceDown && (
         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full border border-amber-700/40 whitespace-nowrap">
           {calcPower(card).toLocaleString()}
@@ -92,322 +164,593 @@ function GameCard({ card, tapped, faceDown, onClick, highlight, dimmed, size = P
   );
 }
 
-// ─── 裏向きカード（CPU手札用）────────────────────────────────────────
-function FaceDownCard({ size = CH }) {
+// ─── 空スロット ─────────────────────────────────────────────────────
+function EmptySlot({ size = CARD }) {
   return (
-    <div className="rounded overflow-hidden flex-shrink-0 border border-blue-800/40"
-      style={{ width: size.W, height: size.H, background: 'linear-gradient(135deg, #0a1535, #0d1e4a)' }}>
-      <div className="w-full h-full flex items-center justify-center">
-        <span className="text-blue-700/40 font-black text-[8px]">OP</span>
-      </div>
+    <div style={{ width: size.W, height: size.H }}
+      className="rounded-xl border-2 border-dashed border-white/15 flex items-center justify-center flex-shrink-0">
+      <Anchor size={14} className="text-white/20" />
     </div>
   );
 }
 
-// ─── ライフトークン ────────────────────────────────────────────────
-function LifeTokens({ count, max = 5, color = 'red' }) {
+// ─── 手札カード（一人回しHandCard準拠）──────────────────────────────
+function HandCard({ card, selected, onClick, onDoubleClick }) {
   return (
-    <div className="flex gap-1 flex-wrap">
-      {Array.from({ length: max }).map((_, i) => (
-        <div key={i}
-          className="w-4 h-4 rounded-full border transition-all"
-          style={{
-            background: i < count
-              ? color === 'red' ? 'radial-gradient(circle, #ef4444, #991b1b)' : 'radial-gradient(circle, #60a5fa, #1d4ed8)'
-              : 'rgba(255,255,255,0.05)',
-            borderColor: i < count ? (color === 'red' ? 'rgba(252,165,165,0.5)' : 'rgba(147,197,253,0.5)') : 'rgba(255,255,255,0.1)',
-            boxShadow: i < count ? `0 0 6px ${color === 'red' ? 'rgba(239,68,68,0.4)' : 'rgba(96,165,250,0.4)'}` : 'none',
-          }}
-        />
-      ))}
-      <span className="text-xs font-black ml-1" style={{ color: color === 'red' ? '#fca5a5' : '#93c5fd' }}>
-        {count}/{max}
-      </span>
+    <div
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      className={`relative flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-110 hover:-translate-y-2
+        ${selected ? 'border-amber-400 -translate-y-3 shadow-amber-400/60 shadow-xl' : 'border-amber-900/40 hover:border-amber-600/70'}
+        cursor-pointer`}
+      style={{ width: HAND_CARD.W, height: HAND_CARD.H }}
+      title={card?.name}
+    >
+      <CardImage card={card} className="w-full h-full object-cover" />
+      {selected && <div className="absolute inset-0 bg-amber-400/10 pointer-events-none" />}
+      {card?.cost != null && (
+        <div className="absolute top-1 left-1 bg-amber-500 text-gray-900 text-[11px] font-black rounded-full w-6 h-6 flex items-center justify-center shadow-md">
+          {card.cost}
+        </div>
+      )}
+      {card?.counter != null && (
+        <div className="absolute top-1 right-1 bg-blue-600/90 text-white text-[9px] font-black rounded px-1 shadow">
+          +{(card.counter/1000).toFixed(0)}k
+        </div>
+      )}
+      {(card?.trigger || /【トリガー】/.test(card?.effect || '')) && (
+        <div className="absolute bottom-1 right-1 text-[8px] bg-yellow-500/90 text-gray-900 font-black rounded px-1">⚡TRG</div>
+      )}
     </div>
   );
 }
 
-// ─── DONゾーン表示 ────────────────────────────────────────────────
-function DonZone({ active, tapped, label = 'DON!!' }) {
+// ─── DON!!カード ────────────────────────────────────────────────────
+function DonCard({ active, onClick }) {
+  return (
+    <div onClick={active ? onClick : undefined}
+      className={`flex-shrink-0 select-none transition-all duration-150 rounded overflow-hidden
+        ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : 'opacity-40 cursor-default grayscale brightness-75'}`}
+      style={{ width: DON_CARD.W, height: DON_CARD.H, boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none' }}
+      title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}>
+      <img src={DON_IMG_URL} alt="DON!!" style={{ width: DON_CARD.W, height: DON_CARD.H, objectFit: 'cover', display: 'block' }} draggable={false} />
+    </div>
+  );
+}
+
+// ─── ライフスタック（一人回しと同じ）────────────────────────────────
+function LifeStack({ life, onFlip, size = CARD, label = 'LIFE' }) {
+  const offset = 10;
+  const totalH = life.length > 0 ? size.H + (life.length - 1) * offset : size.H;
   return (
     <div className="flex flex-col items-center gap-1">
-      <div className="text-[9px] text-amber-600/60 font-bold uppercase">{label}</div>
-      <div className="flex gap-1 items-center">
-        <div className="flex gap-0.5">
-          {Array.from({ length: Math.min(active, 8) }).map((_, i) => (
-            <div key={`a${i}`} className="w-3 h-3 rounded-full bg-yellow-400 border border-yellow-300/50"
-              style={{ boxShadow: '0 0 4px rgba(234,179,8,0.6)' }} />
-          ))}
-        </div>
-        {tapped > 0 && (
-          <div className="flex gap-0.5 ml-1">
-            {Array.from({ length: Math.min(tapped, 8) }).map((_, i) => (
-              <div key={`t${i}`} className="w-3 h-3 rounded-full bg-yellow-700/60 border border-yellow-700/40 rotate-90" />
-            ))}
+      <div className={P.label}>{label}</div>
+      <div className="relative cursor-pointer" style={{ height: totalH, width: size.W }}
+        onClick={life.length > 0 ? onFlip : undefined} title="クリックでライフをめくる">
+        {life.length === 0 ? (
+          <div style={{ width: size.W, height: size.H }}
+            className="rounded-xl border-2 border-dashed border-red-900/40 flex items-center justify-center">
+            <Skull size={20} className="text-red-900/40" />
           </div>
-        )}
-        {(active + tapped === 0) && <span className="text-amber-900/40 text-[9px]">0</span>}
-      </div>
-      <div className="text-[9px] text-amber-400/50">
-        <span className="text-yellow-400 font-bold">{active}</span>
-        {tapped > 0 && <span className="text-yellow-700"> +{tapped}</span>}
-      </div>
-    </div>
-  );
-}
-
-// ─── フェーズインジケーター ────────────────────────────────────────
-function PhaseBar({ current }) {
-  return (
-    <div className="flex gap-0.5 items-center">
-      {PHASES.map((p, i) => (
-        <div key={p} className="flex items-center gap-0.5">
-          <div className={`px-2 py-0.5 rounded text-[9px] font-bold transition-all ${
-            p === current
-              ? 'bg-amber-500/25 border border-amber-500/60 text-amber-300'
-              : 'bg-white/4 border border-white/8 text-white/25'
-          }`}>
-            {PHASE_LABELS[p]}
-          </div>
-          {i < PHASES.length - 1 && <ChevronRight size={8} className="text-white/15" />}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── CPU ボードセクション（上段）─────────────────────────────────
-function CpuBoard({ cpuSide, attackMode, onTargetSelect }) {
-  const isSelectingTarget = attackMode === 'select-target';
-  const leader = cpuSide.leader;
-
-  return (
-    <div className="flex flex-col gap-2 w-full" style={{ minHeight: 220 }}>
-      {/* CPU情報行 */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5 bg-black/30 border border-blue-800/30 rounded-lg px-2.5 py-1.5">
-          <Bot size={12} className="text-blue-400" />
-          <span className="text-blue-300/80 text-[10px] font-bold">CPU</span>
-        </div>
-        <LifeTokens count={cpuSide.life.length} max={leader?.life || 5} color="blue" />
-        <DonZone active={cpuSide.donActive} tapped={cpuSide.donTapped} />
-        <div className="text-[9px] text-amber-900/50 ml-auto">
-          手札{cpuSide.hand.length}枚 | デッキ{cpuSide.deck.length}枚
-        </div>
-      </div>
-
-      {/* CPU フィールド行 */}
-      <div className="flex items-end gap-3 flex-wrap">
-        {/* CPU リーダー */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="text-[8px] text-blue-400/60 font-bold">LEADER</div>
-          <div className="relative">
-            <GameCard
-              card={leader}
-              tapped={leader.tapped}
-              size={CC}
-              showPower
-              highlight={isSelectingTarget ? 'target' : null}
-              onClick={() => isSelectingTarget && onTargetSelect('cpu-leader')}
-            />
-            {(leader.donAttached || 0) > 0 && (
-              <div className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center z-20">
-                {leader.donAttached}
-              </div>
-            )}
-          </div>
-          {isSelectingTarget && (
-            <div className="text-[8px] text-red-400 animate-pulse font-bold">ターゲット</div>
-          )}
-        </div>
-
-        {/* CPU フィールド（キャラクター）*/}
-        <div className="flex gap-2 items-end flex-wrap flex-1">
-          {cpuSide.field.length === 0 && (
-            <div className="flex items-center justify-center border border-dashed border-blue-900/30 rounded-lg text-[9px] text-blue-900/40 px-4"
-              style={{ width: CC.W, height: CC.H }}>
-              なし
-            </div>
-          )}
-          {cpuSide.field.map(card => (
-            <div key={card._uid} className="flex flex-col items-center gap-0.5">
-              <GameCard
-                card={card}
-                tapped={card.tapped}
-                size={CC}
-                showPower
-                highlight={isSelectingTarget ? 'target' : null}
-                onClick={() => isSelectingTarget && onTargetSelect(card._uid)}
-              />
-              {isSelectingTarget && (
-                <div className="text-[8px] text-red-400 animate-pulse font-bold">選択</div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* CPU 手札（裏向き）*/}
-        <div className="flex flex-col items-center gap-1">
-          <div className="text-[8px] text-blue-400/60 font-bold">HAND</div>
-          <div className="flex gap-0.5 flex-wrap max-w-[120px]">
-            {cpuSide.hand.map((_, i) => <FaceDownCard key={i} />)}
-            {cpuSide.hand.length === 0 && <span className="text-blue-900/40 text-[9px]">0枚</span>}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── プレイヤーボードセクション（下段）───────────────────────────
-function PlayerBoard({
-  playerSide, attackMode, selectedAttackerUid,
-  onAttackerSelect, onPlayCard, onAttachDon,
-  isMyTurn, inMainPhase,
-  showCardDetail,
-}) {
-  const leader = playerSide.leader;
-  const isSelectingAttacker = attackMode === 'select-attacker' || attackMode === null;
-  const canAct = isMyTurn && inMainPhase;
-
-  return (
-    <div className="flex flex-col gap-2 w-full">
-      {/* プレイヤーフィールド行 */}
-      <div className="flex items-end gap-3 flex-wrap">
-        {/* プレイヤーリーダー */}
-        <div className="flex flex-col items-center gap-1">
-          <div className="text-[8px] text-amber-400/60 font-bold">LEADER</div>
-          <div className="relative">
-            <GameCard
-              card={leader}
-              tapped={leader.tapped}
-              size={PC}
-              showPower
-              highlight={selectedAttackerUid === 'p-leader' ? 'attacker' : null}
-              onClick={() => {
-                if (canAct && !attackMode) onAttackerSelect('p-leader');
-                else if (attackMode === null) showCardDetail(leader);
-              }}
-            />
-            {(leader.donAttached || 0) > 0 && (
-              <div className="absolute -top-1.5 -right-1.5 bg-yellow-500 text-black text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center z-20 border-2 border-black">
-                {leader.donAttached}
-              </div>
-            )}
-            {/* DONアタッチボタン */}
-            {canAct && playerSide.donActive > 0 && (
-              <button
-                onClick={e => { e.stopPropagation(); onAttachDon('leader'); }}
-                className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] bg-yellow-700/80 hover:bg-yellow-600 text-yellow-200 px-2 py-0.5 rounded font-bold whitespace-nowrap border border-yellow-600/50 z-30"
-              >
-                DON!!+
-              </button>
-            )}
-          </div>
-          {canAct && !leader.tapped && (
-            <div className="text-[8px] text-amber-400/60 font-bold mt-5">アタック</div>
-          )}
-        </div>
-
-        {/* フィールドキャラクター */}
-        <div className="flex gap-3 items-end flex-wrap flex-1 justify-center">
-          {playerSide.field.length === 0 && (
-            <div className="flex items-center justify-center border border-dashed border-amber-900/30 rounded-lg text-[9px] text-amber-900/40 px-4"
-              style={{ width: PC.W, height: PC.H }}>
-              空
-            </div>
-          )}
-          {playerSide.field.map(card => {
-            const isAttacker = selectedAttackerUid === card._uid;
+        ) : (
+          [...life].map((card, i) => {
+            const pos = life.length - 1 - i;
+            const isTop = i === 0;
             return (
-              <div key={card._uid} className="flex flex-col items-center gap-1">
-                <GameCard
-                  card={card}
-                  tapped={card.tapped}
-                  size={PC}
-                  showPower
-                  highlight={isAttacker ? 'attacker' : null}
-                  dimmed={canAct && selectedAttackerUid && !isAttacker}
-                  onClick={() => {
-                    if (canAct && !attackMode && !card.tapped) onAttackerSelect(card._uid);
-                    else showCardDetail(card);
-                  }}
-                />
-                {/* DONアタッチボタン */}
-                {canAct && playerSide.donActive > 0 && (
-                  <button
-                    onClick={() => onAttachDon(card._uid)}
-                    className="text-[8px] bg-yellow-700/80 hover:bg-yellow-600 text-yellow-200 px-2 py-0.5 rounded font-bold whitespace-nowrap border border-yellow-600/50"
-                  >
-                    DON!!+
-                  </button>
-                )}
+              <div key={card._uid} className="absolute" style={{ top: pos * offset, left: 0, zIndex: i + 1 }}>
+                <div style={{ width: size.W, height: size.H }}
+                  className={`rounded-xl border-2 flex items-center justify-center
+                    ${isTop
+                      ? 'bg-gradient-to-br from-red-900 to-[#1a0505] border-red-700/80 shadow-lg shadow-red-900/50 hover:border-red-400'
+                      : 'bg-gradient-to-br from-red-950 to-[#0d0505] border-red-900/40'}`}>
+                  <span className="text-red-500/80 text-3xl select-none">☠</span>
+                </div>
               </div>
             );
-          })}
-        </div>
-
-        {/* 情報パネル */}
-        <div className="flex flex-col items-end gap-2">
-          <LifeTokens count={playerSide.life.length} max={leader?.life || 5} color="red" />
-          <DonZone active={playerSide.donActive} tapped={playerSide.donTapped} />
-          <div className="text-[9px] text-amber-900/50">
-            デッキ{playerSide.deck.length}枚
-          </div>
-        </div>
-      </div>
-
-      {/* 手札行 */}
-      <div className="flex gap-1.5 items-end flex-wrap pb-1 mt-1">
-        <div className="text-[8px] text-amber-400/60 font-bold mr-1 self-center">HAND</div>
-        {playerSide.hand.map(card => (
-          <div key={card._uid} className="flex flex-col items-center gap-0.5 group">
-            <div
-              className="rounded-lg overflow-hidden cursor-pointer transition-all hover:scale-105 hover:-translate-y-1 border border-amber-900/30 hover:border-amber-600/50"
-              style={{ width: PH.W, height: PH.H, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
-              onClick={() => {
-                if (canAct && card.card_type === 'CHARACTER') onPlayCard(card._uid);
-                else showCardDetail(card);
-              }}
-              title={card.name}
-            >
-              <CardImage card={card} className="w-full h-full object-cover" />
-            </div>
-            {/* コスト表示 */}
-            {card.card_type === 'CHARACTER' && (
-              <div className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
-                canAct && (card.cost || 0) <= playerSide.donActive
-                  ? 'bg-amber-600/30 text-amber-300 border border-amber-600/40'
-                  : 'bg-white/5 text-white/30 border border-white/10'
-              }`}>
-                {card.cost}
-              </div>
-            )}
-          </div>
-        ))}
-        {playerSide.hand.length === 0 && (
-          <span className="text-amber-900/40 text-xs">手札なし</span>
+          })
         )}
       </div>
+      <div className="text-red-500 text-[11px] font-bold">{life.length}枚</div>
     </div>
   );
 }
 
-// ─── バトルログ ───────────────────────────────────────────────────
+// ─── フェイズバー ──────────────────────────────────────────────────
+function PhaseBar({ subPhase, isMyTurn, onAdvance }) {
+  const activeIdx = PHASES.findIndex(p => p.id === subPhase);
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-0.5">
+        {PHASES.map((p, i) => (
+          <div key={p.id} className="flex items-center">
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all
+              ${i === activeIdx
+                ? 'bg-amber-600/35 text-amber-200 border border-amber-500/60 shadow-sm'
+                : i < activeIdx ? 'text-amber-900/35 line-through' : 'text-amber-800/50'}`}>
+              <span>{p.icon}</span>
+              <span className="hidden xl:inline">{p.label}</span>
+            </div>
+            {i < PHASES.length - 1 && <span className="text-amber-900/25 text-[9px] mx-0.5">›</span>}
+          </div>
+        ))}
+      </div>
+      {isMyTurn && (
+        <button onClick={onAdvance}
+          className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnGold}`}>
+          {subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── StatChip ──────────────────────────────────────────────────────
+function StatChip({ icon, value, label, color, onClick }) {
+  return (
+    <div className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-lg border bg-[#0d1530]/60 border-amber-900/30
+      ${onClick ? 'cursor-pointer hover:bg-amber-900/25 hover:border-amber-700/50' : ''}`}
+      title={label} onClick={onClick}>
+      <span>{icon}</span>
+      <b className={color === 'red' ? 'text-red-400' : 'text-amber-300/80'}>{value}</b>
+    </div>
+  );
+}
+
+// ─── バトルログ ─────────────────────────────────────────────────────
 function BattleLog({ logs }) {
   const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = 0;
-  }, [logs?.length]);
-
+  useEffect(() => { if (ref.current) ref.current.scrollTop = 0; }, [logs?.length]);
   return (
-    <div ref={ref} className="overflow-y-auto text-[10px] space-y-0.5" style={{ maxHeight: 100 }}>
+    <div ref={ref} className="overflow-y-auto text-[10px] space-y-0.5" style={{ maxHeight: 120 }}>
       {(logs || []).map((entry, i) => (
         <div key={entry.ts || i}
           className={`px-2 py-0.5 rounded ${i === 0 ? 'text-amber-200/90 bg-amber-900/15' : 'text-amber-900/60'}`}>
           {entry.msg}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── アクションメニュー（一人回しと同じ）─────────────────────────────
+function ActionMenu({ card, context, onAction, onClose }) {
+  if (!card) return null;
+  const actions = [];
+  if (context === 'hand') {
+    if (card.card_type === 'CHARACTER') actions.push({ id:'play', label:`⚔ フィールドに出す（コスト${card.cost||0}）` });
+    if (card.card_type === 'STAGE') actions.push({ id:'stage', label:`🏝 ステージにセット（コスト${card.cost||0}）` });
+    if (card.card_type === 'EVENT') actions.push({ id:'event', label:`📜 イベント使用（コスト${card.cost||0}）` });
+    actions.push({ id:'deck-top', label:'⬆ デッキトップに戻す' });
+    actions.push({ id:'deck-bottom', label:'⬇ デッキボトムに戻す' });
+    actions.push({ id:'detail', label:'🔍 効果を確認' });
+    actions.push({ id:'trash-hand', label:'🗑 トラッシュ' });
+  }
+  if (context === 'field') {
+    actions.push({ id:'tap', label: card.tapped ? '↩ アンタップ' : '⚔ タップ（アタック）' });
+    actions.push({ id:'attach-don', label:'💛 DON!!アタッチ +1' });
+    if ((card.donAttached||0) > 0) actions.push({ id:'detach-don', label:`💛 DON!!を外す（現在+${card.donAttached}）` });
+    actions.push({ id:'deck-top', label:'⬆ デッキトップに戻す' });
+    actions.push({ id:'deck-bottom', label:'⬇ デッキボトムに戻す' });
+    actions.push({ id:'detail', label:'🔍 効果を確認' });
+    actions.push({ id:'trash-field', label:'💀 KO → トラッシュ' });
+  }
+  if (context === 'leader') {
+    actions.push({ id:'tap-leader', label: card.tapped ? '↩ アンタップ' : '⚔ タップ（アタック）' });
+    actions.push({ id:'attach-don-leader', label:'💛 DON!!アタッチ +1' });
+    if ((card.donAttached||0) > 0) actions.push({ id:'detach-don-leader', label:`💛 DON!!を外す（現在+${card.donAttached}）` });
+    actions.push({ id:'detail', label:'🔍 効果を確認' });
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-[#0d1530] border border-amber-700/40 rounded-2xl shadow-2xl p-2 min-w-[260px]" onClick={e => e.stopPropagation()}>
+        <div className="px-3 py-2 border-b border-amber-900/30 mb-1">
+          <div className="text-amber-400 text-xs font-bold truncate">{card.name}</div>
+          <div className="text-amber-600/60 text-[10px]">
+            {card.card_type}{card.cost != null ? ` • コスト${card.cost}` : ''}{card.power != null ? ` • ${card.power?.toLocaleString()}` : ''}
+          </div>
+        </div>
+        {actions.map(a => (
+          <button key={a.id} onClick={() => { onAction(a.id); onClose(); }}
+            className="w-full text-left px-3 py-2 text-sm text-amber-100/90 hover:bg-amber-900/30 rounded-lg transition-colors">
+            {a.label}
+          </button>
+        ))}
+        <button onClick={onClose} className="w-full text-left px-3 py-1.5 text-xs text-amber-800/60 hover:text-amber-500 transition-colors mt-1">✕ キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── 効果パーサー（一人回しから移植）─────────────────────────────────
+function parseEntryEffect(effectText) {
+  if (!effectText) return { entryText: '', autoActions: [] };
+  const m = effectText.match(/【登場時】([\s\S]*?)(?=【|$)/);
+  const entryText = m ? m[1].trim() : '';
+  const autoActions = [];
+  const drawM = entryText.match(/カード(\d+)枚を引く/);
+  if (drawM && !entryText.includes('場合') && !entryText.includes('ならば') && !entryText.includes('なら'))
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  const donCostM = entryText.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM)
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
+  const searchM = entryText.match(/デッキの上から(\d+)枚/);
+  if (searchM)
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  return { entryText: entryText || effectText, autoActions };
+}
+
+function parseAttackEffect(card) {
+  const effectText = card?.effect || '';
+  const match = effectText.match(/【アタック時】([\s\S]*?)(?=【|$)/);
+  if (!match) return { attackText: null, autoActions: [] };
+  const attackText = match[0].trim();
+  const body = match[1].trim();
+  const autoActions = [];
+  const drawM = body.match(/カード(\d+)枚を引く/);
+  if (drawM && !body.includes('場合') && !body.includes('ならば') && !body.includes('なら'))
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  const donCostM = body.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM)
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す`, color:'text-yellow-300' });
+  const searchM = body.match(/デッキの上から(\d+)枚/);
+  if (searchM)
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  return { attackText, autoActions };
+}
+
+function parseEventEffect(card) {
+  const effectText = card?.effect || '';
+  const autoActions = [];
+  const drawM = effectText.match(/カード(\d+)枚を引く/);
+  if (drawM && !effectText.includes('場合') && !effectText.includes('ならば') && !effectText.includes('なら'))
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+  const donCostM = effectText.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM)
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]), icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
+  const searchM = effectText.match(/デッキの上から(\d+)枚/);
+  if (searchM)
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  return { effectText, autoActions };
+}
+
+// ─── 効果モーダル（登場時）──────────────────────────────────────────
+function EntryEffectModal({ card, onActivate, onSkip, game }) {
+  const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw') game.playerDraw(a.count);
+      if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
+      if (a.id === 'search') game.playerBeginSearch(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-amber-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-amber-900/30">
+          <div className="w-9 h-9 rounded-full bg-amber-800/40 border border-amber-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-amber-300 text-base">⚡</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-amber-600/60 uppercase tracking-widest">登場時効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-amber-900/25 mb-3">
+          <div className="text-[9px] text-amber-600/50 uppercase tracking-wider mb-1.5">【登場時】</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{entryText}</div>
+        </div>
+        {autoActions.length > 0 ? (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (<div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}><span>{a.icon}</span><span>{a.label}</span></div>))}
+          </div>
+        ) : (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">⚠ この効果はゲームボードで手動操作が必要です。</div>
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">発動しない</button>
+          <button onClick={handleActivate} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnGold}`}>⚡ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 効果モーダル（アタック時）─────────────────────────────────────
+function AttackEffectModal({ card, onActivate, onSkip, game }) {
+  const { attackText, autoActions } = parseAttackEffect(card);
+  if (!attackText) return null;
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw') game.playerDraw(a.count);
+      if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
+      if (a.id === 'search') game.playerBeginSearch(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-red-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-red-900/30">
+          <div className="w-9 h-9 rounded-full bg-red-800/40 border border-red-600/40 flex items-center justify-center flex-shrink-0">⚔</div>
+          <div>
+            <div className="text-[9px] text-red-600/60 uppercase tracking-widest">アタック時効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-red-900/25 mb-3">
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{attackText}</div>
+        </div>
+        {autoActions.length > 0 && (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 自動実行</div>
+            {autoActions.map(a => (<div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}><span>{a.icon}</span><span>{a.label}</span></div>))}
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20">発動しない</button>
+          <button onClick={handleActivate} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnRed}`}>⚔ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 効果モーダル（イベント）───────────────────────────────────────
+function EventEffectModal({ card, onActivate, onSkip, game }) {
+  const { effectText, autoActions } = parseEventEffect(card);
+  const handleActivate = () => {
+    autoActions.forEach(a => {
+      if (a.id === 'draw') game.playerDraw(a.count);
+      if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
+      if (a.id === 'search') game.playerBeginSearch(a.count);
+    });
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-blue-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-blue-900/30">
+          <div className="w-9 h-9 rounded-full bg-blue-800/40 border border-blue-600/40 flex items-center justify-center flex-shrink-0">📜</div>
+          <div>
+            <div className="text-[9px] text-blue-600/60 uppercase tracking-widest">イベント効果</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-blue-900/25 mb-3">
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{effectText || '（効果テキストなし）'}</div>
+        </div>
+        {autoActions.length > 0 && (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 自動実行</div>
+            {autoActions.map(a => (<div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}><span>{a.icon}</span><span>{a.label}</span></div>))}
+          </div>
+        )}
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20">効果なしで使用</button>
+          <button onClick={handleActivate} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnBlue}`}>📜 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── サーチモーダル ─────────────────────────────────────────────────
+function SearchModal({ revealed, onResolve, onCancel }) {
+  const [dest, setDest] = useState(() => Object.fromEntries(revealed.map(c => [c._uid, null])));
+  const [topOrder, setTopOrder] = useState([]);
+  const allAssigned = revealed.every(c => dest[c._uid] !== null);
+  const setCardDest = (uid, newDest) => {
+    setDest(p => ({ ...p, [uid]: newDest }));
+    if (newDest === 'top') setTopOrder(p => p.includes(uid) ? p : [uid, ...p]);
+    else setTopOrder(p => p.filter(id => id !== uid));
+  };
+  const setAllDest = (d) => {
+    const nd = {}; revealed.forEach(c => { nd[c._uid] = d; }); setDest(nd);
+    setTopOrder(d === 'top' ? revealed.map(c => c._uid).reverse() : []);
+  };
+  const handleConfirm = () => {
+    onResolve({
+      toHand: revealed.filter(c => dest[c._uid] === 'hand').map(c => c._uid),
+      toDeckTop: topOrder,
+      toDeckBottom: revealed.filter(c => dest[c._uid] === 'bottom').map(c => c._uid),
+    });
+  };
+  const destColor = { hand:'bg-emerald-700/70 border-emerald-500/70 text-emerald-100', top:'bg-blue-700/70 border-blue-500/70 text-blue-100', bottom:'bg-purple-700/70 border-purple-500/70 text-purple-100', null:'bg-amber-900/30 border-amber-700/40 text-amber-400/60' };
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-amber-900/30">
+          <div className="text-amber-400 font-black text-base">🔍 サーチ効果</div>
+          <button onClick={onCancel} className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-500"><X size={15}/></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex flex-wrap gap-4 justify-center">
+            {revealed.map(card => {
+              const d = dest[card._uid];
+              return (
+                <div key={card._uid} className="flex flex-col items-center gap-2">
+                  <div className={`rounded-lg overflow-hidden border-2 transition-all ${
+                    d === 'hand' ? 'border-emerald-500 shadow-emerald-500/40 shadow-lg' :
+                    d === 'top' ? 'border-blue-500 shadow-blue-500/40 shadow-lg' :
+                    d === 'bottom' ? 'border-purple-500 shadow-purple-500/40 shadow-lg' : 'border-amber-700/30'
+                  }`} style={{ width: CARD.W, height: CARD.H }}>
+                    <CardImage card={card} style={{ width: CARD.W, height: CARD.H }}/>
+                  </div>
+                  <div className="flex gap-1">
+                    {[['hand','手札'],['top','上'],['bottom','下']].map(([k,l])=>(
+                      <button key={k} onClick={() => setCardDest(card._uid, d === k ? null : k)}
+                        className={`text-[10px] px-2 py-1 rounded-lg border font-bold transition-all ${d === k ? destColor[k] : 'bg-black/30 border-amber-900/30 text-amber-600/60'}`}>{l}</button>
+                    ))}
+                  </div>
+                  <div className="text-[9px] text-amber-500/60 text-center max-w-[110px] truncate">{card.name}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 px-5 py-3 border-t border-amber-900/30">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-amber-600/50 flex-shrink-0">一括：</span>
+            <button onClick={() => setAllDest('hand')} className="text-[10px] px-3 py-1 rounded-lg border font-bold bg-emerald-900/40 border-emerald-700/50 text-emerald-200">全て手札</button>
+            <button onClick={() => setAllDest('bottom')} className="text-[10px] px-3 py-1 rounded-lg border font-bold bg-purple-900/40 border-purple-700/50 text-purple-200">全てデッキ下</button>
+            <button onClick={() => setAllDest('top')} className="text-[10px] px-3 py-1 rounded-lg border font-bold bg-blue-900/40 border-blue-700/50 text-blue-200">全てデッキ上</button>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-[10px] text-amber-600/50 flex-1">
+              {revealed.filter(c=>dest[c._uid]===null).length > 0 ? `⚠ あと ${revealed.filter(c=>dest[c._uid]===null).length} 枚未選択` : '✓ 全て選択済み'}
+            </div>
+            <button onClick={onCancel} className="text-xs px-4 py-2 rounded-xl border border-amber-800/40 text-amber-600/70">キャンセル</button>
+            <button onClick={handleConfirm} disabled={!allAssigned}
+              className={`text-xs px-5 py-2 rounded-xl font-black border transition-all ${allAssigned ? P.btnGold : 'bg-black/20 border-amber-900/20 text-amber-900/30 cursor-not-allowed'}`}>✓ 決定</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── トラッシュモーダル ─────────────────────────────────────────────
+function TrashModal({ trash, onAction, onClose }) {
+  const [sel, setSel] = useState(null);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-amber-900/30">
+          <div className="text-amber-400 font-black text-base">🗑 トラッシュ ({trash.length}枚)</div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-500"><X size={15}/></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {trash.length === 0 ? (
+            <div className="text-amber-600/50 text-sm text-center py-4">トラッシュは空です</div>
+          ) : (
+            <div className="flex flex-wrap gap-3 justify-start">
+              {[...trash].reverse().map(card => (
+                <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer"
+                  onClick={() => setSel(sel?._uid === card._uid ? null : card)}>
+                  <div className={`rounded-xl overflow-hidden border-2 transition-all ${sel?._uid===card._uid ? 'border-amber-500 scale-105' : 'border-amber-900/30'}`}
+                    style={{ width: 80, height: 112 }}>
+                    <CardImage card={card} style={{ width:80, height:112 }}/>
+                  </div>
+                  <div className="text-[8px] text-amber-700/50 text-center max-w-[80px] truncate">{card.name}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {sel && (
+          <div className="border-t border-amber-900/30 px-5 py-3 flex items-center gap-3 bg-[#080c20]/60">
+            <div className="text-amber-300 text-sm font-bold flex-1 truncate">{sel.name}</div>
+            <button onClick={() => { onAction('trash-to-hand', sel._uid); setSel(null); }} className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnGold}`}>✋ 手札へ</button>
+            <button onClick={() => { onAction('trash-to-deck-top', sel._uid); setSel(null); }} className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnBlue}`}>⬆ デッキトップへ</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── ブロッカーステップモーダル（CPU攻撃時）─────────────────────────
+function BlockerModal({ attackState, playerField, onBlock, onPass }) {
+  if (!attackState || attackState.step !== 'blocker' || attackState.owner !== 'cpu') return null;
+  const blockers = playerField.filter(c => /【ブロッカー】/.test(c.effect || '') && !c.tapped);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
+        <div className="text-center mb-4">
+          <div className="text-amber-400 font-black text-lg mb-1">⚔️ ブロッカーステップ</div>
+          <div className="text-amber-200/70 text-sm mb-1">CPU攻撃力: <span className="text-red-300 font-black">{attackState.attackPower.toLocaleString()}</span></div>
+          <div className="text-amber-700/50 text-xs">ブロッカーを選んで受けますか？</div>
+        </div>
+        {blockers.length > 0 && (
+          <div className="flex gap-3 flex-wrap justify-center mb-4">
+            {blockers.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => onBlock(card._uid)}>
+                <div className="rounded-xl overflow-hidden border-2 border-amber-500/50 group-hover:border-amber-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-amber-300 font-black">{calcPower(card).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={onPass} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>パスする（ブロックしない）</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── カウンターステップモーダル（CPU攻撃時）──────────────────────────
+function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
+  if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
+  const { attackPower, defensePower, targetType } = attackState;
+  const willSurvive = defensePower >= attackPower;
+  const counterCards = playerHand.filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-purple-400 font-black text-lg mb-2">🛡️ カウンターステップ</div>
+          <div className="flex items-center justify-center gap-4 my-2">
+            <div className="text-center"><div className="text-[10px] text-red-400/60 mb-0.5">攻撃力</div><div className="font-black text-2xl text-red-300">{attackPower.toLocaleString()}</div></div>
+            <div className="text-xl font-black text-amber-600/70">VS</div>
+            <div className="text-center"><div className="text-[10px] text-blue-400/60 mb-0.5">防御力</div><div className={`font-black text-2xl ${willSurvive ? 'text-green-300' : 'text-blue-300'}`}>{defensePower.toLocaleString()}</div></div>
+          </div>
+          <div className={`text-sm font-bold ${willSurvive ? 'text-green-400' : 'text-red-400'}`}>
+            {willSurvive ? '✓ ダメージ防御成功！' : `あと ${(attackPower - defensePower).toLocaleString()} 以上必要`}
+          </div>
+        </div>
+        {targetType === 'leader' && counterCards.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[10px] text-purple-400/60 font-bold text-center mb-2">カウンターカード（クリックで発動）</div>
+            <div className="flex gap-2 flex-wrap justify-center">
+              {counterCards.map(card => (
+                <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => onCounter(card._uid)}>
+                  <div className="rounded-xl overflow-hidden border-2 border-purple-500/50 group-hover:border-purple-400 group-hover:scale-105 transition-all"
+                    style={{ width: 68, height: 95 }}>
+                    <CardImage card={card} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="text-[9px] text-purple-300 font-black bg-purple-900/40 px-1.5 py-0.5 rounded-full border border-purple-700/50">+{card.counter.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <button onClick={onConfirm} className={`w-full py-2.5 rounded-xl text-sm font-black ${willSurvive ? P.btnGreen : P.btnGold}`}>
+          {willSurvive ? '防御確定！' : 'このまま受ける'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── アタック解決モーダル（プレイヤー攻撃確認）──────────────────────
+function AttackResolveModal({ attackState, onResolve, onCancel }) {
+  if (!attackState || attackState.step !== 'resolving') return null;
+  const atkPow = attackState.attackPower || 0;
+  const defPow = attackState.defensePower || 0;
+  const wins = atkPow >= defPow;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-xs w-full mx-4 p-5">
+        <div className="text-center mb-4">
+          <div className="text-amber-400 font-black text-base mb-1">アタック解決</div>
+          <div className="flex items-center justify-center gap-3 my-3">
+            <div className="text-center"><div className="text-xs text-amber-400/60 mb-1">攻撃</div><div className="font-black text-xl text-amber-300">{atkPow.toLocaleString()}</div></div>
+            <div className="text-2xl">⚔️</div>
+            <div className="text-center"><div className="text-xs text-blue-400/60 mb-1">防御</div><div className="font-black text-xl text-blue-300">{defPow.toLocaleString()}</div></div>
+          </div>
+          <div className={`font-black text-lg ${wins ? 'text-green-400' : 'text-gray-400'}`}>{wins ? '攻撃成功！' : '攻撃失敗'}</div>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onResolve} className={`flex-1 py-2.5 rounded-xl text-sm font-black ${wins ? P.btnGold : P.btnGray}`}>確定</button>
+          <button onClick={onCancel} className={`py-2.5 px-3 rounded-xl text-sm ${P.btnGray}`}><X size={14}/></button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -422,467 +765,183 @@ function TriggerModal({ card, onActivate, onSkip }) {
           <div className="text-amber-200/80 text-sm">{card.name}</div>
         </div>
         <div className="flex justify-center mb-5">
-          <div className="rounded-xl overflow-hidden border border-blue-600/40"
-            style={{ width: 120, height: 168 }}>
+          <div className="rounded-xl overflow-hidden border border-blue-600/40" style={{ width: 120, height: 168 }}>
             <CardImage card={card} className="w-full h-full object-cover" />
           </div>
         </div>
         {card.effect && (
-          <div className="bg-blue-900/20 border border-blue-800/30 rounded-xl p-3 mb-4 text-[11px] text-blue-200/80 leading-relaxed">
-            {card.effect}
-          </div>
+          <div className="bg-blue-900/20 border border-blue-800/30 rounded-xl p-3 mb-4 text-[11px] text-blue-200/80 leading-relaxed">{card.effect}</div>
         )}
         <div className="flex gap-3">
-          <button onClick={onActivate}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-black ${P.btnBlue}`}>
-            発動する
-          </button>
-          <button onClick={onSkip}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>
-            スキップ
-          </button>
+          <button onClick={onActivate} className={`flex-1 py-2.5 rounded-xl text-sm font-black ${P.btnBlue}`}>発動する</button>
+          <button onClick={onSkip} className={`flex-1 py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>スキップ</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── ブロッカーステップモーダル（CPU攻撃時、プレイヤーがブロッカーを選ぶ）────
-function BlockerModal({ attackState, playerField, onBlock, onPass }) {
-  if (!attackState || attackState.step !== 'blocker' || attackState.owner !== 'cpu') return null;
-  const blockers = playerField.filter(c => /【ブロッカー】/.test(c.effect || '') && !c.tapped);
-  const { attackPower } = attackState;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
-        <div className="text-center mb-4">
-          <div className="text-amber-400 font-black text-lg mb-1">⚔️ ブロッカーステップ</div>
-          <div className="text-amber-200/70 text-sm mb-1">CPUの攻撃力: <span className="text-red-300 font-black">{attackPower.toLocaleString()}</span></div>
-          <div className="text-amber-700/50 text-xs">ブロッカーを選んで受けますか？</div>
-        </div>
-
-        {blockers.length > 0 ? (
-          <div className="flex gap-3 flex-wrap justify-center mb-4">
-            {blockers.map(card => (
-              <div key={card._uid}
-                className="flex flex-col items-center gap-1 cursor-pointer group"
-                onClick={() => onBlock(card._uid)}>
-                <div className="rounded-xl overflow-hidden border-2 border-amber-500/50 group-hover:border-amber-400 group-hover:scale-105 transition-all"
-                  style={{ width: 80, height: 112 }}>
-                  <CardImage card={card} className="w-full h-full object-cover" />
-                </div>
-                <div className="text-[9px] text-amber-300 font-black">{calcPower(card).toLocaleString()}</div>
-                <div className="text-[8px] text-amber-600/70">タップでブロック</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center text-amber-800/50 text-sm mb-4">ブロッカーなし</div>
-        )}
-
-        <button onClick={onPass}
-          className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>
-          パスする（ブロックしない）
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── カウンターステップモーダル（CPU攻撃時、プレイヤーがカウンターを選ぶ）──
-function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
-  if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
-  const { attackPower, defensePower, targetType } = attackState;
-  const willSurvive = defensePower >= attackPower;
-  // カウンター値を持つ手札のみ表示（CHARACTER のみ）
-  const counterCards = playerHand.filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
-        <div className="text-center mb-3">
-          <div className="text-purple-400 font-black text-lg mb-2">🛡️ カウンターステップ</div>
-
-          {/* 攻撃力 vs 防御力 */}
-          <div className="flex items-center justify-center gap-4 my-2">
-            <div className="text-center">
-              <div className="text-[10px] text-red-400/60 mb-0.5">攻撃力</div>
-              <div className="font-black text-2xl text-red-300">{attackPower.toLocaleString()}</div>
-            </div>
-            <div className="text-xl font-black text-amber-600/70">VS</div>
-            <div className="text-center">
-              <div className="text-[10px] text-blue-400/60 mb-0.5">防御力</div>
-              <div className={`font-black text-2xl transition-colors ${willSurvive ? 'text-green-300' : 'text-blue-300'}`}>
-                {defensePower.toLocaleString()}
-              </div>
-            </div>
-          </div>
-          <div className={`text-sm font-bold ${willSurvive ? 'text-green-400' : 'text-red-400'}`}>
-            {willSurvive
-              ? '✓ ダメージ防御成功！'
-              : `あと ${(attackPower - defensePower).toLocaleString()} 以上のカウンターが必要`}
-          </div>
-          {targetType === 'character' && (
-            <div className="text-[10px] text-amber-700/50 mt-1">※キャラへの攻撃はカウンター不可（リーダーのみ）</div>
-          )}
-        </div>
-
-        {/* カウンターカード一覧（リーダーへの攻撃のみカウンター可能）*/}
-        {targetType === 'leader' && counterCards.length > 0 && (
-          <div className="mb-3">
-            <div className="text-[10px] text-purple-400/60 font-bold uppercase text-center mb-2">
-              カウンターカード（クリックで発動）
-            </div>
-            <div className="flex gap-2 flex-wrap justify-center">
-              {counterCards.map(card => (
-                <div key={card._uid}
-                  className="flex flex-col items-center gap-1 cursor-pointer group"
-                  onClick={() => onCounter(card._uid)}>
-                  <div className="rounded-xl overflow-hidden border-2 border-purple-500/50 group-hover:border-purple-400 group-hover:scale-105 transition-all"
-                    style={{ width: 68, height: 95 }}>
-                    <CardImage card={card} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="text-[9px] text-purple-300 font-black bg-purple-900/40 px-1.5 py-0.5 rounded-full border border-purple-700/50">
-                    +{card.counter.toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {targetType === 'leader' && counterCards.length === 0 && (
-          <div className="text-center text-amber-800/40 text-xs mb-3">カウンターできるカードなし</div>
-        )}
-
-        <button onClick={onConfirm}
-          className={`w-full py-2.5 rounded-xl text-sm font-black ${willSurvive ? P.btnGreen : P.btnGold}`}>
-          {willSurvive ? '防御確定！' : 'このまま受ける（ダメージ）'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── 解決確認モーダル（アタック）────────────────────────────────
-function AttackResolveModal({ attackState, cpuSide, playerSide, onResolve, onCancel }) {
-  if (!attackState || attackState.step !== 'resolving') return null;
-  const atkPow = attackState.attackPower || 0;
-  const defPow = attackState.defensePower || 0;
-  const wins = atkPow >= defPow; // 同パワーも攻撃側勝利（FAQ Q15/Q16）
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-      <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-xs w-full mx-4 p-5">
-        <div className="text-center mb-4">
-          <div className="text-amber-400 font-black text-base mb-1">アタック解決</div>
-          <div className="flex items-center justify-center gap-3 my-3">
-            <div className="text-center">
-              <div className="text-xs text-amber-400/60 mb-1">攻撃</div>
-              <div className="font-black text-xl text-amber-300">{atkPow.toLocaleString()}</div>
-            </div>
-            <div className="text-2xl">⚔️</div>
-            <div className="text-center">
-              <div className="text-xs text-blue-400/60 mb-1">防御</div>
-              <div className="font-black text-xl text-blue-300">{defPow.toLocaleString()}</div>
-            </div>
-          </div>
-          <div className={`font-black text-lg ${wins ? 'text-green-400' : 'text-gray-400'}`}>
-            {wins ? '攻撃成功！' : '攻撃失敗'}
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={onResolve}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-black ${wins ? P.btnGold : P.btnGray}`}>
-            確定
-          </button>
-          <button onClick={onCancel}
-            className={`py-2.5 px-3 rounded-xl text-sm ${P.btnGray}`}>
-            <X size={14} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── 勝利/敗北モーダル ────────────────────────────────────────────
+// ─── 勝敗モーダル ──────────────────────────────────────────────────
 function WinModal({ winner, onReturn, onRematch }) {
   const isWin = winner === 'player';
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 backdrop-blur-md">
-      <div className={`bg-[#0a0f24] border rounded-2xl shadow-2xl max-w-xs w-full mx-4 p-8 text-center
-        ${isWin ? 'border-amber-500/60' : 'border-red-700/40'}`}>
+      <div className={`bg-[#0a0f24] border rounded-2xl shadow-2xl max-w-xs w-full mx-4 p-8 text-center ${isWin ? 'border-amber-500/60' : 'border-red-700/40'}`}>
         <div className="text-6xl mb-4">{isWin ? '🏆' : '💀'}</div>
-        <div className={`font-black text-3xl mb-2 ${isWin ? 'text-amber-400' : 'text-red-400'}`}>
-          {isWin ? '勝利！' : '敗北...'}
-        </div>
-        <div className="text-amber-200/50 text-sm mb-6">
-          {isWin ? 'CPUを倒した！' : 'CPUに敗れた...'}
-        </div>
+        <div className={`font-black text-3xl mb-2 ${isWin ? 'text-amber-400' : 'text-red-400'}`}>{isWin ? '勝利！' : '敗北...'}</div>
+        <div className="text-amber-200/50 text-sm mb-6">{isWin ? 'CPUを倒した！' : 'CPUに敗れた...'}</div>
         <div className="flex gap-3">
-          <button onClick={onRematch}
-            className={`flex-1 py-2.5 rounded-xl font-black text-sm ${P.btnGold}`}>
-            <RotateCcw size={14} className="inline mr-1" /> リマッチ
-          </button>
-          <button onClick={onReturn}
-            className={`flex-1 py-2.5 rounded-xl font-black text-sm ${P.btnGray}`}>
-            <Home size={14} className="inline mr-1" /> ホーム
-          </button>
+          <button onClick={onRematch} className={`flex-1 py-2.5 rounded-xl font-black text-sm ${P.btnGold}`}><RotateCcw size={14} className="inline mr-1"/>リマッチ</button>
+          <button onClick={onReturn} className={`flex-1 py-2.5 rounded-xl font-black text-sm ${P.btnGray}`}><Home size={14} className="inline mr-1"/>ホーム</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── 保存済みデッキをentries形式に変換 ─────────────────────────
-// デッキビルダーは {card, count} 形式で保存するため両形式に対応
+// ─── CPUトリガー自動処理 ─────────────────────────────────────────
+function AutoCpuTrigger({ game, card }) {
+  useEffect(() => {
+    const t = setTimeout(() => game.resolveTrigger(true), 1000);
+    return () => clearTimeout(t);
+  }, [card?._uid]);
+  return (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-900/90 border border-blue-500/60 rounded-xl px-4 py-2 text-xs text-blue-200 font-bold animate-pulse">
+      CPU トリガー「{card?.name}」発動中...
+    </div>
+  );
+}
+
+// ─── 保存済みデッキ変換 ─────────────────────────────────────────────
 function resolveSavedDeck(savedDeck, _cardMap) {
   if (!savedDeck) return null;
-  const entries = (savedDeck.deck || [])
-    .map((entry) => {
-      // デッキビルダーが保存する {card: {...}, count} 形式
-      if (entry.card) {
-        return { card: entry.card, count: entry.count };
-      }
-      // フォールバック: {cardNumber, count} 形式
-      const card = _cardMap?.[entry.cardNumber];
-      return card ? { card, count: entry.count } : null;
-    })
-    .filter(Boolean);
+  const entries = (savedDeck.deck || []).map(entry => {
+    if (entry.card) return { card: entry.card, count: entry.count };
+    const card = _cardMap?.[entry.cardNumber];
+    return card ? { card, count: entry.count } : null;
+  }).filter(Boolean);
   return { leader: savedDeck.leader, entries, name: savedDeck.name || savedDeck.id };
 }
 
-// ─── セットアップ画面 ────────────────────────────────────────────
+// ─── セットアップ画面 ──────────────────────────────────────────────
 function SetupScreen({ onStart, onHome, cardMap }) {
   const savedDecks = loadSavedDecks();
   const savedDeckNames = Object.keys(savedDecks);
-
   const [playerDeckName, setPlayerDeckName] = useState(savedDeckNames[0] || '');
-  const [cpuDeckName, setCpuDeckName]       = useState(savedDeckNames[0] || '');
-  const [cpuDeckType, setCpuDeckType]       = useState('sample'); // 'sample' | 'saved'
-  const [sampleIdx, setSampleIdx]           = useState(0);
-  const [order, setOrder]                   = useState('first');
+  const [cpuDeckName, setCpuDeckName] = useState(savedDeckNames[0] || '');
+  const [cpuDeckType, setCpuDeckType] = useState('sample');
+  const [sampleIdx, setSampleIdx] = useState(0);
+  const [order, setOrder] = useState('first');
   const isCardMapReady = Object.keys(cardMap || {}).length > 0;
-
-  // プレイヤーデッキ: {card, count}形式で保存済みのためcardMap不要
-  const playerDeckRaw = savedDecks[playerDeckName] || null;
-  const playerDeck = resolveSavedDeck(playerDeckRaw, cardMap);
-
-  // CPUデッキ（サンプルはcardMap必須、保存済みは不要）
+  const playerDeck = resolveSavedDeck(savedDecks[playerDeckName] || null, cardMap);
   let cpuDeckResolved = null;
   if (cpuDeckType === 'sample' && isCardMapReady) {
-    const raw = SAMPLE_DECKS[sampleIdx];
-    if (raw) cpuDeckResolved = resolveSampleDeck(raw, cardMap);
-  } else if (cpuDeckType === 'saved') {
-    cpuDeckResolved = resolveSavedDeck(savedDecks[cpuDeckName] || null, cardMap);
-  }
-
-  const canStart = playerDeck && playerDeck.entries?.length > 0
-    && cpuDeckResolved && cpuDeckResolved.entries?.length > 0;
-
+    const raw = SAMPLE_DECKS[sampleIdx]; if (raw) cpuDeckResolved = resolveSampleDeck(raw, cardMap);
+  } else if (cpuDeckType === 'saved') { cpuDeckResolved = resolveSavedDeck(savedDecks[cpuDeckName] || null, cardMap); }
+  const canStart = playerDeck?.entries?.length > 0 && cpuDeckResolved?.entries?.length > 0;
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%, #0a1530, #06091a)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'radial-gradient(ellipse at 50% 0%, #0a1530, #06091a)' }}>
       <div className="w-full max-w-md">
-        <div className="text-center mb-6">
-          <div className="text-3xl mb-2">⚔️</div>
-          <h1 className="font-black text-2xl text-amber-400 mb-1">CPU対戦</h1>
-          <p className="text-amber-800/60 text-sm">デッキと先行/後攻を選んでください</p>
-        </div>
-
+        <div className="text-center mb-6"><div className="text-3xl mb-2">⚔️</div><h1 className="font-black text-2xl text-amber-400 mb-1">CPU対戦</h1></div>
         <div className="space-y-4">
-          {/* プレイヤーデッキ */}
           <div className="bg-[#0d1530] border border-amber-800/30 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <User size={14} className="text-amber-400" />
-              <span className="text-amber-300/80 font-bold text-sm">あなたのデッキ</span>
-            </div>
-            {savedDeckNames.length === 0 ? (
-              <div className="text-amber-900/50 text-sm text-center py-2">
-                デッキビルダーで先にデッキを保存してください
-              </div>
-            ) : (
-              <select
-                value={playerDeckName}
-                onChange={e => setPlayerDeckName(e.target.value)}
-                className="w-full bg-[#06091a] border border-amber-800/40 rounded-xl px-3 py-2 text-amber-200/80 text-sm focus:outline-none focus:border-amber-600/60"
-              >
+            <div className="flex items-center gap-2 mb-3"><User size={14} className="text-amber-400"/><span className="text-amber-300/80 font-bold text-sm">あなたのデッキ</span></div>
+            {savedDeckNames.length === 0 ? <div className="text-amber-900/50 text-sm text-center py-2">デッキビルダーで先にデッキを保存してください</div> : (
+              <select value={playerDeckName} onChange={e => setPlayerDeckName(e.target.value)}
+                className="w-full bg-[#06091a] border border-amber-800/40 rounded-xl px-3 py-2 text-amber-200/80 text-sm focus:outline-none">
                 {savedDeckNames.map(n => <option key={n} value={n}>{savedDecks[n]?.name || n}</option>)}
               </select>
             )}
-            {playerDeck && playerDeck.entries?.length > 0 && (
-              <div className="mt-2 text-[10px] text-amber-700/50">
-                リーダー: {playerDeck.leader?.name} / {playerDeck.entries?.length ?? 0}種
-              </div>
-            )}
-            {playerDeckRaw && (!playerDeck || playerDeck.entries?.length === 0) && (
-              <div className="mt-2 text-[10px] text-red-700/70">デッキが読み込めませんでした</div>
-            )}
+            {playerDeck?.entries?.length > 0 && <div className="mt-2 text-[10px] text-amber-700/50">リーダー: {playerDeck.leader?.name}</div>}
           </div>
-
-          {/* CPUデッキ */}
           <div className="bg-[#0d1530] border border-blue-800/30 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Bot size={14} className="text-blue-400" />
-              <span className="text-blue-300/80 font-bold text-sm">CPUのデッキ</span>
-            </div>
+            <div className="flex items-center gap-2 mb-3"><Bot size={14} className="text-blue-400"/><span className="text-blue-300/80 font-bold text-sm">CPUのデッキ</span></div>
             <div className="flex gap-2 mb-3">
-              <button
-                onClick={() => setCpuDeckType('sample')}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                  cpuDeckType === 'sample'
-                    ? 'bg-blue-700/30 border-blue-600/50 text-blue-300'
-                    : 'bg-white/4 border-white/10 text-white/30'
-                }`}>
-                サンプル
-              </button>
-              <button
-                onClick={() => setCpuDeckType('saved')}
-                disabled={savedDeckNames.length === 0}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
-                  cpuDeckType === 'saved'
-                    ? 'bg-blue-700/30 border-blue-600/50 text-blue-300'
-                    : 'bg-white/4 border-white/10 text-white/30'
-                } disabled:opacity-30`}>
-                保存済み
-              </button>
+              <button onClick={() => setCpuDeckType('sample')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold border ${cpuDeckType==='sample' ? 'bg-blue-700/30 border-blue-600/50 text-blue-300' : 'bg-white/4 border-white/10 text-white/30'}`}>サンプル</button>
+              <button onClick={() => setCpuDeckType('saved')} disabled={!savedDeckNames.length} className={`flex-1 py-1.5 rounded-lg text-xs font-bold border ${cpuDeckType==='saved' ? 'bg-blue-700/30 border-blue-600/50 text-blue-300' : 'bg-white/4 border-white/10 text-white/30'} disabled:opacity-30`}>保存済み</button>
             </div>
             {cpuDeckType === 'sample' ? (
-              <select
-                value={sampleIdx}
-                onChange={e => setSampleIdx(Number(e.target.value))}
-                className="w-full bg-[#06091a] border border-blue-800/40 rounded-xl px-3 py-2 text-blue-200/80 text-sm focus:outline-none focus:border-blue-600/60"
-              >
-                {SAMPLE_DECKS.map((d, i) => <option key={i} value={i}>{d.name}</option>)}
+              <select value={sampleIdx} onChange={e => setSampleIdx(Number(e.target.value))} className="w-full bg-[#06091a] border border-blue-800/40 rounded-xl px-3 py-2 text-blue-200/80 text-sm">
+                {SAMPLE_DECKS.map((d,i) => <option key={i} value={i}>{d.name}</option>)}
               </select>
             ) : (
-              <select
-                value={cpuDeckName}
-                onChange={e => setCpuDeckName(e.target.value)}
-                className="w-full bg-[#06091a] border border-blue-800/40 rounded-xl px-3 py-2 text-blue-200/80 text-sm focus:outline-none focus:border-blue-600/60"
-              >
+              <select value={cpuDeckName} onChange={e => setCpuDeckName(e.target.value)} className="w-full bg-[#06091a] border border-blue-800/40 rounded-xl px-3 py-2 text-blue-200/80 text-sm">
                 <option value="">選択してください</option>
                 {savedDeckNames.map(n => <option key={n} value={n}>{savedDecks[n]?.name || n}</option>)}
               </select>
             )}
           </div>
-
-          {/* 先行/後攻 */}
           <div className="bg-[#0d1530] border border-amber-800/20 rounded-2xl p-4">
             <div className="text-amber-300/70 font-bold text-sm mb-3">先行 / 後攻</div>
             <div className="flex gap-3">
-              {[['first','先行（先手）'],['second','後攻（後手）']].map(([val, label]) => (
-                <button key={val}
-                  onClick={() => setOrder(val)}
-                  className={`flex-1 py-2.5 rounded-xl font-bold text-sm border transition-all ${
-                    order === val
-                      ? `${P.btnGold}`
-                      : `${P.btnGray}`
-                  }`}>
-                  {label}
-                </button>
+              {[['first','先行'],['second','後攻']].map(([val,label]) => (
+                <button key={val} onClick={() => setOrder(val)} className={`flex-1 py-2.5 rounded-xl font-bold text-sm border ${order===val ? P.btnGold : P.btnGray}`}>{label}</button>
               ))}
             </div>
           </div>
-
-          {/* スタートボタン */}
-          {cpuDeckType === 'sample' && !isCardMapReady && (
-            <div className="text-center text-amber-700/60 text-xs animate-pulse">
-              カードデータ読み込み中...
-            </div>
-          )}
-          <button
-            disabled={!canStart}
-            onClick={() => onStart(playerDeck, cpuDeckResolved, order)}
-            className={`w-full py-4 rounded-2xl font-black text-lg transition-all ${
-              canStart ? P.btnGold : 'bg-gray-800/50 text-gray-600 border border-gray-700/30 cursor-not-allowed'
-            }`}
-          >
-            <Swords size={18} className="inline mr-2" />
-            対戦スタート！
+          {cpuDeckType === 'sample' && !isCardMapReady && <div className="text-center text-amber-700/60 text-xs animate-pulse">カードデータ読み込み中...</div>}
+          <button disabled={!canStart} onClick={() => onStart(playerDeck, cpuDeckResolved, order)}
+            className={`w-full py-4 rounded-2xl font-black text-lg ${canStart ? P.btnGold : 'bg-gray-800/50 text-gray-600 border border-gray-700/30 cursor-not-allowed'}`}>
+            <Swords size={18} className="inline mr-2"/>対戦スタート！
           </button>
-
-          <button onClick={onHome}
-            className={`w-full py-2.5 rounded-xl text-sm ${P.btnGray}`}>
-            <Home size={14} className="inline mr-1" /> ホームに戻る
-          </button>
+          <button onClick={onHome} className={`w-full py-2.5 rounded-xl text-sm ${P.btnGray}`}><Home size={14} className="inline mr-1"/>ホームに戻る</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── マリガン画面 ────────────────────────────────────────────────
+// ─── マリガン画面 ──────────────────────────────────────────────────
 function MulliganScreen({ playerHand, leaderName, onMulligan, onKeep }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6"
-      style={{ background: 'radial-gradient(ellipse at 50% 0%, #0a1530, #06091a)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: 'radial-gradient(ellipse at 50% 0%, #0a1530, #06091a)' }}>
       <div className="w-full max-w-lg text-center">
         <h2 className="font-black text-2xl text-amber-400 mb-1">マリガン</h2>
-        <p className="text-amber-700/60 text-sm mb-6">初期手札を確認してください（1回まで引き直し可能）</p>
-        <div className="text-xs text-amber-600/50 mb-4">リーダー: {leaderName}</div>
-
-        {/* 手札表示 */}
+        <p className="text-amber-700/60 text-sm mb-6">初期手札を確認（1回まで引き直し可能）</p>
         <div className="flex gap-2 justify-center flex-wrap mb-8">
           {playerHand.map(card => (
             <div key={card._uid} className="flex flex-col items-center gap-1">
-              <div className="rounded-xl overflow-hidden border border-amber-800/30"
-                style={{ width: 76, height: 107 }}>
+              <div className="rounded-xl overflow-hidden border border-amber-800/30" style={{ width: 76, height: 107 }}>
                 <CardImage card={card} className="w-full h-full object-cover" />
               </div>
-              <div className="text-[8px] text-amber-700/60 text-center max-w-[70px] truncate">{card.name}</div>
-              {card.cost != null && (
-                <div className="text-[8px] bg-amber-900/30 text-amber-400 px-1.5 py-0.5 rounded-full border border-amber-800/30">
-                  コスト{card.cost}
-                </div>
-              )}
+              <div className="text-[8px] text-amber-700/60 max-w-[70px] truncate">{card.name}</div>
             </div>
           ))}
         </div>
-
         <div className="flex gap-4 justify-center">
-          <button onClick={onMulligan}
-            className={`px-8 py-3 rounded-xl font-black text-sm ${P.btnRed}`}>
-            <RotateCcw size={14} className="inline mr-1" /> 引き直す
-          </button>
-          <button onClick={onKeep}
-            className={`px-8 py-3 rounded-xl font-black text-sm ${P.btnGold}`}>
-            キープ
-          </button>
+          <button onClick={onMulligan} className={`px-8 py-3 rounded-xl font-black text-sm ${P.btnRed}`}><RotateCcw size={14} className="inline mr-1"/>引き直す</button>
+          <button onClick={onKeep} className={`px-8 py-3 rounded-xl font-black text-sm ${P.btnGold}`}>キープ</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── メインコンポーネント ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// メインコンポーネント
+// ═══════════════════════════════════════════════════════════════════
 export default function BattlePage({ onNavigate }) {
   const game = useBattleState();
   const { state } = game;
 
-  // カードマップ（サンプルデッキ解決用）
   const [cardMap, setCardMap] = useState({});
   useEffect(() => {
-    fetch('./cards.json')
-      .then(r => r.json())
-      .then(d => {
-        const map = {};
-        (d.cards || []).forEach(c => { map[c.card_number] = c; });
-        setCardMap(map);
-      })
-      .catch(() => {});
+    fetch('./cards.json').then(r => r.json()).then(d => {
+      const map = {}; (d.cards || []).forEach(c => { map[c.card_number] = c; }); setCardMap(map);
+    }).catch(() => {});
   }, []);
 
-  // アタックモード管理
-  const [attackMode, setAttackMode] = useState(null); // null | 'select-target'
+  // UI状態
+  const [attackMode, setAttackMode] = useState(null);
   const [selectedAttackerUid, setSelectedAttackerUid] = useState(null);
-
-  // カード詳細モーダル
   const [detailCard, setDetailCard] = useState(null);
-
-  // セットアップ用情報（リマッチのため保存）
   const [setupInfo, setSetupInfo] = useState(null);
+  const [actionMenu, setActionMenu] = useState(null); // { card, context }
+  const [showLog, setShowLog] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [pendingEntryEffect, setPendingEntryEffect] = useState(null);
+  const [pendingAttackEffect, setPendingAttackEffect] = useState(null);
+  const [pendingEventEffect, setPendingEventEffect] = useState(null);
 
   const isCpuTurn = state?.activePlayer === 'cpu';
   const isMyTurn  = state?.activePlayer === 'player';
@@ -893,66 +952,33 @@ export default function BattlePage({ onNavigate }) {
   useEffect(() => {
     if (!state || state.phase !== 'game' || state.winner) return;
     if (!isCpuTurn) return;
-    if (state.pendingTrigger) return; // トリガー待ち
-    if (state.attackState) return;   // ブロッカー/カウンターステップ（プレイヤー入力待ち）
-
-    // リフレッシュ/ドロー/DON!!フェーズ: 自動進行
-    if (['refresh', 'draw', 'don'].includes(subPhase)) {
-      const t = setTimeout(() => game.advancePhase(), 800);
-      return () => clearTimeout(t);
-    }
-
-    // エンドフェーズ: 自動進行
-    if (subPhase === 'end') {
-      const t = setTimeout(() => game.advancePhase(), 600);
-      return () => clearTimeout(t);
-    }
-
-    // メインフェーズ
+    if (state.pendingTrigger) return;
+    if (state.attackState) return;
+    if (['refresh','draw','don'].includes(subPhase)) { const t = setTimeout(() => game.advancePhase(), 800); return () => clearTimeout(t); }
+    if (subPhase === 'end') { const t = setTimeout(() => game.advancePhase(), 600); return () => clearTimeout(t); }
     if (subPhase === 'main') {
-      // アタックキューが残っている場合（トリガー解決後など）続きを処理
-      if ((state.cpuPendingAttacks?.length || 0) > 0) {
-        const t = setTimeout(() => game.processCpuPendingAttack(), 600);
-        return () => clearTimeout(t);
-      }
-      // 新規CPU行動実行
-      const t = setTimeout(() => game.runCpuMainPhase(), 1200);
-      return () => clearTimeout(t);
+      if ((state.cpuPendingAttacks?.length || 0) > 0) { const t = setTimeout(() => game.processCpuPendingAttack(), 600); return () => clearTimeout(t); }
+      const t = setTimeout(() => game.runCpuMainPhase(), 1200); return () => clearTimeout(t);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    state?.activePlayer, state?.subPhase, state?.winner,
-    state?.pendingTrigger, state?.attackState,
-    state?.cpuPendingAttacks?.length,
-  ]);
+  }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length]);
 
-  // CPUターン中はアタックモードをリセット
-  useEffect(() => {
-    if (isCpuTurn) {
-      setAttackMode(null);
-      setSelectedAttackerUid(null);
-    }
-  }, [isCpuTurn]);
+  useEffect(() => { if (isCpuTurn) { setAttackMode(null); setSelectedAttackerUid(null); } }, [isCpuTurn]);
 
-  // ─── セットアップ開始 ──────────────────────────────────────────
+  // ─── ハンドラー ─────────────────────────────────────────────────
   const handleStart = useCallback((playerDeck, cpuDeck, order) => {
     setSetupInfo({ playerDeck, cpuDeck, order });
     game.startBattle(playerDeck.leader, playerDeck.entries, cpuDeck.leader, cpuDeck.entries, order);
   }, [game]);
 
-  // リマッチ
   const handleRematch = useCallback(() => {
     if (!setupInfo) return;
     const { playerDeck, cpuDeck, order } = setupInfo;
     game.startBattle(playerDeck.leader, playerDeck.entries, cpuDeck.leader, cpuDeck.entries, order);
-    setAttackMode(null);
-    setSelectedAttackerUid(null);
+    setAttackMode(null); setSelectedAttackerUid(null);
   }, [setupInfo, game]);
 
-  // ─── アタック操作 ──────────────────────────────────────────────
   const handleAttackerSelect = useCallback((uid) => {
-    setSelectedAttackerUid(uid);
-    setAttackMode('select-target');
+    setSelectedAttackerUid(uid); setAttackMode('select-target');
     game.playerSelectAttacker(uid);
   }, [game]);
 
@@ -960,288 +986,328 @@ export default function BattlePage({ onNavigate }) {
     if (attackMode !== 'select-target') return;
     setAttackMode('resolving');
     game.playerSelectTarget(targetUid);
-  }, [attackMode, game]);
+    // アタック時効果チェック
+    if (state) {
+      const p = state.player;
+      const ast = state.attackState;
+      const uid = ast?.attackerUid || selectedAttackerUid;
+      const attacker = uid === 'p-leader' ? p.leader : p.field.find(c => c._uid === uid);
+      if (attacker && /【アタック時】/.test(attacker.effect || '')) {
+        setPendingAttackEffect(attacker);
+      }
+    }
+  }, [attackMode, game, state, selectedAttackerUid]);
 
-  const handleCancelAttack = useCallback(() => {
-    game.cancelAttack();
-    setAttackMode(null);
-    setSelectedAttackerUid(null);
+  const handleCancelAttack = useCallback(() => { game.cancelAttack(); setAttackMode(null); setSelectedAttackerUid(null); }, [game]);
+  const handleResolveAttack = useCallback(() => { game.resolveAttack(); setAttackMode(null); setSelectedAttackerUid(null); }, [game]);
+
+  // アクションメニュー処理
+  const handleAction = useCallback((actionId) => {
+    const card = actionMenu?.card;
+    const ctx = actionMenu?.context;
+    if (!card || !game) return;
+    switch (actionId) {
+      case 'play': {
+        game.playerPlayCard(card._uid);
+        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+        break;
+      }
+      case 'stage': game.playerPlayStage(card._uid); break;
+      case 'event': {
+        game.playerPlayEvent(card._uid);
+        if (card.effect) setPendingEventEffect(card);
+        break;
+      }
+      case 'tap':
+        if (ctx === 'field') {
+          if (!card.tapped) {
+            game.playerToggleField(card._uid);
+            if (/【アタック時】/.test(card.effect || '')) setPendingAttackEffect(card);
+          } else {
+            game.playerToggleField(card._uid);
+          }
+        }
+        break;
+      case 'tap-leader':
+        game.playerToggleLeader();
+        if (!state.player.leader.tapped && /【アタック時】/.test(state.player.leader.effect || '')) setPendingAttackEffect(state.player.leader);
+        break;
+      case 'attach-don': game.playerAttachDon(card._uid); break;
+      case 'attach-don-leader': game.playerAttachDon('leader'); break;
+      case 'detach-don': game.playerDetachDon(card._uid); break;
+      case 'detach-don-leader': game.playerDetachDonLeader(); break;
+      case 'deck-top':
+        if (ctx === 'hand') game.playerReturnHandToTop(card._uid);
+        if (ctx === 'field') game.playerReturnFieldToTop(card._uid);
+        break;
+      case 'deck-bottom':
+        if (ctx === 'hand') game.playerReturnHandToBottom(card._uid);
+        if (ctx === 'field') game.playerReturnFieldToBottom(card._uid);
+        break;
+      case 'detail': setDetailCard(card); break;
+      case 'trash-hand': game.playerTrashCard(card._uid); break;
+      case 'trash-field': game.playerTrashFieldCard(card._uid); break;
+      case 'trash-stage': game.playerTrashStage(); break;
+      case 'trash-to-hand': game.playerReturnTrashToHand(card._uid); break;
+      case 'trash-to-deck-top': game.playerReturnTrashToDeckTop(card._uid); break;
+    }
+    setActionMenu(null);
+  }, [actionMenu, game, state]);
+
+  const handleTrashAction = useCallback((actionId, uid) => {
+    if (actionId === 'trash-to-hand') game.playerReturnTrashToHand(uid);
+    if (actionId === 'trash-to-deck-top') game.playerReturnTrashToDeckTop(uid);
   }, [game]);
 
-  const handleResolveAttack = useCallback(() => {
-    game.resolveAttack();
-    setAttackMode(null);
-    setSelectedAttackerUid(null);
-  }, [game]);
-
-  // ─── ブロッカー/カウンターステップ操作 ───────────────────────────
-  const handlePlayerBlock = useCallback((blockerUid) => {
-    game.playerBlock(blockerUid);
-  }, [game]);
-
-  const handlePlayerPassBlock = useCallback(() => {
-    game.playerPassBlock();
-  }, [game]);
-
-  const handlePlayerCounter = useCallback((cardUid) => {
-    game.playerCounter(cardUid);
-  }, [game]);
-
-  const handlePlayerConfirmCounter = useCallback(() => {
-    game.playerConfirmCounter();
-  }, [game]);
-
-  // ─── 各種表示分岐 ─────────────────────────────────────────────
-  if (!state) {
-    return (
-      <SetupScreen
-        onStart={handleStart}
-        onHome={() => onNavigate('home')}
-        cardMap={cardMap}
-      />
-    );
-  }
-
-  if (state.phase === 'mulligan') {
-    return (
-      <MulliganScreen
-        playerHand={state.player.hand}
-        leaderName={state.player.leader?.name}
-        onMulligan={game.playerMulligan}
-        onKeep={game.confirmMulligan}
-      />
-    );
-  }
+  // ─── 画面分岐 ─────────────────────────────────────────────────
+  if (!state) return <SetupScreen onStart={handleStart} onHome={() => onNavigate('home')} cardMap={cardMap}/>;
+  if (state.phase === 'mulligan') return <MulliganScreen playerHand={state.player.hand} leaderName={state.player.leader?.name} onMulligan={game.playerMulligan} onKeep={game.confirmMulligan}/>;
 
   const ps = state.player;
   const cs = state.cpu;
+  const isSelectingTarget = attackMode === 'select-target';
 
   return (
-    <div className={`min-h-screen flex flex-col ${P.bg} overflow-hidden`}
-      style={{ fontSize: 13 }}>
+    <div className={`min-h-screen flex flex-col ${P.bg} overflow-hidden`}>
 
-      {/* ─── ヘッダー ─────────────────────────────────────────── */}
+      {/* ═══ ヘッダー ═══ */}
       <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b border-amber-900/20 bg-black/30">
-        <button onClick={() => onNavigate('home')} className={`p-1.5 rounded-lg ${P.btnGray}`}>
-          <Home size={14} />
-        </button>
-        <div className="flex-1">
-          <PhaseBar current={subPhase} />
+        <button onClick={() => onNavigate('home')} className={`p-1.5 rounded-lg ${P.btnGray}`}><Home size={14}/></button>
+        <PhaseBar subPhase={subPhase} isMyTurn={isMyTurn && !attackMode && !state.pendingTrigger} onAdvance={game.advancePhase}/>
+        <div className="flex items-center gap-2 ml-auto">
+          <StatChip icon="📚" value={ps.deck.length} label="デッキ"/>
+          <StatChip icon="✋" value={ps.hand.length} label="手札"/>
+          <StatChip icon="❤️" value={ps.life.length} label="ライフ" color="red"/>
+          <StatChip icon="🗑" value={ps.trash.length} label="トラッシュ" onClick={() => setShowTrash(true)}/>
+          <button onClick={() => setShowLog(v => !v)} className={`text-[10px] px-2 py-0.5 rounded-lg border ${showLog ? 'bg-amber-700/30 border-amber-600/50 text-amber-300' : 'bg-[#0d1530]/60 border-amber-900/30 text-amber-600/50'}`}>LOG</button>
         </div>
-        <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-bold ${
-          isMyTurn
-            ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-            : 'bg-blue-500/15 border-blue-500/40 text-blue-300'
-        }`}>
-          {isMyTurn ? <User size={12} /> : <Bot size={12} />}
-          {isMyTurn ? 'プレイヤーターン' : 'CPUターン'}
+        <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-bold ${isMyTurn ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-blue-500/15 border-blue-500/40 text-blue-300'}`}>
+          {isMyTurn ? <User size={12}/> : <Bot size={12}/>}
+          {isMyTurn ? 'あなた' : 'CPU'}
           <span className="text-white/30 ml-1">T{state.turn}</span>
         </div>
       </div>
 
-      {/* ─── メインエリア ─────────────────────────────────────── */}
+      {/* ═══ メインエリア ═══ */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 左: ボードエリア */}
-        <div className="flex-1 flex flex-col overflow-y-auto p-3 gap-3">
-          {/* CPU ボード（上段）*/}
-          <div className={`rounded-2xl p-3 border ${
-            isCpuTurn ? 'border-blue-600/40 bg-blue-900/8' : 'border-blue-900/20 bg-black/20'
-          }`}>
-            <CpuBoard
-              cpuSide={cs}
-              attackMode={attackMode}
-              onTargetSelect={handleTargetSelect}
-            />
-          </div>
 
-          {/* セパレーター */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-800/30 to-transparent" />
-            <div className="px-2 py-0.5 rounded-full bg-amber-900/20 border border-amber-800/30 text-amber-700/50 text-[9px] font-bold tracking-wider">
-              BATTLE FIELD
-            </div>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-800/30 to-transparent" />
-          </div>
-
-          {/* プレイヤー ボード（下段）*/}
-          <div className={`rounded-2xl p-3 border ${
-            isMyTurn ? 'border-amber-600/30 bg-amber-900/5' : 'border-amber-900/15 bg-black/15'
-          }`}>
-            <PlayerBoard
-              playerSide={ps}
-              attackMode={attackMode}
-              selectedAttackerUid={selectedAttackerUid}
-              onAttackerSelect={handleAttackerSelect}
-              onPlayCard={game.playerPlayCard}
-              onAttachDon={game.playerAttachDon}
-              isMyTurn={isMyTurn}
-              inMainPhase={inMainPhase}
-              showCardDetail={setDetailCard}
-            />
-          </div>
-        </div>
-
-        {/* 右: コントロールパネル */}
-        <div className="flex-shrink-0 w-52 flex flex-col gap-3 p-3 border-l border-amber-900/15 bg-black/20 overflow-y-auto">
-          {/* アクションボタン */}
-          <div className="space-y-2">
-            <div className={P.label}>アクション</div>
-
-            {/* フェーズ進行ボタン（プレイヤーターン時のみ・トリガー解決中は非表示）*/}
-            {isMyTurn && !attackMode && !state?.pendingTrigger && (
-              <button
-                onClick={game.advancePhase}
-                className={`w-full py-2.5 rounded-xl text-xs font-black ${P.btnGold} flex items-center justify-center gap-1.5`}
-              >
-                <ChevronRight size={14} />
-                {subPhase === 'main' ? 'エンドフェーズ' : 'フェーズ進行'}
-              </button>
-            )}
-
-            {/* アタックキャンセル */}
-            {attackMode === 'select-target' && (
-              <button onClick={handleCancelAttack}
-                className={`w-full py-2 rounded-xl text-xs ${P.btnGray}`}>
-                <X size={12} className="inline mr-1" /> アタックキャンセル
-              </button>
-            )}
-
-            {/* CPUターン中表示 */}
-            {isCpuTurn && (
-              <div className="text-center py-3 text-blue-400/70 text-xs animate-pulse">
-                <Bot size={16} className="inline mb-1 mr-1" />
-                CPU思考中...
-              </div>
-            )}
-
-            {/* アタックモードガイド */}
-            {isMyTurn && inMainPhase && !attackMode && (
-              <div className="text-[9px] text-amber-700/50 text-center px-1 leading-relaxed">
-                フィールドのキャラ・リーダーをクリックでアタック宣言
-              </div>
-            )}
-            {attackMode === 'select-target' && (
-              <div className="text-[9px] text-red-400/70 text-center animate-pulse leading-relaxed">
-                CPUのキャラ・リーダーをクリックしてターゲット選択
-              </div>
-            )}
-          </div>
-
-          {/* DON!!操作（プレイヤーメインフェーズ）*/}
-          {isMyTurn && inMainPhase && ps.donActive > 0 && (
-            <div className="space-y-1.5">
-              <div className={P.label}>DON!!</div>
-              <button onClick={() => game.playerTapDon(1)}
-                className={`w-full py-1.5 rounded-lg text-[10px] ${P.btnGray}`}>
-                DON!! ×1 レスト
-              </button>
-            </div>
-          )}
-
-          {/* バトルログ */}
-          <div className="flex-1 space-y-1">
+        {/* 左サイドバー: ログ（トグル） */}
+        {showLog && (
+          <div className="flex-shrink-0 w-56 flex flex-col gap-2 p-3 border-r border-amber-900/15 bg-black/20 overflow-y-auto">
             <div className={P.label}>バトルログ</div>
-            <BattleLog logs={state.battleLog} />
+            <BattleLog logs={state.battleLog}/>
+          </div>
+        )}
+
+        {/* メインボード */}
+        <div className="flex-1 flex flex-col overflow-y-auto">
+
+          {/* ── CPU ボード（上段・コンパクト）── */}
+          <div className={`flex-shrink-0 p-3 border-b border-blue-900/20 ${isCpuTurn ? 'bg-blue-900/8' : 'bg-black/20'}`}>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-black/30 border border-blue-800/30 rounded-lg px-2.5 py-1"><Bot size={12} className="text-blue-400"/><span className="text-blue-300/80 text-[10px] font-bold">CPU</span></div>
+              <StatChip icon="❤️" value={cs.life.length} label="CPUライフ" color="red"/>
+              <StatChip icon="💛" value={`${cs.donActive}/${cs.donActive+cs.donTapped}`} label="DON!!"/>
+              <StatChip icon="📚" value={cs.deck.length} label="CPUデッキ"/>
+              <StatChip icon="✋" value={cs.hand.length} label="CPU手札"/>
+              {isCpuTurn && <div className="text-blue-400/70 text-xs animate-pulse ml-auto"><Bot size={14} className="inline mr-1"/>思考中...</div>}
+            </div>
+            <div className="flex items-end gap-3 mt-2 flex-wrap">
+              {/* CPUリーダー */}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="text-[8px] text-blue-400/60 font-bold">LEADER</div>
+                <GameCard card={cs.leader} tapped={cs.leader.tapped} size={CC} showPower
+                  highlight={isSelectingTarget ? 'target' : null}
+                  onClick={() => isSelectingTarget && handleTargetSelect('cpu-leader')}/>
+              </div>
+              {/* CPUフィールド */}
+              <div className="flex gap-2 items-end flex-wrap flex-1">
+                {cs.field.length === 0 && <EmptySlot size={CC}/>}
+                {cs.field.map(card => (
+                  <div key={card._uid} className="flex flex-col items-center gap-0.5">
+                    <GameCard card={card} tapped={card.tapped} size={CC} showPower
+                      highlight={isSelectingTarget ? 'target' : null}
+                      onClick={() => isSelectingTarget && handleTargetSelect(card._uid)}/>
+                  </div>
+                ))}
+              </div>
+              {/* CPU手札（裏向き） */}
+              <div className="flex gap-0.5 flex-wrap max-w-[120px]">
+                {cs.hand.map((_, i) => (
+                  <div key={i} className="rounded overflow-hidden border border-blue-800/40"
+                    style={{ width: 36, height: 50, background: 'linear-gradient(135deg, #0a1535, #0d1e4a)' }}>
+                    <div className="w-full h-full flex items-center justify-center"><span className="text-blue-700/40 font-black text-[7px]">OP</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── セパレーター ── */}
+          <div className="flex items-center gap-2 px-3 py-1 flex-shrink-0">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-800/30 to-transparent"/>
+            <div className="px-2 py-0.5 rounded-full bg-amber-900/20 border border-amber-800/30 text-amber-700/50 text-[9px] font-bold">BATTLE FIELD</div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-800/30 to-transparent"/>
+            {/* アタック指示 */}
+            {isSelectingTarget && <div className="text-[9px] text-red-400/70 animate-pulse font-bold">← CPUのカードをクリックしてターゲット選択</div>}
+            {attackMode === 'select-target' && (
+              <button onClick={handleCancelAttack} className={`text-[10px] px-2 py-1 rounded-lg ${P.btnGray}`}><X size={10} className="inline mr-0.5"/>キャンセル</button>
+            )}
+          </div>
+
+          {/* ── プレイヤーボード（下段・一人回しレイアウト準拠）── */}
+          <div className={`flex-1 flex p-3 gap-3 ${isMyTurn ? 'bg-amber-900/5' : 'bg-black/15'}`}>
+            {/* 左: ライフスタック */}
+            <div className="flex-shrink-0" style={{ width: 110 }}>
+              <LifeStack life={ps.life} onFlip={game.playerFlipLife}/>
+            </div>
+
+            {/* 中央: フィールド */}
+            <div className="flex-1 flex flex-col gap-3">
+              {/* キャラクターゾーン */}
+              <div className="flex gap-3 items-end flex-wrap">
+                {ps.field.map(card => {
+                  const isAttacker = selectedAttackerUid === card._uid;
+                  return (
+                    <div key={card._uid} className="flex flex-col items-center gap-0.5">
+                      <GameCard card={card} tapped={card.tapped} showPower
+                        highlight={isAttacker ? 'attacker' : null}
+                        onClick={() => {
+                          if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card, context: 'field' });
+                          else if (attackMode === null && !isCpuTurn) setActionMenu({ card, context: 'field' });
+                        }}
+                        onDoubleClick={() => setDetailCard(card)}/>
+                    </div>
+                  );
+                })}
+                {Array.from({ length: Math.max(0, 5 - ps.field.length) }).map((_,i) => <EmptySlot key={`e${i}`}/>)}
+              </div>
+
+              {/* リーダー行 */}
+              <div className="flex items-end gap-4">
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className={P.label}>LEADER</div>
+                  <GameCard card={ps.leader} tapped={ps.leader.tapped} showPower
+                    highlight={selectedAttackerUid === 'p-leader' ? 'attacker' : null}
+                    onClick={() => {
+                      if (isMyTurn && inMainPhase && !attackMode) setActionMenu({ card: ps.leader, context: 'leader' });
+                      else if (!isCpuTurn) setActionMenu({ card: ps.leader, context: 'leader' });
+                    }}
+                    onDoubleClick={() => setDetailCard(ps.leader)}/>
+                </div>
+                {/* ステージ */}
+                {ps.stage && (
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className={P.label}>STAGE</div>
+                    <GameCard card={ps.stage} tapped={false} onClick={() => setActionMenu({ card: ps.stage, context: 'stage' })}
+                      onDoubleClick={() => setDetailCard(ps.stage)}/>
+                  </div>
+                )}
+                {/* デッキ */}
+                <div className="flex flex-col items-center gap-0.5">
+                  <div className={P.label}>DECK</div>
+                  <div className="rounded-xl border-2 border-amber-900/30 flex items-center justify-center bg-gradient-to-br from-amber-900/20 to-[#06091a]"
+                    style={{ width: CARD.W, height: CARD.H }}>
+                    <div className="text-center">
+                      <div className="text-amber-500/60 text-2xl">📚</div>
+                      <div className="text-amber-500/80 text-sm font-black">{ps.deck.length}</div>
+                    </div>
+                  </div>
+                </div>
+                {/* トラッシュ */}
+                <div className="flex flex-col items-center gap-0.5 cursor-pointer" onClick={() => setShowTrash(true)}>
+                  <div className={P.label}>TRASH</div>
+                  <div className="rounded-xl border-2 border-amber-900/30 flex items-center justify-center bg-gradient-to-br from-red-900/10 to-[#06091a] hover:border-amber-700/50"
+                    style={{ width: CARD.W, height: CARD.H }}>
+                    <div className="text-center">
+                      <div className="text-red-500/50 text-2xl">🗑</div>
+                      <div className="text-red-400/70 text-sm font-black">{ps.trash.length}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* DON!!ゾーン */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className={P.label}>DON!!</div>
+                {ps.donActive + ps.donTapped <= 8 ? (
+                  <>
+                    {Array.from({ length: ps.donActive }).map((_,i) => <DonCard key={`a${i}`} active onClick={() => game.playerTapDon(1)}/>)}
+                    {ps.donActive > 0 && ps.donTapped > 0 && <div className="w-px h-12 bg-amber-700/30 mx-1"/>}
+                    {Array.from({ length: ps.donTapped }).map((_,i) => <DonCard key={`t${i}`} active={false}/>)}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <DonCard active onClick={() => game.playerTapDon(1)}/>
+                    <span className="text-amber-400 font-black text-sm">×{ps.donActive}</span>
+                    {ps.donTapped > 0 && <><div className="w-px h-12 bg-amber-700/30 mx-1"/><DonCard active={false}/><span className="text-amber-700/70 font-bold text-sm">×{ps.donTapped}</span></>}
+                  </div>
+                )}
+                {ps.donLeader > 0 && <span className="text-amber-400/70 text-[10px] ml-2">👑+{ps.donLeader}</span>}
+                <span className="text-amber-700/40 text-[10px] ml-auto">DON!!デッキ残: {ps.donDeck}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── 手札ゾーン（最下段）── */}
+          <div className="flex-shrink-0 border-t border-amber-900/20 bg-black/30 p-3">
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className={`${P.label} self-center mr-1`}>HAND</div>
+              {ps.hand.map(card => (
+                <HandCard key={card._uid} card={card}
+                  selected={selectedAttackerUid === card._uid}
+                  onClick={() => {
+                    if (isMyTurn && inMainPhase) setActionMenu({ card, context: 'hand' });
+                    else setDetailCard(card);
+                  }}
+                  onDoubleClick={() => setDetailCard(card)}/>
+              ))}
+              {ps.hand.length === 0 && <span className="text-amber-900/40 text-xs">手札なし</span>}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ─── モーダル類 ──────────────────────────────────────── */}
+      {/* ═══ モーダル類 ═══ */}
 
       {/* トリガー（プレイヤー）*/}
-      {state.pendingTrigger?.owner === 'player' && (
-        <TriggerModal
-          card={state.pendingTrigger.card}
-          onActivate={() => game.resolveTrigger(true)}
-          onSkip={() => game.resolveTrigger(false)}
-        />
-      )}
+      {state.pendingTrigger?.owner === 'player' && <TriggerModal card={state.pendingTrigger.card} onActivate={() => game.resolveTrigger(true)} onSkip={() => game.resolveTrigger(false)}/>}
+      {/* トリガー（CPU）*/}
+      {state.pendingTrigger?.owner === 'cpu' && <AutoCpuTrigger game={game} card={state.pendingTrigger.card}/>}
 
-      {/* トリガー（CPU）- 自動処理 */}
-      {state.pendingTrigger?.owner === 'cpu' && (
-        <AutoCpuTrigger game={game} card={state.pendingTrigger.card} />
-      )}
+      {/* ブロッカーステップ */}
+      <BlockerModal attackState={state.attackState} playerField={ps.field} onBlock={game.playerBlock} onPass={game.playerPassBlock}/>
+      {/* カウンターステップ */}
+      <CounterModal attackState={state.attackState} playerHand={ps.hand} onCounter={game.playerCounter} onConfirm={game.playerConfirmCounter}/>
 
-      {/* ブロッカーステップ（CPU攻撃 → プレイヤーがブロッカーを選ぶ）*/}
-      <BlockerModal
-        attackState={state.attackState}
-        playerField={ps.field}
-        onBlock={handlePlayerBlock}
-        onPass={handlePlayerPassBlock}
-      />
-
-      {/* カウンターステップ（CPU攻撃 → プレイヤーがカウンターを選ぶ）*/}
-      <CounterModal
-        attackState={state.attackState}
-        playerHand={ps.hand}
-        onCounter={handlePlayerCounter}
-        onConfirm={handlePlayerConfirmCounter}
-      />
-
-      {/* アタック解決（プレイヤー攻撃 → CPU自動カウンター後の確認）*/}
+      {/* アタック解決（プレイヤー攻撃） */}
       {state.attackState?.step === 'resolving' && state.attackState?.owner === 'player' && (
-        <AttackResolveModal
-          attackState={state.attackState}
-          cpuSide={cs}
-          playerSide={ps}
-          onResolve={handleResolveAttack}
-          onCancel={handleCancelAttack}
-        />
+        <AttackResolveModal attackState={state.attackState} onResolve={handleResolveAttack} onCancel={handleCancelAttack}/>
       )}
 
-      {/* 勝敗モーダル */}
-      {state.winner && (
-        <WinModal
-          winner={state.winner}
-          onReturn={() => { game.resetBattle(); onNavigate('home'); }}
-          onRematch={handleRematch}
-        />
+      {/* 登場時効果 */}
+      {pendingEntryEffect && <EntryEffectModal card={pendingEntryEffect} game={game} onActivate={() => setPendingEntryEffect(null)} onSkip={() => setPendingEntryEffect(null)}/>}
+      {/* アタック時効果 */}
+      {pendingAttackEffect && <AttackEffectModal card={pendingAttackEffect} game={game} onActivate={() => setPendingAttackEffect(null)} onSkip={() => setPendingAttackEffect(null)}/>}
+      {/* イベント効果 */}
+      {pendingEventEffect && <EventEffectModal card={pendingEventEffect} game={game} onActivate={() => setPendingEventEffect(null)} onSkip={() => setPendingEventEffect(null)}/>}
+
+      {/* サーチモーダル */}
+      {(ps.searchReveal?.length || 0) > 0 && (
+        <SearchModal revealed={ps.searchReveal} onResolve={game.playerResolveSearch} onCancel={game.playerCancelSearch}/>
       )}
+
+      {/* トラッシュモーダル */}
+      {showTrash && <TrashModal trash={ps.trash} onAction={handleTrashAction} onClose={() => setShowTrash(false)}/>}
+
+      {/* アクションメニュー */}
+      {actionMenu && <ActionMenu card={actionMenu.card} context={actionMenu.context} onAction={handleAction} onClose={() => setActionMenu(null)}/>}
 
       {/* カード詳細 */}
-      {detailCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm"
-          onClick={() => setDetailCard(null)}>
-          <div className="bg-[#0a0f24] border border-amber-700/40 rounded-2xl p-4 max-w-xs w-full mx-4"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex gap-4">
-              <div className="rounded-xl overflow-hidden flex-shrink-0 border border-amber-900/30"
-                style={{ width: 112, height: 157 }}>
-                <CardImage card={detailCard} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-black text-amber-200 text-base mb-1">{detailCard.name}</div>
-                <div className="text-amber-700/50 text-[10px] mb-2">{detailCard.card_number}</div>
-                {detailCard.power && <div className="text-amber-300 text-sm font-bold mb-1">P: {detailCard.power.toLocaleString()}</div>}
-                {detailCard.cost != null && <div className="text-blue-300 text-sm font-bold mb-1">コスト: {detailCard.cost}</div>}
-                {detailCard.effect && (
-                  <div className="text-amber-200/70 text-[10px] leading-relaxed mt-2 max-h-32 overflow-y-auto">
-                    {detailCard.effect}
-                  </div>
-                )}
-              </div>
-            </div>
-            <button onClick={() => setDetailCard(null)}
-              className={`mt-3 w-full py-2 rounded-xl text-xs ${P.btnGray}`}>
-              閉じる
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+      {detailCard && <CardDetailModal card={detailCard} onClose={() => setDetailCard(null)}/>}
 
-// ─── CPUトリガー自動処理コンポーネント ───────────────────────────
-function AutoCpuTrigger({ game, card }) {
-  useEffect(() => {
-    const t = setTimeout(() => game.resolveTrigger(true), 1000);
-    return () => clearTimeout(t);
-  }, [card?._uid]);
-
-  return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-blue-900/90 border border-blue-500/60 rounded-xl px-4 py-2 text-xs text-blue-200 font-bold animate-pulse">
-      CPU トリガー「{card?.name}」発動中...
+      {/* 勝敗 */}
+      {state.winner && <WinModal winner={state.winner} onReturn={() => { game.resetBattle(); onNavigate('home'); }} onRematch={handleRematch}/>}
     </div>
   );
 }
