@@ -10,7 +10,7 @@ const CARD      = { W: 96,  H: 134 };   // フィールド・リーダー
 const HAND_CARD = { W: 76,  H: 107 };   // 手札
 const DECK_CARD = { W: 72,  H: 101 };   // デッキ/ステージ表示
 const TRASH_CARD= { W: 80,  H: 112 };   // トラッシュ表示
-const DON_CARD  = { W: 28,  H: 39  };   // DON!!カード
+const DON_CARD  = { W: 64,  H: 90  };   // DON!!カード（手札より少し小さい）
 const DON_MINI  = { W: 17,  H: 24  };   // DON!!アタッチミニカード
 
 // ─── フェイズ ──────────────────────────────────────
@@ -200,38 +200,60 @@ function EmptySlot() {
 
 // ─── DON!!カード ─────────────────────────────────
 function DonCard({ active, onClick }) {
+  const W = DON_CARD.W, H = DON_CARD.H;
+  const cx = W / 2, cy = H * 0.42; // 放射線の中心
+  const lineCount = 28; // 放射線の数
+  const R = Math.max(W, H) * 1.6;
   return (
     <div
       onClick={active ? onClick : undefined}
-      className={`flex-shrink-0 rounded-md overflow-hidden select-none transition-all duration-150
-        ${active
-          ? 'cursor-pointer hover:scale-105 hover:brightness-110'
-          : 'opacity-50 cursor-default'
-        }`}
+      className={`flex-shrink-0 select-none transition-all duration-150 relative overflow-hidden rounded
+        ${active ? 'cursor-pointer hover:scale-105' : 'opacity-45 cursor-default'}`}
       style={{
-        width:  DON_CARD.W,
-        height: DON_CARD.H,
-        background: active
-          ? 'linear-gradient(160deg, #fef08a 0%, #fbbf24 45%, #d97706 100%)'
-          : 'linear-gradient(160deg, #292106 0%, #1a1300 100%)',
-        border: active
-          ? '2px solid rgba(253, 224, 71, 0.85)'
-          : '2px solid rgba(92, 68, 10, 0.5)',
-        boxShadow: active
-          ? '0 2px 8px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.2)'
-          : 'none',
+        width: W, height: H,
+        border: '2px solid #111',
+        boxShadow: active ? '0 3px 10px rgba(0,0,0,0.55)' : 'none',
       }}
       title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}
     >
-      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5">
-        <span className={`font-black leading-none tracking-tight select-none ${active ? 'text-amber-900' : 'text-amber-800/50'}`}
-          style={{ fontSize: 9 }}>DON</span>
-        <span className={`font-black leading-none select-none ${active ? 'text-amber-900' : 'text-amber-800/50'}`}
-          style={{ fontSize: 13 }}>!!</span>
-        {active && (
-          <span className="text-amber-700/70 leading-none select-none" style={{ fontSize: 7 }}>◆</span>
-        )}
-      </div>
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+        {/* 白背景 */}
+        <rect width={W} height={H} fill={active ? '#ffffff' : '#d0d0d0'}/>
+
+        {/* 放射線（漫画の集中線） */}
+        {Array.from({ length: lineCount }).map((_, i) => {
+          const startAngle = (i / lineCount) * Math.PI * 2;
+          const midAngle   = ((i + 0.5) / lineCount) * Math.PI * 2;
+          const endAngle   = ((i + 1) / lineCount) * Math.PI * 2;
+          const sx = cx + Math.cos(startAngle) * R;
+          const sy = cy + Math.sin(startAngle) * R;
+          const mx = cx + Math.cos(midAngle) * R;
+          const my = cy + Math.sin(midAngle) * R;
+          const ex = cx + Math.cos(endAngle) * R;
+          const ey = cy + Math.sin(endAngle) * R;
+          return (
+            <polygon key={i}
+              points={`${cx},${cy} ${sx},${sy} ${mx},${my} ${ex},${ey}`}
+              fill={i % 2 === 0 ? '#111111' : '#eeeeee'}
+            />
+          );
+        })}
+
+        {/* 中心白円（テキスト可読性確保） */}
+        <ellipse cx={cx} cy={cy} rx={W * 0.38} ry={H * 0.28} fill={active ? '#ffffff' : '#cccccc'}/>
+
+        {/* 「ドン!!」テキスト */}
+        <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle"
+          fontSize={W * 0.42} fontWeight="900" fontFamily="'Helvetica Neue', Arial, sans-serif"
+          fill="#0a0a0a" style={{ letterSpacing: '-1px' }}>ドン!!</text>
+
+        {/* 下部黒帯 */}
+        <rect x="0" y={H - 22} width={W} height="22" fill="#0a0a0a"/>
+        <text x={cx} y={H - 13} textAnchor="middle"
+          fontSize="6" fill="#ffffff" fontFamily="serif">ドン!!カード</text>
+        <text x={cx} y={H - 4} textAnchor="middle"
+          fontSize="5.5" fill="#f5d020" fontFamily="serif">自分のターン +1000</text>
+      </svg>
     </div>
   );
 }
@@ -1031,9 +1053,9 @@ export default function SoloPlayPage({ onNavigate }) {
   //    行3[flex:2]: COST(flex) | TRASH(DECK_TRASH_W)
   //  行4[flex:2]: HAND（フル幅）
   // ─────────────────────────────────────────────────────
-  const LEFT_COL_W   = 120;   // ライフ列幅 ＝ フェーズ/DON!!デッキ列幅（各120px）
-  const LEADER_PAN_W = 140;   // リーダーパネル幅
-  const DECK_TRASH_W = 248;   // デッキ・トラッシュ（元の2倍幅）
+  const LEFT_COL_W   = 240;   // ライフ/フェーズ/DON!!デッキ列幅（各2倍）
+  const LEADER_PAN_W = 280;   // リーダーパネル幅（2倍）
+  const DECK_TRASH_W = 248;   // デッキ・トラッシュ固定幅
 
   const activePhaseIdx = PHASES.findIndex(p => p.id === s.subPhase);
 
@@ -1094,80 +1116,19 @@ export default function SoloPlayPage({ onNavigate }) {
       {/* ─── プレイマット本体（公式プレイシート準拠） ─── */}
       <div className="flex-1 flex flex-col overflow-hidden p-1.5 gap-1.5 min-h-0 relative z-[1]">
 
-        {/* ── 上段（行1〜3統合）: 左メガ列 | 右セクション ── */}
+        {/* ── 上段（行1〜3）: ライフ列（全高） | 中央+右セクション ── */}
         <div className="flex gap-1.5 min-h-0" style={{ flex: 8 }}>
 
-          {/* ──── 左メガ列（ライフ全高 ＋ フェーズ/DON!!縦積み） ──── */}
-          <div className="flex-shrink-0 flex gap-1.5" style={{ width: LEFT_COL_W * 2 + 6 }}>
-
-            {/* ライフ（行1〜3の全高をカバー） */}
-            <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center justify-center overflow-visible`}
-              style={{ width: LEFT_COL_W }}>
-              <LifeStack life={s.life} onFlip={game.flipLife}/>
-            </div>
-
-            {/* フェーズ(flex:6) + DON!!デッキ(flex:2) 縦積み */}
-            <div className="flex-1 flex flex-col gap-1.5">
-
-              {/* フェーズフロー（行1〜2の高さに対応） */}
-              <div className={`${P.panel} rounded-xl p-2 flex flex-col justify-between min-h-0`}
-                style={{ flex: 6, borderColor: 'rgba(200,160,50,0.25)' }}>
-                <div className="flex flex-col gap-0.5 flex-1 justify-around">
-                  {PHASES.map((p, i) => (
-                    <div key={p.id}
-                      className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-lg text-[10px] font-bold transition-all
-                        ${i === activePhaseIdx
-                          ? 'bg-amber-600/40 text-amber-200 border border-amber-500/60'
-                          : i < activePhaseIdx
-                            ? 'text-amber-900/35 line-through'
-                            : 'text-amber-700/50'}`}>
-                      <span className="text-sm leading-none">{p.icon}</span>
-                      <span>{p.label}</span>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={game.advancePhase}
-                  className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
-                  {s.subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
-                </button>
-              </div>
-
-              {/* DON!!デッキ（行3の高さに対応） */}
-              <div className={`${P.panel} rounded-xl p-2 flex flex-col items-center justify-center gap-1 min-h-0`}
-                style={{ flex: 2, borderColor: 'rgba(253,224,71,0.25)' }}>
-                <div className={P.label}>DON!!デッキ</div>
-                <div className="relative">
-                  <div className="absolute rounded-lg"
-                    style={{
-                      width: DON_CARD.W + 6, height: DON_CARD.H + 6,
-                      top: 4, left: 4,
-                      background: 'linear-gradient(160deg, #3d2a00 0%, #1a1300 100%)',
-                      border: '1.5px solid rgba(180,120,10,0.35)',
-                    }}/>
-                  <div className="relative rounded-lg flex flex-col items-center justify-center gap-0.5"
-                    style={{
-                      width: DON_CARD.W + 6, height: DON_CARD.H + 6,
-                      background: 'linear-gradient(160deg, #fef08a 0%, #fbbf24 50%, #d97706 100%)',
-                      border: '2px solid rgba(253,224,71,0.85)',
-                      boxShadow: '0 3px 10px rgba(245,158,11,0.45)',
-                    }}>
-                    <span className="font-black text-amber-900 leading-none" style={{ fontSize: 8 }}>DON</span>
-                    <span className="font-black text-amber-900 leading-none" style={{ fontSize: 11 }}>!!</span>
-                    <span className="text-amber-700/70 leading-none" style={{ fontSize: 6 }}>◆</span>
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 bg-amber-600 text-amber-900 text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-amber-400/60 shadow-md">
-                    {s.donDeck}
-                  </div>
-                </div>
-                <div className="text-[9px] text-amber-600/60">残{s.donDeck}枚</div>
-              </div>
-            </div>
+          {/* ──── ライフ列（行1〜3の全高をカバー） ──── */}
+          <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center justify-center overflow-visible`}
+            style={{ width: LEFT_COL_W, borderColor: 'rgba(220,50,50,0.22)' }}>
+            <LifeStack life={s.life} onFlip={game.flipLife}/>
           </div>
 
-          {/* ──── 右セクション（行1〜3を縦に積む） ──── */}
+          {/* ──── 中央+右セクション（行1〜3を縦積み） ──── */}
           <div className="flex-1 flex flex-col gap-1.5 min-w-0">
 
-            {/* 行1 [flex:3]: キャラクターゾーン */}
+            {/* 行1 [flex:3]: キャラクターゾーン（ライフ分広がる） */}
             <div className="min-h-0 overflow-visible" style={{ flex: 3 }}>
               <div className={`h-full ${P.panel} rounded-xl p-2 flex flex-col min-w-0 overflow-visible`}
                 style={{ borderColor: 'rgba(120,220,120,0.18)' }}>
@@ -1188,8 +1149,31 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
             </div>
 
-            {/* 行2 [flex:3]: リーダー | ステージ(flex) | デッキ */}
+            {/* 行2 [flex:3]: フェーズ | リーダー | ステージ(flex) | デッキ */}
             <div className="flex gap-1.5 min-h-0 overflow-visible" style={{ flex: 3 }}>
+
+              {/* フェーズパネル（行2のみ — 行1分短くなる） */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col justify-between min-h-0`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(200,160,50,0.25)' }}>
+                <div className="flex flex-col gap-0.5 flex-1 justify-around">
+                  {PHASES.map((p, i) => (
+                    <div key={p.id}
+                      className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded-lg text-[10px] font-bold transition-all
+                        ${i === activePhaseIdx
+                          ? 'bg-amber-600/40 text-amber-200 border border-amber-500/60'
+                          : i < activePhaseIdx
+                            ? 'text-amber-900/35 line-through'
+                            : 'text-amber-700/50'}`}>
+                      <span className="text-sm leading-none">{p.icon}</span>
+                      <span>{p.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={game.advancePhase}
+                  className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
+                  {s.subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
+                </button>
+              </div>
 
               {/* リーダー */}
               <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 overflow-visible`}
@@ -1234,7 +1218,7 @@ export default function SoloPlayPage({ onNavigate }) {
                 </div>
               </div>
 
-              {/* デッキ（2倍幅） */}
+              {/* デッキ */}
               <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
                 style={{ width: DECK_TRASH_W, borderColor: 'rgba(60,120,220,0.22)' }}>
                 <div className={P.label}>デッキ</div>
@@ -1263,8 +1247,31 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
             </div>
 
-            {/* 行3 [flex:2]: コストエリア | トラッシュ */}
+            {/* 行3 [flex:2]: DON!!デッキ | コストエリア | トラッシュ */}
             <div className="flex gap-1.5 min-h-0" style={{ flex: 2 }}>
+
+              {/* DON!!デッキパネル（行3のみ） */}
+              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center justify-center gap-1 min-h-0`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(253,224,71,0.25)' }}>
+                <div className={P.label}>DON!!デッキ</div>
+                <div className="relative">
+                  <div className="absolute rounded-lg"
+                    style={{
+                      width: DON_CARD.W + 6, height: DON_CARD.H + 6,
+                      top: 4, left: 4,
+                      background: 'linear-gradient(160deg, #3d2a00 0%, #1a1300 100%)',
+                      border: '1.5px solid rgba(180,120,10,0.35)',
+                    }}/>
+                  <div className="relative rounded overflow-hidden"
+                    style={{ width: DON_CARD.W + 6, height: DON_CARD.H + 6 }}>
+                    <DonCard active={false} onClick={undefined}/>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 bg-amber-600 text-amber-900 text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center border border-amber-400/60 shadow-md">
+                    {s.donDeck}
+                  </div>
+                </div>
+                <div className="text-[9px] text-amber-600/60">残{s.donDeck}枚</div>
+              </div>
 
               {/* コストエリア */}
               <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col min-w-0`}
@@ -1376,7 +1383,7 @@ export default function SoloPlayPage({ onNavigate }) {
               <div className={P.label}>手札 ({s.hand.length}枚)</div>
               <div className="text-[9px] text-white/30 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認</div>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-0.5 items-end flex-1">
+            <div className="flex gap-2 overflow-x-auto pb-0.5 items-end flex-1 justify-center">
               {s.hand.map(card => (
                 <HandCard key={card._uid} card={card}
                   selected={selectedCard?.uid === card._uid}
@@ -1439,8 +1446,8 @@ export default function SoloPlayPage({ onNavigate }) {
         </div>
       )}
 
-      {/* ─── キーボードショートカットヒント ─── */}
-      <div className="fixed bottom-2 left-2 z-20 pointer-events-none">
+      {/* ─── キーボードショートカットヒント（右下に配置して手札と被らないように） ─── */}
+      <div className="fixed bottom-2 right-2 z-20 pointer-events-none">
         <div className="flex flex-col gap-0.5 bg-[#080c1e]/70 border border-amber-900/25 rounded-lg px-2.5 py-1.5 backdrop-blur-sm">
           <div className="text-[9px] text-amber-700/70 font-bold uppercase tracking-wider mb-0.5">ショートカット</div>
           {[['Space', '次フェーズ'], ['D', 'ドロー'], ['S', 'シャッフル'], ['Esc', '選択解除']].map(([k, v]) => (
