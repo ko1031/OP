@@ -476,6 +476,82 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  // ─── DON!!をデッキに戻す（優先度付き）────────────────
+  // 優先度: ①レストDON → ②レスト中リーダー/キャラのDON → ③アクティブDON → ④アクティブリーダー/キャラのDON
+  const returnDonToDeckPriority = useCallback((count = 1) => {
+    setState(prev => {
+      if (!prev) return prev;
+      let rem = count;
+      let ns = { ...prev };
+      const logs = [];
+
+      // take: rem減算 & donDeck増加 & ログ追記 をまとめて行うクロージャ
+      const take = (n, label) => {
+        ns = { ...ns, donDeck: ns.donDeck + n };
+        logs.push(`${label}×${n}`);
+        rem -= n;
+      };
+
+      // ① レストDON
+      if (rem > 0 && ns.donTapped > 0) {
+        const n = Math.min(rem, ns.donTapped);
+        ns = { ...ns, donTapped: ns.donTapped - n };
+        take(n, 'レストDON!!');
+      }
+
+      // ② レスト中リーダーのDON
+      if (rem > 0 && ns.leader.tapped && (ns.leader.donAttached || 0) > 0) {
+        const n = Math.min(rem, ns.leader.donAttached);
+        ns = { ...ns, leader: { ...ns.leader, donAttached: ns.leader.donAttached - n }, donLeader: ns.donLeader - n };
+        take(n, 'レストリーダーのDON!!');
+      }
+
+      // ② レスト中キャラのDON
+      if (rem > 0) {
+        const newField = [...ns.field];
+        for (let i = 0; i < newField.length && rem > 0; i++) {
+          const c = newField[i];
+          if (!c.tapped || (c.donAttached || 0) <= 0) continue;
+          const n = Math.min(rem, c.donAttached);
+          newField[i] = { ...c, donAttached: c.donAttached - n };
+          take(n, `「${c.name}」(レスト)のDON!!`);
+        }
+        ns = { ...ns, field: newField };
+      }
+
+      // ③ アクティブDON
+      if (rem > 0 && ns.donActive > 0) {
+        const n = Math.min(rem, ns.donActive);
+        ns = { ...ns, donActive: ns.donActive - n };
+        take(n, 'アクティブDON!!');
+      }
+
+      // ④ アクティブ中リーダーのDON
+      if (rem > 0 && !ns.leader.tapped && (ns.leader.donAttached || 0) > 0) {
+        const n = Math.min(rem, ns.leader.donAttached);
+        ns = { ...ns, leader: { ...ns.leader, donAttached: ns.leader.donAttached - n }, donLeader: ns.donLeader - n };
+        take(n, 'アクティブリーダーのDON!!');
+      }
+
+      // ④ アクティブ中キャラのDON
+      if (rem > 0) {
+        const newField = [...ns.field];
+        for (let i = 0; i < newField.length && rem > 0; i++) {
+          const c = newField[i];
+          if (c.tapped || (c.donAttached || 0) <= 0) continue;
+          const n = Math.min(rem, c.donAttached);
+          newField[i] = { ...c, donAttached: c.donAttached - n };
+          take(n, `「${c.name}」(アクティブ)のDON!!`);
+        }
+        ns = { ...ns, field: newField };
+      }
+
+      const actual = count - rem;
+      if (actual <= 0) return addLog('返却できるDON!!がありません', prev);
+      return addLog(`DON!!×${actual}をDON!!デッキに返却（${logs.join('、')}）`, ns);
+    });
+  }, [addLog]);
+
   // ─── リーダーのDON!!アタッチを外す ───
   const detachDonFromLeader = useCallback(() => {
     setState(prev => {
@@ -707,7 +783,7 @@ export function useGameState() {
     playToField, playStage, toggleFieldCard, toggleLeader,
     trashFieldCard, trashHandCard, drawCard, tapDon,
     attachDonToLeader, attachDonToField,
-    returnDonToDeck, returnTappedDonToDeck,
+    returnDonToDeck, returnTappedDonToDeck, returnDonToDeckPriority,
     detachDonFromLeader, detachDonFromField,
     returnHandToTop, returnHandToBottom,
     returnFieldToTop, returnFieldToBottom,

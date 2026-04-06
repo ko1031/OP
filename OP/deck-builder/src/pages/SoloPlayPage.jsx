@@ -201,13 +201,17 @@ function EmptySlot() {
 // ─── DON!!カード ─────────────────────────────────
 const DON_IMG_URL = `${import.meta.env.BASE_URL}don-card.png`;
 
-function DonCard({ active, onClick }) {
+function DonCard({ active, onClick, onDragStart, onDragEnd }) {
+  const canDrag = active && !!onDragStart;
   return (
     <div
+      draggable={canDrag}
+      onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
+      onDragEnd={canDrag ? onDragEnd : undefined}
       onClick={active ? onClick : undefined}
       className={`flex-shrink-0 select-none transition-all duration-150 rounded overflow-hidden
         ${active
-          ? 'cursor-pointer hover:scale-105 hover:brightness-105'
+          ? `cursor-pointer hover:scale-105 hover:brightness-105 ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`
           : 'opacity-40 cursor-default grayscale brightness-75'
         }`}
       style={{
@@ -215,7 +219,7 @@ function DonCard({ active, onClick }) {
         height: DON_CARD.H,
         boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none',
       }}
-      title={active ? 'DON!!（クリックでレスト）' : 'DON!!（レスト済み）'}
+      title={active ? 'DON!!（クリックでレスト / ドラッグでアタッチ）' : 'DON!!（レスト済み）'}
     >
       <img
         src={DON_IMG_URL}
@@ -228,15 +232,19 @@ function DonCard({ active, onClick }) {
 }
 
 // ─── 手札カード ──────────────────────────────────
-function HandCard({ card, selected, onClick, onDoubleClick }) {
+function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragEnd }) {
   return (
     <div
+      draggable={!!onDragStart}
+      onDragStart={onDragStart ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
-      className={`relative flex-shrink-0 cursor-pointer rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-110 hover:-translate-y-2
-        ${selected ? 'border-amber-400 -translate-y-3 shadow-amber-400/60 shadow-xl' : 'border-amber-900/40 hover:border-amber-600/70'}`}
+      className={`relative flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-110 hover:-translate-y-2
+        ${selected ? 'border-amber-400 -translate-y-3 shadow-amber-400/60 shadow-xl' : 'border-amber-900/40 hover:border-amber-600/70'}
+        ${onDragStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
       style={{ width: HAND_CARD.W, height: HAND_CARD.H }}
-      title={`${card?.name} | ダブルクリックで効果確認`}
+      title={`${card?.name} | ダブルクリックで効果確認 | ドラッグで場に出す`}
     >
       <CardImage card={card} className="w-full h-full object-cover" />
       {selected && <div className="absolute inset-0 bg-amber-400/10 pointer-events-none" />}
@@ -710,7 +718,7 @@ function EntryEffectModal({ card, onActivate, onSkip, game }) {
   const handleActivate = () => {
     autoActions.forEach(a => {
       if (a.id === 'draw')      game.drawCard(a.count);
-      if (a.id === 'donReturn') game.returnDonToDeck(a.count);
+      if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
     });
     onActivate();
   };
@@ -957,6 +965,8 @@ export default function SoloPlayPage({ onNavigate }) {
   const [triggerToast, setTriggerToast] = useState(null);       // トリガー発動通知
   const [prevHandLen, setPrevHandLen] = useState(0);            // ライフトリガー検出用
   const [pendingEntryEffect, setPendingEntryEffect] = useState(null); // 登場時効果待ち
+  const [dragInfo,  setDragInfo]  = useState(null);  // ドラッグ中カード情報 { card, context }
+  const [dragOver,  setDragOver]  = useState(null);  // ホバー中ドロップゾーン名
 
   const game = useGameState();
   const { state } = game;
@@ -1004,6 +1014,67 @@ export default function SoloPlayPage({ onNavigate }) {
     setSelectedCard({ card, context, uid });
   };
   const handleCardDoubleClick = (card) => { setDetailCard(card); setSelectedCard(null); };
+
+  // ─── D&D: ドロップゾーン判定 ───────────────────────────
+  const isValidDrop = (zone) => {
+    if (!dragInfo) return false;
+    const { context, card } = dragInfo;
+    if (context === 'hand') {
+      if (zone === 'field')  return card.card_type === 'CHARACTER';
+      if (zone === 'stage')  return card.card_type === 'STAGE';
+      if (zone === 'event')  return card.card_type === 'EVENT';
+      if (zone === 'trash')  return true;
+      if (zone === 'deck')   return true;
+    }
+    if (context === 'don-active') {
+      if (zone === 'leader') return true;
+      if (zone.startsWith('field-card-')) return true;
+    }
+    return false;
+  };
+
+  // ドロップゾーンのスタイル（hover時はリング強調）
+  const dzStyle = (zone) => {
+    if (!isValidDrop(zone)) return {};
+    const hovered = dragOver === zone;
+    return {
+      outline:    hovered ? '2px solid rgba(245,215,142,0.9)' : '2px dashed rgba(245,215,142,0.45)',
+      outlineOffset: '-2px',
+      filter:     hovered ? 'brightness(1.18)' : 'brightness(1.06)',
+      transition: 'outline 0.1s, filter 0.1s',
+    };
+  };
+
+  // D&D: ドロップ実行
+  const handleDrop = (zone, extraUid = null) => {
+    if (!dragInfo) return;
+    const { context, card } = dragInfo;
+    if (context === 'hand') {
+      if (zone === 'field' && card.card_type === 'CHARACTER') {
+        game.playToField(card._uid);
+        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+      } else if (zone === 'stage' && card.card_type === 'STAGE') {
+        game.playStage(card._uid);
+      } else if (zone === 'event' && card.card_type === 'EVENT') {
+        game.trashHandCard(card._uid);
+      } else if (zone === 'trash') {
+        game.trashHandCard(card._uid);
+      } else if (zone === 'deck') {
+        game.returnHandToTop(card._uid);
+      }
+    } else if (context === 'don-active') {
+      if (zone === 'leader') {
+        game.attachDonToLeader();
+      } else if (zone === 'field-card' && extraUid) {
+        game.attachDonToField(extraUid);
+      }
+    }
+    setDragInfo(null);
+    setDragOver(null);
+    setSelectedCard(null);
+  };
+
+  const handleDragEnd = () => { setDragInfo(null); setDragOver(null); };
 
   const handleAction = (actionId) => {
     if (!selectedCard) return;
@@ -1208,19 +1279,35 @@ export default function SoloPlayPage({ onNavigate }) {
 
             {/* 行1 [flex:3]: キャラクターゾーン（ライフ分広がる） */}
             <div className="min-h-0 overflow-visible" style={{ flex: 3 }}>
-              <div className={`h-full ${P.panel} rounded-xl p-2 flex flex-col min-w-0 overflow-visible`}
-                style={{ borderColor: 'rgba(120,220,120,0.18)' }}>
+              <div
+                className={`h-full ${P.panel} rounded-xl p-2 flex flex-col min-w-0 overflow-visible`}
+                style={{ borderColor: 'rgba(120,220,120,0.18)', ...dzStyle('field') }}
+                onDragOver={(e) => { if (isValidDrop('field')) { e.preventDefault(); setDragOver('field'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => { e.preventDefault(); handleDrop('field'); }}
+              >
                 <div className="flex items-center gap-2 mb-1 flex-shrink-0">
                   <span className={P.label}>キャラクター ({s.field.length}/5)</span>
-                  <span className="text-[9px] text-white/35 hidden lg:inline">ダブルクリック→効果 / クリック→操作</span>
+                  <span className="text-[9px] text-white/35 hidden lg:inline">
+                    ダブルクリック→効果 / クリック→操作
+                    {dragInfo?.context === 'hand' && dragInfo.card.card_type === 'CHARACTER' && ' / ここにドロップで場に出す'}
+                  </span>
                 </div>
                 <div className="flex gap-2 items-end overflow-x-auto overflow-y-visible flex-1 pb-1">
                   {s.field.map(card => (
-                    <GameCard key={card._uid} card={card} tapped={card.tapped} badge={card.donAttached}
+                    <div key={card._uid}
+                      style={dzStyle(`field-card-${card._uid}`)}
+                      className="rounded-xl"
+                      onDragOver={(e) => { if (isValidDrop(`field-card-${card._uid}`)) { e.preventDefault(); e.stopPropagation(); setDragOver(`field-card-${card._uid}`); } }}
+                      onDragLeave={(e) => { e.stopPropagation(); setDragOver(null); }}
+                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}
+                    >
+                    <GameCard card={card} tapped={card.tapped} badge={card.donAttached}
                       highlight={selectedCard?.uid === card._uid}
                       onClick={() => handleCardClick(card, 'field', card._uid)}
                       onDoubleClick={() => handleCardDoubleClick(card)}
                     />
+                    </div>
                   ))}
                   {Array.from({ length: Math.max(0, 5 - s.field.length) }).map((_, i) => <EmptySlot key={i}/>)}
                 </div>
@@ -1254,8 +1341,13 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
 
               {/* リーダー（flex — 中央配置） */}
-              <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 overflow-visible min-w-0`}
-                style={{ borderColor: 'rgba(255,220,80,0.22)' }}>
+              <div
+                className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1 overflow-visible min-w-0`}
+                style={{ borderColor: 'rgba(255,220,80,0.22)', ...dzStyle('leader') }}
+                onDragOver={(e) => { if (isValidDrop('leader')) { e.preventDefault(); setDragOver('leader'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => { e.preventDefault(); handleDrop('leader'); }}
+              >
                 <div className={P.label}>リーダー</div>
                 <div className="relative flex-1 flex items-center justify-center">
                   <GameCard
@@ -1277,8 +1369,13 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
 
               {/* ステージ（固定幅 — ライフ列と同じ） */}
-              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
-                style={{ width: LEFT_COL_W, borderColor: 'rgba(180,80,220,0.22)' }}>
+              <div
+                className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: LEFT_COL_W, borderColor: 'rgba(180,80,220,0.22)', ...dzStyle('stage') }}
+                onDragOver={(e) => { if (isValidDrop('stage')) { e.preventDefault(); setDragOver('stage'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => { e.preventDefault(); handleDrop('stage'); }}
+              >
                 <div className={P.label}>ステージ</div>
                 <div className="flex-1 flex items-center justify-center">
                   {s.stage ? (
@@ -1297,8 +1394,13 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
 
               {/* デッキ */}
-              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
-                style={{ width: DECK_TRASH_W, borderColor: 'rgba(60,120,220,0.22)' }}>
+              <div
+                className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: DECK_TRASH_W, borderColor: 'rgba(60,120,220,0.22)', ...dzStyle('deck') }}
+                onDragOver={(e) => { if (isValidDrop('deck')) { e.preventDefault(); setDragOver('deck'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => { e.preventDefault(); handleDrop('deck'); }}
+              >
                 <div className={P.label}>デッキ</div>
                 <div className="flex-1 flex flex-col items-center justify-center gap-1">
                   <div className="relative cursor-pointer group" onClick={() => game.drawCard(1)} title="クリックでドロー">
@@ -1373,11 +1475,19 @@ export default function SoloPlayPage({ onNavigate }) {
                 <div className="flex gap-1.5 flex-wrap items-end flex-1 overflow-y-auto" style={{ minHeight: DON_CARD.H + 2 }}>
                   {s.donActive <= 8
                     ? Array.from({ length: s.donActive }).map((_, i) => (
-                        <DonCard key={`a-${i}`} active={true} onClick={() => game.tapDon(1)}/>
+                        <DonCard key={`a-${i}`} active={true} onClick={() => game.tapDon(1)}
+                          onDragStart={() => setDragInfo({ context: 'don-active' })}
+                          onDragEnd={handleDragEnd}
+                        />
                       ))
                     : (
                       <div className="flex items-end gap-1.5">
-                        {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={true} onClick={() => game.tapDon(1)}/>)}
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <DonCard key={i} active={true} onClick={() => game.tapDon(1)}
+                            onDragStart={() => setDragInfo({ context: 'don-active' })}
+                            onDragEnd={handleDragEnd}
+                          />
+                        ))}
                         <span className="text-yellow-300 font-black text-sm self-center pb-1">×{s.donActive}</span>
                       </div>
                     )
@@ -1408,8 +1518,13 @@ export default function SoloPlayPage({ onNavigate }) {
               </div>
 
               {/* トラッシュ（2倍幅） */}
-              <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
-                style={{ width: DECK_TRASH_W, borderColor: 'rgba(200,80,80,0.22)' }}>
+              <div
+                className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                style={{ width: DECK_TRASH_W, borderColor: 'rgba(200,80,80,0.22)', ...dzStyle('trash') }}
+                onDragOver={(e) => { if (isValidDrop('trash')) { e.preventDefault(); setDragOver('trash'); } }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => { e.preventDefault(); handleDrop('trash'); }}
+              >
                 <div className={`${P.label} flex items-center gap-1`}>
                   トラッシュ
                   {s.trash.length > 0 && <span className="text-red-300/70 font-black">({s.trash.length})</span>}
@@ -1459,7 +1574,7 @@ export default function SoloPlayPage({ onNavigate }) {
             style={{ borderColor: 'rgba(100,160,255,0.22)' }}>
             <div className="flex items-center gap-2 mb-1 flex-shrink-0">
               <div className={P.label}>手札 ({s.hand.length}枚)</div>
-              <div className="text-[9px] text-white/30 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認</div>
+              <div className="text-[9px] text-white/30 hidden sm:inline">クリック→操作 / ダブルクリック→効果確認 / ドラッグ→各ゾーンに直接配置</div>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-0.5 items-end flex-1 justify-center">
               {s.hand.map(card => (
@@ -1467,6 +1582,8 @@ export default function SoloPlayPage({ onNavigate }) {
                   selected={selectedCard?.uid === card._uid}
                   onClick={() => handleCardClick(card, 'hand', card._uid)}
                   onDoubleClick={() => handleCardDoubleClick(card)}
+                  onDragStart={() => setDragInfo({ card, context: 'hand' })}
+                  onDragEnd={handleDragEnd}
                 />
               ))}
               {s.hand.length === 0 && <span className="text-white/20 text-sm italic self-center px-2">手札なし</span>}
