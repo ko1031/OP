@@ -49,19 +49,11 @@ function buildSynergyFilters(card, allCards) {
     }
   }
 
-  // Priority 3: 特徴（種族）ベース
-  if ((card.traits || []).length > 0) {
-    const f = { text: card.traits[0] };
-    if (card.colors?.length > 0) f.colors = [...card.colors];
-    return f;
-  }
-
-  // Priority 4: 同じ色
-  if ((card.colors || []).length > 0) {
-    return { colors: [...card.colors] };
-  }
-
-  return {};
+  // Priority 3 (フォールバック): 同じ色 + 同じ種族（特徴）を組み合わせて絞り込む
+  const f = {};
+  if (card.colors?.length > 0) f.colors = [...card.colors];
+  if ((card.traits || []).length > 0) f.text = card.traits[0];
+  return f;
 }
 
 function applyFilters(cards, filters) {
