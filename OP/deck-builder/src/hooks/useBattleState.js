@@ -381,23 +381,44 @@ function parseCounterEventEffect(card) {
 // ※ ONE PIECE TCG: アタック側が防御側「以上」なら攻撃成功 → 防御側は攻撃力を「超える」必要がある
 function cpuAutoCounter(cpuSide, targetType, attackPower, defensePower) {
   if (targetType !== 'leader' || attackPower < defensePower) {
-    return { bonus: 0, cards: [] };
+    return { bonus: 0, cards: [], donCost: 0 };
   }
   // 防御力が攻撃力を「超える」必要がある（同値では防げない）
   const needed = attackPower - defensePower + 1000;
+
+  // 各候補カードのカウンター値と DON!! コストを計算
+  // イベントカードは【カウンター】発動にDON!!コストが必要な場合がある
   const candidates = cpuSide.hand
     .filter(c => getCardCounterValue(c) > 0)
-    .sort((a, b) => getCardCounterValue(b) - getCardCounterValue(a));
+    .map(c => {
+      const counterVal = getCardCounterValue(c);
+      let donCost = 0;
+      if (c.card_type === 'EVENT') {
+        const parsed = parseCounterEventEffect(c);
+        donCost = parsed?.donCost || 0;
+      }
+      return { card: c, counterVal, donCost };
+    })
+    .sort((a, b) => b.counterVal - a.counterVal);
+
   let bonus = 0;
+  let totalDonCost = 0;
+  let availableDon = cpuSide.donActive;
   const used = [];
-  for (const card of candidates) {
+
+  for (const { card, counterVal, donCost } of candidates) {
     if (bonus >= needed) break;
-    bonus += getCardCounterValue(card);
+    // DON!! コストが支払えないイベントカードはスキップ
+    if (donCost > 0 && availableDon < donCost) continue;
+    bonus += counterVal;
     used.push(card);
+    availableDon -= donCost;
+    totalDonCost += donCost;
   }
+
   // カウンターしても防げない場合は使わない
-  if (bonus < needed) return { bonus: 0, cards: [] };
-  return { bonus, cards: used };
+  if (bonus < needed) return { bonus: 0, cards: [], donCost: 0 };
+  return { bonus, cards: used, donCost: totalDonCost };
 }
 
 // ダメージステップの解決（プレイヤー/CPU共通）
@@ -979,9 +1000,12 @@ export function useBattleState() {
         const usedUids = new Set(counterResult.cards.map(x => x._uid));
         const newCpuHand = ns.cpu.hand.filter(x => !usedUids.has(x._uid));
         const newCpuTrash = [...ns.cpu.trash, ...counterResult.cards.map(x => ({ ...x, faceDown: false }))];
+        // イベントカードのDON!!コストを消費する
+        const newCpuDonActive = ns.cpu.donActive - (counterResult.donCost || 0);
+        const donCostLog = counterResult.donCost > 0 ? `（DON!!×${counterResult.donCost}消費）` : '';
         ns = addLog(
-          `CPU カウンター「${counterResult.cards.map(x => x.name).join('・')}」+${counterResult.bonus}！（防御力: ${finalDefensePower} → ${finalDefensePower + counterResult.bonus}）`,
-          { ...ns, cpu: { ...ns.cpu, hand: newCpuHand, trash: newCpuTrash } }
+          `CPU カウンター「${counterResult.cards.map(x => x.name).join('・')}」+${counterResult.bonus}！${donCostLog}（防御力: ${finalDefensePower} → ${finalDefensePower + counterResult.bonus}）`,
+          { ...ns, cpu: { ...ns.cpu, hand: newCpuHand, trash: newCpuTrash, donActive: newCpuDonActive } }
         );
         finalDefensePower += counterResult.bonus;
       }
