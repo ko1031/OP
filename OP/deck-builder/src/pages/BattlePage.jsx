@@ -979,9 +979,10 @@ function BlockerModal({ attackState, playerField, onBlock, onPass }) {
 // ─── カウンターステップモーダル（CPU攻撃時）──────────────────────────
 function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
   if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
-  const { attackPower, defensePower, targetType } = attackState;
+  const { attackPower, defensePower } = attackState;
   const willSurvive = defensePower > attackPower; // 同値では防げない（超過が必要）
-  const counterCards = playerHand.filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0);
+  // カウンターカード: キャラ・イベント問わずcounter値が0より大きいもの
+  const counterCards = playerHand.filter(c => (c.counter || 0) > 0);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
@@ -996,17 +997,25 @@ function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
             {willSurvive ? '✓ ダメージ防御成功！' : `防御力が攻撃力を超える必要あり（残り+${(attackPower - defensePower + 1000).toLocaleString()}）`}
           </div>
         </div>
-        {targetType === 'leader' && counterCards.length > 0 && (
+        {counterCards.length > 0 && (
           <div className="mb-3">
-            <div className="text-[10px] text-purple-400/60 font-bold text-center mb-2">カウンターカード（クリックで発動）</div>
-            <div className="flex gap-2 flex-wrap justify-center">
+            <div className="text-[10px] text-purple-400/60 font-bold text-center mb-2">
+              カウンターカード（クリックで発動）※キャラ・イベントカード共通
+            </div>
+            <div className="flex gap-2 flex-wrap justify-center max-h-36 overflow-y-auto">
               {counterCards.map(card => (
                 <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => onCounter(card._uid)}>
-                  <div className="rounded-xl overflow-hidden border-2 border-purple-500/50 group-hover:border-purple-400 group-hover:scale-105 transition-all"
-                    style={{ width: 68, height: 95 }}>
+                  <div className={`rounded-xl overflow-hidden border-2 group-hover:scale-105 transition-all ${
+                    card.card_type === 'EVENT' ? 'border-blue-500/50 group-hover:border-blue-400' : 'border-purple-500/50 group-hover:border-purple-400'
+                  }`} style={{ width: 68, height: 95 }}>
                     <CardImage card={card} className="w-full h-full object-cover" />
                   </div>
-                  <div className="text-[9px] text-purple-300 font-black bg-purple-900/40 px-1.5 py-0.5 rounded-full border border-purple-700/50">+{card.counter.toLocaleString()}</div>
+                  <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                    card.card_type === 'EVENT'
+                      ? 'text-blue-300 bg-blue-900/40 border-blue-700/50'
+                      : 'text-purple-300 bg-purple-900/40 border-purple-700/50'
+                  }`}>+{(card.counter || 0).toLocaleString()}</div>
+                  <div className="text-[8px] text-gray-500/60">{card.card_type === 'EVENT' ? 'EVT' : 'CHR'}</div>
                 </div>
               ))}
             </div>
@@ -1913,6 +1922,23 @@ export default function BattlePage({ onNavigate }) {
       <BlockerModal attackState={state.attackState} playerField={ps.field} onBlock={game.playerBlock} onPass={game.playerPassBlock}/>
       {/* カウンターステップ */}
       <CounterModal attackState={state.attackState} playerHand={ps.hand} onCounter={game.playerCounter} onConfirm={game.playerConfirmCounter}/>
+      {/* キャラへの攻撃: ブロッカー後ダメージ確認 */}
+      {state.attackState?.step === 'resolve-char' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-xs w-full mx-4 p-5 text-center">
+            <div className="text-amber-400 font-black text-base mb-2">⚔️ バトル解決</div>
+            <div className="flex items-center justify-center gap-4 mb-3">
+              <div><div className="text-[10px] text-red-400/60">攻撃</div><div className="font-black text-xl text-red-300">{state.attackState.attackPower.toLocaleString()}</div></div>
+              <div className="text-xl">VS</div>
+              <div><div className="text-[10px] text-blue-400/60">防御</div><div className="font-black text-xl text-blue-300">{state.attackState.defensePower.toLocaleString()}</div></div>
+            </div>
+            <div className={`text-sm font-bold mb-4 ${state.attackState.attackPower >= state.attackState.defensePower ? 'text-red-400' : 'text-green-400'}`}>
+              {state.attackState.attackPower >= state.attackState.defensePower ? 'キャラがKO！' : '防御成功！'}
+            </div>
+            <button onClick={game.playerResolveCharAttack} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGold}`}>確定</button>
+          </div>
+        </div>
+      )}
 
       {/* アタック解決（プレイヤー攻撃） */}
       {state.attackState?.step === 'resolving' && state.attackState?.owner === 'player' && (

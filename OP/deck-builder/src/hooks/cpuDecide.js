@@ -52,8 +52,8 @@ export function cpuDecide(cpuSide, playerSide, turn) {
   if (turn <= 1) return { playDecisions, donAttachments, attacks };
   const remainingPlayerTargets = [...playerSide.field];
 
-  // キャラカードでのアタック
-  const untappedChars = field.filter(c => !c.tapped);
+  // キャラカードでのアタック（タップ済み・登場ターン速攻なしは除外）
+  const untappedChars = field.filter(c => !c.tapped && (c._summonedTurn !== turn || c._hasRush));
   for (const attacker of untappedChars) {
     const atkPow = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
 

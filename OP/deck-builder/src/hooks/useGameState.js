@@ -814,6 +814,46 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  // ─── 効果でキャラを手札からフィールドに無料登場 ──────────────
+  const playFromHandFree = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      if (prev.field.length >= 5) return addLog('フィールドが満員（最大5枚）', prev);
+      const idx = prev.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return prev;
+      const card = prev.hand[idx];
+      if (card.card_type !== 'CHARACTER') return addLog('キャラクターのみフィールドに出せます', prev);
+      const newHand = prev.hand.filter((_, i) => i !== idx);
+      const newField = [...prev.field, { ...card, tapped: false, donAttached: 0 }];
+      return addLog(`（効果）「${card.name}」をフィールドに登場（コスト無し）`, { ...prev, hand: newHand, field: newField });
+    });
+  }, [addLog]);
+
+  // ─── 効果でキャラをトラッシュからフィールドに無料登場 ────────
+  const playFromTrashFree = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      if (prev.field.length >= 5) return addLog('フィールドが満員（最大5枚）', prev);
+      const card = prev.trash.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      if (card.card_type !== 'CHARACTER') return addLog('キャラクターのみフィールドに出せます', prev);
+      const newTrash = prev.trash.filter(c => c._uid !== cardUid);
+      const newField = [...prev.field, { ...card, tapped: false, donAttached: 0 }];
+      return addLog(`（効果）「${card.name}」をトラッシュからフィールドに登場`, { ...prev, trash: newTrash, field: newField });
+    });
+  }, [addLog]);
+
+  // ─── 効果でデッキトップをライフに追加 ───────────────────────
+  const addLife = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.deck.length === 0) return addLog('デッキにカードがありません', prev || {});
+      const [top, ...newDeck] = prev.deck;
+      return addLog(`（効果）「${top.name}」をライフに追加（ライフ${prev.life.length + 1}枚）`, {
+        ...prev, deck: newDeck, life: [...prev.life, { ...top, faceDown: true }],
+      });
+    });
+  }, [addLog]);
+
   const cancelSearch = useCallback(() => {
     setState(prev => {
       if (!prev || prev.searchReveal.length === 0) return prev;
@@ -852,6 +892,7 @@ export function useGameState() {
     shuffleDeck, tapAllDon, activateAllDon,
     returnTrashToDeckTop, returnTrashToHand, trashStage,
     useEnelAbility, useMihawkAbility, attachDonToFieldMulti, useSmokerAbility, useAkainuAbility,
+    playFromHandFree, playFromTrashFree, addLife,
     resetGame,
   };
 }

@@ -170,13 +170,33 @@ function startCpuAttackOnState(ns, pendingAttacks) {
         },
       };
     } else {
-      // ─ キャラへの攻撃: ブロッカー/カウンター不可、自動ダメージ解決 ─
-      let newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
-      newNs = resolveDamageOnState(newNs, 'cpu', 'player', 'character', finalTargetUid, attackPower, defensePower);
-      if (newNs.winner || newNs.pendingTrigger) {
-        return newNs; // 勝利またはトリガーで一旦停止
+      // ─ キャラへの攻撃: ブロッカーステップ可（カウンターは不可）─
+      const newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
+      const playerBlockers = p.field.filter(x => /【ブロッカー】/.test(x.effect || '') && !x.tapped && x._uid !== finalTargetUid);
+      if (playerBlockers.length > 0) {
+        // ブロッカーがいる場合: プレイヤーにブロッカー選択を求める（カウンターなし）
+        return {
+          ...newNs,
+          attackState: {
+            attackerUid: attack.attackerUid,
+            attackerType: attack.attackerType,
+            owner: 'cpu',
+            targetUid: finalTargetUid,
+            targetType: 'character',
+            attackPower,
+            defensePower,
+            counterBonus: 0,
+            step: 'blocker', // キャラ攻撃: ブロッカーのみ（カウンターなし）
+            noCounter: true, // カウンターステップなし
+          },
+        };
       }
-      ns = newNs; // 状態更新して次のアタックへ
+      // ブロッカーなし → 自動ダメージ解決
+      let resolvedNs = resolveDamageOnState(newNs, 'cpu', 'player', 'character', finalTargetUid, attackPower, defensePower);
+      if (resolvedNs.winner || resolvedNs.pendingTrigger) {
+        return resolvedNs; // 勝利またはトリガーで一旦停止
+      }
+      ns = resolvedNs; // 状態更新して次のアタックへ
       // attacks はすでに remaining になっているのでループ継続
     }
   }
@@ -375,9 +395,11 @@ export function useBattleState() {
       const cost = card.cost || 0;
       if (p.donActive < cost) return addLog(`コスト${cost}が足りません（アクティブDON!!: ${p.donActive}）`, prev);
       const afterDon = autoTapDon(p, cost);
-      const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0 }];
+      // _summonedTurn: 登場したターン番号を記録（速攻がなければそのターンアタック不可）
+      const hasRush = /【速攻】/.test(card.effect || '');
+      const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }];
       const newHand = afterDon.hand.filter((_, i) => i !== idx);
-      return addLog(`「${card.name}」（コスト${cost}）登場`, {
+      return addLog(`「${card.name}」（コスト${cost}）登場${hasRush ? '【速攻】' : ''}`, {
         ...prev, player: { ...afterDon, hand: newHand, field: newField },
       });
     });
@@ -421,7 +443,10 @@ export function useBattleState() {
       } else {
         attacker = p.field.find(c => c._uid === attackerUid);
         if (!attacker) return prev;
-        if (attacker.tapped) return addLog('このキャラはタップ済みです', prev);
+        if (attacker.tapped) return addLog('このキャラはタップ済みです（アタック済み）', prev);
+        // 登場ターンは速攻がなければアタック不可
+        if (attacker._summonedTurn === prev.turn && !attacker._hasRush)
+          return addLog('登場したばかりのキャラはアタックできません（速攻なし）', prev);
         attackerType = 'character';
       }
       return addLog(`「${attacker.name}」アタック宣言`, {
@@ -599,6 +624,9 @@ export function useBattleState() {
       const newField = p.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x);
       const defensePower = (blocker.power || 0); // プレイヤー防御側のDONパワーは無効（CPUターン）
 
+      // キャラへの攻撃の場合はブロッカー後もカウンターなし → 直接カウンターor解決
+      const noCounter = prev.attackState.noCounter;
+      const nextStep = noCounter ? 'resolve-char' : 'counter';
       return addLog(`「${blocker.name}」でブロック！（防御力: ${defensePower}）`, {
         ...prev,
         player: { ...p, field: newField },
@@ -608,7 +636,7 @@ export function useBattleState() {
           targetType: 'character',
           defensePower,
           counterBonus: 0,
-          step: 'counter',
+          step: nextStep,
         },
       });
     });
@@ -618,6 +646,15 @@ export function useBattleState() {
   const playerPassBlock = useCallback(() => {
     setState(prev => {
       if (!prev?.attackState || prev.attackState.step !== 'blocker') return prev;
+      const noCounter = prev.attackState.noCounter;
+      if (noCounter) {
+        // キャラへの攻撃: カウンターなし → 直接ダメージ解決
+        const { targetUid, targetType, attackPower, defensePower } = prev.attackState;
+        let ns = { ...prev, attackState: null };
+        ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower);
+        if (ns.winner || ns.pendingTrigger) return ns;
+        return startCpuAttackOnState(ns, ns.cpuPendingAttacks || []);
+      }
       return addLog('ブロッカーなし', { ...prev, attackState: { ...prev.attackState, step: 'counter' } });
     });
   }, []);
@@ -650,6 +687,18 @@ export function useBattleState() {
   }, []);
 
   // ── プレイヤー: カウンターステップ確定 → ダメージ解決 → 次のアタックへ
+  // ── プレイヤー: キャラへの攻撃でブロッカー後 ダメージ解決 ─────────────
+  const playerResolveCharAttack = useCallback(() => {
+    setState(prev => {
+      if (!prev?.attackState || prev.attackState.step !== 'resolve-char') return prev;
+      const { targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      let ns = { ...prev, attackState: null };
+      ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower);
+      if (ns.winner || ns.pendingTrigger) return ns;
+      return startCpuAttackOnState(ns, ns.cpuPendingAttacks || []);
+    });
+  }, []);
+
   const playerConfirmCounter = useCallback(() => {
     setState(prev => {
       if (!prev?.attackState || prev.attackState.step !== 'counter') return prev;
@@ -701,7 +750,8 @@ export function useBattleState() {
         const card = c.hand[idx];
         if ((card.cost || 0) > c.donActive) continue;
         const afterDon = autoTapDon(c, card.cost || 0);
-        const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0 }];
+        const hasRush = /【速攻】/.test(card.effect || '');
+        const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: ns.turn, _hasRush: hasRush }];
         const newHand = afterDon.hand.filter((_, i) => i !== idx);
         ns = addLog(`CPU「${card.name}」登場`, { ...ns, cpu: { ...afterDon, hand: newHand, field: newField } });
       }
@@ -1091,14 +1141,25 @@ export function useBattleState() {
       if (!prev) return prev;
       const p = prev.player;
       if (prev.turn < 2) return addLog('エネル効果は第2ターン以降に使用できます', prev);
-      const actualActive = Math.min(activeCount, 1, p.donDeck);
-      const remDeck = p.donDeck - actualActive;
-      const currentInZone = p.donActive + p.donTapped + actualActive;
       const maxDon = p.leaderEffect?.donMax ?? (p.leaderEffect?.donDeckInit ?? 10);
+      const actualActive = Math.min(activeCount, 1, p.donDeck);
+      const afterActive = p.donDeck - actualActive;
+      const currentInZone = p.donActive + p.donTapped + actualActive;
+      const canRest = Math.max(0, maxDon - currentInZone);
+      const actualRested = Math.min(restedCount, 4, afterActive, canRest);
       if (currentInZone > maxDon) return addLog('DON!!ゾーンが上限です', prev);
-      return addLog(`【エネル起動メイン】DON!!+${actualActive}アクティブ → キャラにDON!!×${restedCount}付与`, {
-        ...prev, player: { ...p, donActive: p.donActive + actualActive, donDeck: remDeck },
-      });
+      return addLog(
+        `【エネル起動メイン】DON!!+${actualActive}アクティブ、+${actualRested}レストで追加 → キャラにレストDON!!×${actualRested}付与`,
+        {
+          ...prev,
+          player: {
+            ...p,
+            donDeck: afterActive - actualRested,
+            donActive: p.donActive + actualActive,
+            donTapped: p.donTapped + actualRested, // レストDON!!として追加
+          },
+        }
+      );
     });
   }, []);
 
@@ -1168,8 +1229,9 @@ export function useBattleState() {
       const card = p.hand[idx];
       if (card.card_type !== 'CHARACTER') return addLog('キャラカードのみ登場できます', prev);
       if (p.field.length >= 5) return addLog('フィールドが満員です', prev);
+      const hasRush = /【速攻】/.test(card.effect || '');
       const newHand = p.hand.filter((_, i) => i !== idx);
-      const newField = [...p.field, { ...card, tapped: false, donAttached: 0 }];
+      const newField = [...p.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }];
       return addLog(`効果で「${card.name}」を登場！`, {
         ...prev, player: { ...p, hand: newHand, field: newField },
       });
@@ -1186,8 +1248,9 @@ export function useBattleState() {
       const card = p.trash[idx];
       if (card.card_type !== 'CHARACTER') return addLog('キャラカードのみ登場できます', prev);
       if (p.field.length >= 5) return addLog('フィールドが満員です', prev);
+      const hasRush = /【速攻】/.test(card.effect || '');
       const newTrash = p.trash.filter((_, i) => i !== idx);
-      const newField = [...p.field, { ...card, tapped: false, donAttached: 0, faceDown: false }];
+      const newField = [...p.field, { ...card, tapped: false, donAttached: 0, faceDown: false, _summonedTurn: prev.turn, _hasRush: hasRush }];
       return addLog(`効果でトラッシュから「${card.name}」を登場！`, {
         ...prev, player: { ...p, trash: newTrash, field: newField },
       });
@@ -1229,6 +1292,7 @@ export function useBattleState() {
     playerBlock,
     playerPassBlock,
     playerCounter,
+    playerResolveCharAttack,
     playerConfirmCounter,
     processCpuPendingAttack,
     runCpuMainPhase,

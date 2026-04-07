@@ -729,6 +729,13 @@ function parseEntryEffect(effectText) {
 
   const autoActions = [];
 
+  // ── DON!!コスト（最初に処理: 他の効果のトリガーになる）
+  const donCostM = entryText.match(/ドン‼[ーー−-](\d+)/);
+  if (donCostM) {
+    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]),
+      icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
+  }
+
   // ── シンプルドロー: 「カードN枚を引く」（条件句なし）
   const drawM = entryText.match(/カード(\d+)枚を引く/);
   if (drawM && !entryText.includes('場合') && !entryText.includes('ならば') && !entryText.includes('なら')) {
@@ -736,18 +743,39 @@ function parseEntryEffect(effectText) {
       icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
   }
 
-  // ── DON!!コスト: 「ドン‼ー(N)」または「ドン‼-N」
-  const donCostM = entryText.match(/ドン‼[ーー−-](\d+)/);
-  if (donCostM) {
-    autoActions.push({ id:'donReturn', count: parseInt(donCostM[1]),
-      icon:'💛', label:`DON!!×${donCostM[1]}枚をデッキに戻す（コスト）`, color:'text-yellow-300' });
-  }
-
   // ── サーチ: 「デッキの上からN枚」
   const searchM = entryText.match(/デッキの上から(\d+)枚/);
   if (searchM) {
     autoActions.push({ id:'search', count: parseInt(searchM[1]),
       icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  }
+
+  // ── 手札からキャラ登場（コスト以下）: 「コストX以下のキャラ1枚まで登場」
+  const playFromHandM = entryText.match(/コスト(\d+)以下の.*?キャラ.*?1枚.*?登場/);
+  if (playFromHandM && !entryText.includes('トラッシュ')) {
+    autoActions.push({ id:'playFromHand', maxCost: parseInt(playFromHandM[1]),
+      icon:'🃏', label:`手札からコスト${playFromHandM[1]}以下のキャラを1枚登場`, color:'text-green-300' });
+  }
+
+  // ── トラッシュからキャラ登場（コスト以下）
+  const playFromTrashM = entryText.match(/コスト(\d+)以下の.*?キャラ.*?1枚.*?トラッシュ.*?登場|トラッシュ.*?コスト(\d+)以下の.*?キャラ.*?1枚.*?登場/);
+  if (playFromTrashM) {
+    const cost = parseInt(playFromTrashM[1] || playFromTrashM[2]);
+    autoActions.push({ id:'playFromTrash', maxCost: cost,
+      icon:'💀', label:`トラッシュからコスト${cost}以下のキャラを1枚登場`, color:'text-orange-300' });
+  }
+
+  // ── ライフ追加: 「ライフを上から1枚追加」or「デッキトップをライフに」
+  if (/ライフ.*?1枚.*?追加|デッキトップ.*?ライフ/.test(entryText)) {
+    autoActions.push({ id:'addLife',
+      icon:'❤', label:`デッキトップをライフに追加`, color:'text-red-300' });
+  }
+
+  // ── 情報表示のみ（手動操作が必要な複雑効果）
+  const hasComplexEffect = entryText.includes('場合') || entryText.includes('選ぶ') ||
+    (entryText.includes('相手') && !donCostM && !searchM && !drawM);
+  if (autoActions.length === 0 && entryText && hasComplexEffect) {
+    autoActions.push({ id:'info', icon:'ℹ', label:'手動で効果を処理してください', color:'text-amber-400' });
   }
 
   return { entryText: entryText || effectText, autoActions };
@@ -819,16 +847,21 @@ function parseActiveAbility(card) {
 }
 
 // ─── 登場時効果モーダル ──────────────────────────
-function EntryEffectModal({ card, onActivate, onSkip, game }) {
+function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
 
   const handleActivate = () => {
+    // chain actions（playFromHand/playFromTrash）は後で別モーダルで処理
+    let chainAction = null;
     autoActions.forEach(a => {
-      if (a.id === 'draw')      game.drawCard(a.count);
-      if (a.id === 'donReturn') game.returnDonToDeckPriority(a.count);
-      if (a.id === 'search')    game.beginSearch(a.count);
+      if (a.id === 'draw')       game.drawCard(a.count);
+      if (a.id === 'donReturn')  game.returnDonToDeckPriority(a.count);
+      if (a.id === 'search')     game.beginSearch(a.count);
+      if (a.id === 'addLife')    game.addLife();
+      if (a.id === 'playFromHand' || a.id === 'playFromTrash') chainAction = a;
     });
     onActivate();
+    if (chainAction && onChainPlay) onChainPlay(chainAction);
   };
 
   return (
@@ -887,6 +920,52 @@ function EntryEffectModal({ card, onActivate, onSkip, game }) {
             ⚡ 発動する
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── 効果による手札/トラッシュからキャラ登場モーダル ────────
+function PlayFromModal({ source, cards, maxCost, game, onDone }) {
+  const eligible = cards.filter(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= maxCost);
+  return (
+    <div className="fixed inset-0 z-[65] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-green-600/45 rounded-2xl shadow-2xl p-5 max-w-md w-full max-h-[80vh] flex flex-col"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-green-900/30">
+          <div className="w-9 h-9 rounded-full bg-green-800/40 border border-green-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-green-300 text-base">🃏</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-green-600/60 uppercase tracking-widest">効果登場</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">
+              {source === 'hand' ? '手札' : 'トラッシュ'}からコスト{maxCost}以下のキャラを1枚選んで登場
+            </div>
+          </div>
+        </div>
+        <div className="overflow-y-auto flex-1 space-y-1.5 mb-3">
+          {eligible.length === 0 ? (
+            <div className="text-amber-600/60 text-sm text-center py-4">対象カードがありません</div>
+          ) : eligible.map(c => (
+            <button key={c._uid}
+              onClick={() => {
+                if (source === 'hand') game.playFromHandFree(c._uid);
+                else game.playFromTrashFree(c._uid);
+                onDone();
+              }}
+              className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-green-900/20 border border-green-800/30 hover:bg-green-900/40 transition-all text-left">
+              <div className="flex-1 min-w-0">
+                <div className="text-amber-100 text-sm font-bold truncate">{c.name}</div>
+                <div className="text-amber-700/60 text-[10px]">コスト{c.cost} / パワー{(c.power||0).toLocaleString()}</div>
+              </div>
+              <span className="text-green-400 text-xs font-bold">登場 →</span>
+            </button>
+          ))}
+        </div>
+        <button onClick={onDone}
+          className="w-full py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">
+          スキップ
+        </button>
       </div>
     </div>
   );
@@ -1339,6 +1418,7 @@ export default function SoloPlayPage({ onNavigate }) {
   const [pendingEntryEffect,  setPendingEntryEffect]  = useState(null); // 登場時効果待ち
   const [pendingAttackEffect, setPendingAttackEffect] = useState(null); // アタック時効果待ち
   const [pendingEventEffect,  setPendingEventEffect]  = useState(null); // イベント効果待ち
+  const [pendingChainPlay,    setPendingChainPlay]    = useState(null); // 連鎖効果（手札/トラッシュから登場）待ち
   const [showLeaderAbilityModal, setShowLeaderAbilityModal] = useState(false); // リーダー効果確認
   const [charSelectInfo, setCharSelectInfo] = useState(null); // キャラ選択モーダル情報
   const [pendingCharAbility, setPendingCharAbility] = useState(null); // キャラ起動メイン効果待ち
@@ -2155,12 +2235,24 @@ export default function SoloPlayPage({ onNavigate }) {
       )}
 
       {/* ─── 登場時効果モーダル ─── */}
-      {pendingEntryEffect && (
+      {pendingEntryEffect && !pendingChainPlay && (
         <EntryEffectModal
           card={pendingEntryEffect}
           game={game}
           onActivate={() => setPendingEntryEffect(null)}
           onSkip={() => setPendingEntryEffect(null)}
+          onChainPlay={(action) => setPendingChainPlay(action)}
+        />
+      )}
+
+      {/* ─── 連鎖効果: 手札/トラッシュからキャラ登場 ─── */}
+      {pendingChainPlay && !state?.searchReveal?.length && (
+        <PlayFromModal
+          source={pendingChainPlay.id === 'playFromHand' ? 'hand' : 'trash'}
+          cards={pendingChainPlay.id === 'playFromHand' ? (state?.hand || []) : (state?.trash || [])}
+          maxCost={pendingChainPlay.maxCost}
+          game={game}
+          onDone={() => setPendingChainPlay(null)}
         />
       )}
 
