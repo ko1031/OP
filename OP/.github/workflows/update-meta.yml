@@ -2,8 +2,8 @@ name: Update Tournament Meta Data
 
 on:
   schedule:
-    # 毎週月曜 午前3時（JST） = 日曜 18:00 UTC
-    - cron: '0 18 * * 0'
+    # 毎日 午前3時（JST） = 前日 18:00 UTC
+    - cron: '0 18 * * *'
   workflow_dispatch: # 手動実行も可能
 
 permissions:
