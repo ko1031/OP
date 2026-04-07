@@ -213,7 +213,8 @@ function startCpuAttackOnState(ns, pendingAttacks) {
 
     // CPUターン: CPUの攻撃側はDONパワー有効、プレイヤーの防御側はDONパワー無効
     const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
-    const defensePower = (target.power || 0); // 防御側のDONパワーは無効（相手ターン）
+    // リーダーへの攻撃はleaderPowerBuff（相手アタック時効果）を防御力に加算
+    const defensePower = (target.power || 0) + (targetType === 'leader' ? (p.leaderPowerBuff || 0) : 0);
     const targetName = targetType === 'leader' ? 'プレイヤーリーダー' : `「${target.name}」`;
     const logMsg = `CPU「${attacker.name}」(${attackPower}) が${targetName}(${defensePower})にアタック！`;
 
@@ -305,6 +306,9 @@ function buildSide(leader, deckCards, prefix) {
     donLeader: 0,
     leaderEffect: leaderEff,
     searchReveal: [],
+    leaderPowerBuff: 0,      // リーダーの一時パワーバフ（相手アタック時効果など）
+    leaderAbilityUsed: false, // 相手アタック時効果の使用フラグ（ターン1回）
+    lifeLeaveAbilityUsed: false, // ライフ離れ時効果の使用フラグ（ターン1回）
   };
 }
 
@@ -383,7 +387,11 @@ export function useBattleState() {
         return addLog(`[${label}] リフレッシュ${restored > 0 ? `・DON!!×${restored}回収` : ''}`, {
           ...prev,
           subPhase: 'draw',
-          [sideKey]: { ...s, field: newField, leader: newLeader, donActive: s.donActive + restored, donTapped: 0, donLeader: 0 },
+          [sideKey]: {
+            ...s, field: newField, leader: newLeader,
+            donActive: s.donActive + restored, donTapped: 0, donLeader: 0,
+            leaderPowerBuff: 0, leaderAbilityUsed: false, lifeLeaveAbilityUsed: false,
+          },
         });
       }
 
@@ -1449,6 +1457,74 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── リーダー相手アタック時効果発動（例: 青黄ナミ OP11-041）────────
+  // discardCardUid: 手札から捨てるカードUID
+  // effectType: 'leaderPower+2000' など
+  const playerUseLeaderDefenseAbility = useCallback((discardCardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const leaderEff = p.leaderEffect;
+      if (!leaderEff?.hasOpponentAttackAbility) return addLog('このリーダーには相手アタック時効果がありません', prev);
+      if (p.leaderAbilityUsed) return addLog('相手アタック時効果は既にこのターン使用済みです', prev);
+      // DON!! 条件チェック
+      const requiredDon = leaderEff.opponentAttackRequiresDon ?? 1;
+      if (requiredDon > 0 && (p.leader.donAttached || 0) < requiredDon) {
+        return addLog(`リーダーにDON!!×${requiredDon}以上が必要です`, prev);
+      }
+      // 手札から指定カードを捨てる
+      const cardToDiscard = p.hand.find(c => c._uid === discardCardUid);
+      if (!cardToDiscard) return addLog('手札にそのカードが見つかりません', prev);
+      const newHand = p.hand.filter(c => c._uid !== discardCardUid);
+      const newTrash = [...p.trash, cardToDiscard];
+      // 効果適用
+      const effectType = leaderEff.opponentAttackEffect || 'leaderPower+2000';
+      let powerBuff = p.leaderPowerBuff || 0;
+      if (effectType === 'leaderPower+2000') powerBuff += 2000;
+      // attackStateのdefensePowerも更新
+      const newAttackState = prev.attackState
+        ? { ...prev.attackState, defensePower: (prev.attackState.defensePower || 0) + 2000 }
+        : prev.attackState;
+      return addLog(`【リーダー効果】「${cardToDiscard.name}」を捨て、このリーダーパワー+2000！`, {
+        ...prev,
+        player: { ...p, hand: newHand, trash: newTrash, leaderPowerBuff: powerBuff, leaderAbilityUsed: true },
+        attackState: newAttackState,
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 自分ターン中ライフ→手札（ナミ等のライフ離れ効果用）
+  const playerReturnLifeToHand = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.activePlayer !== 'player') return addLog('自分のターン中のみ使用できます', prev || {});
+      const p = prev.player;
+      if (p.life.length === 0) return addLog('ライフがありません', prev);
+      const [topLife, ...restLife] = p.life;
+      let ns = addLog(`ライフ上から1枚「${topLife.name}」を手札に加えた`, {
+        ...prev,
+        player: { ...p, life: restLife, hand: [...p.hand, { ...topLife, faceDown: false }] },
+      });
+      // ナミ等のリーダー効果: 自分ターン中ライフが離れた時、手札7枚以下なら1ドロー
+      const leaderEff = ns.player.leaderEffect;
+      if (leaderEff?.onLifeLeaveDraw && !ns.player.lifeLeaveAbilityUsed) {
+        const handAfter = ns.player.hand;
+        if (handAfter.length <= 7 && ns.player.deck.length > 0) {
+          const [drawn, ...newDeck] = ns.player.deck;
+          ns = addLog(`【${ns.player.leader.name}効果】ライフが離れた: 手札7枚以下のため1枚ドロー「${drawn.name}」`, {
+            ...ns,
+            player: {
+              ...ns.player,
+              deck: newDeck,
+              hand: [...ns.player.hand, drawn],
+              lifeLeaveAbilityUsed: true,
+            },
+          });
+        }
+      }
+      return ns;
+    });
+  }, []);
+
   const resetBattle = useCallback(() => setState(null), []);
 
   return {
@@ -1507,6 +1583,8 @@ export function useBattleState() {
     playerDeckBottomCpuChar,
     playerDiscardHandCard,
     playerGiveCharBlocker,
+    playerUseLeaderDefenseAbility,
+    playerReturnLifeToHand,
     resetBattle,
   };
 }

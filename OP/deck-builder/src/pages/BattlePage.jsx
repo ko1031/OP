@@ -951,7 +951,7 @@ function CharActiveModal({ card, onActivate, onSkip, game, onChainPlay }) {
 // ─── LeaderEffectBadge（リーダー効果バッジ）─────────────────────────
 function LeaderEffectBadge({ leaderEffect, leaderName, onUseAbility }) {
   const [open, setOpen] = useState(false);
-  if (!leaderEffect?.note && !leaderEffect?.hasActiveAbility) return null;
+  if (!leaderEffect?.note && !leaderEffect?.hasActiveAbility && !leaderEffect?.hasOpponentAttackAbility) return null;
   return (
     <div className="relative">
       <button onClick={() => setOpen(v => !v)}
@@ -966,6 +966,11 @@ function LeaderEffectBadge({ leaderEffect, leaderName, onUseAbility }) {
           </div>
           {leaderEffect.note && <div className="text-amber-200/80 text-[10px] leading-relaxed mb-2 bg-amber-900/20 rounded-lg p-2">{leaderEffect.note}</div>}
           {leaderEffect.activeAbility && <div className="text-amber-300/70 text-[10px] leading-relaxed mb-2 bg-[#131d45]/60 rounded-lg p-2">{leaderEffect.activeAbility}</div>}
+          {leaderEffect.opponentAttackAbility && (
+            <div className="text-cyan-300/70 text-[10px] leading-relaxed mb-2 bg-cyan-900/20 rounded-lg p-2">
+              🌊 相手アタック時: {leaderEffect.opponentAttackAbility}
+            </div>
+          )}
           {leaderEffect.hasActiveAbility && onUseAbility && (
             <button onClick={() => { onUseAbility(); setOpen(false); }} className={`w-full text-[10px] px-2 py-1.5 rounded-lg font-bold mt-1 ${P.btnGold}`}>
               ⚡ 起動メイン効果を発動
@@ -1124,12 +1129,30 @@ function BlockerModal({ attackState, playerField, onBlock, onPass }) {
 }
 
 // ─── カウンターステップモーダル（CPU攻撃時）──────────────────────────
-function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
+function CounterModal({
+  attackState, playerHand, onCounter, onConfirm,
+  playerLeader, playerLeaderEffect, playerLeaderAbilityUsed, onLeaderDefenseAbility,
+}) {
+  const [selectingDiscard, setSelectingDiscard] = useState(false);
   if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
   const { attackPower, defensePower } = attackState;
-  const willSurvive = defensePower > attackPower; // 同値では防げない（超過が必要）
-  // カウンターカード: キャラ・イベント問わずcounter値が0より大きいもの
+  const willSurvive = defensePower > attackPower;
   const counterCards = playerHand.filter(c => (c.counter || 0) > 0);
+
+  // リーダー相手アタック時効果の表示条件
+  const requiredDon = playerLeaderEffect?.opponentAttackRequiresDon ?? 1;
+  const leaderDon = playerLeader?.donAttached || 0;
+  const canUseLeaderAbility =
+    playerLeaderEffect?.hasOpponentAttackAbility &&
+    !playerLeaderAbilityUsed &&
+    leaderDon >= requiredDon &&
+    attackState.targetType === 'leader';
+
+  const handleDiscardForAbility = (cardUid) => {
+    onLeaderDefenseAbility(cardUid);
+    setSelectingDiscard(false);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
@@ -1144,7 +1167,53 @@ function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
             {willSurvive ? '✓ ダメージ防御成功！' : `防御力が攻撃力を超える必要あり（残り+${(attackPower - defensePower + 1000).toLocaleString()}）`}
           </div>
         </div>
-        {counterCards.length > 0 && (
+
+        {/* リーダー相手アタック時効果セクション */}
+        {canUseLeaderAbility && (
+          <div className="mb-3 bg-cyan-900/20 border border-cyan-700/40 rounded-xl p-3">
+            <div className="text-[10px] text-cyan-400 font-bold mb-1">
+              ⚡ {playerLeader?.name}リーダー効果
+              {requiredDon > 0 && <span className="ml-1 text-yellow-400">[DON!!×{requiredDon} 付き]</span>}
+            </div>
+            <div className="text-[10px] text-cyan-200/70 mb-2 leading-relaxed">
+              {playerLeaderEffect.opponentAttackAbility}
+            </div>
+            {!selectingDiscard ? (
+              <button
+                onClick={() => setSelectingDiscard(true)}
+                className="w-full text-[11px] py-1.5 rounded-lg font-black bg-cyan-700/40 border border-cyan-600/50 text-cyan-200 hover:bg-cyan-600/50 transition-all">
+                🌊 手札1枚捨ててリーダーパワー+2000
+              </button>
+            ) : (
+              <div>
+                <div className="text-[10px] text-cyan-300/80 font-bold mb-2">捨てるカードを選んでください：</div>
+                <div className="flex gap-2 flex-wrap justify-center max-h-28 overflow-y-auto mb-2">
+                  {playerHand.map(card => (
+                    <div key={card._uid} className="flex flex-col items-center gap-0.5 cursor-pointer group"
+                      onClick={() => handleDiscardForAbility(card._uid)}>
+                      <div className="rounded-lg overflow-hidden border-2 border-cyan-500/50 group-hover:border-cyan-300 group-hover:scale-105 transition-all"
+                        style={{ width: 56, height: 78 }}>
+                        <CardImage card={card} className="w-full h-full object-cover"/>
+                      </div>
+                      <div className="text-[7px] text-cyan-400/70 text-center max-w-[56px] truncate">{card.name}</div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setSelectingDiscard(false)}
+                  className="w-full text-[10px] py-1 rounded-lg border border-cyan-800/40 text-cyan-600/60 hover:bg-cyan-900/20 transition-all">
+                  キャンセル
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {playerLeaderAbilityUsed && playerLeaderEffect?.hasOpponentAttackAbility && attackState.targetType === 'leader' && (
+          <div className="mb-3 text-[10px] text-cyan-600/50 text-center">
+            ✓ リーダー効果使用済み（+2000適用中）
+          </div>
+        )}
+
+        {counterCards.length > 0 && !selectingDiscard && (
           <div className="mb-3">
             <div className="text-[10px] text-purple-400/60 font-bold text-center mb-2">
               カウンターカード（クリックで発動）※キャラ・イベントカード共通
@@ -1168,9 +1237,11 @@ function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
             </div>
           </div>
         )}
-        <button onClick={onConfirm} className={`w-full py-2.5 rounded-xl text-sm font-black ${willSurvive ? P.btnGreen : P.btnGold}`}>
-          {willSurvive ? '防御確定！' : 'このまま受ける'}
-        </button>
+        {!selectingDiscard && (
+          <button onClick={onConfirm} className={`w-full py-2.5 rounded-xl text-sm font-black ${willSurvive ? P.btnGreen : P.btnGold}`}>
+            {willSurvive ? '防御確定！' : 'このまま受ける'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1857,6 +1928,13 @@ export default function BattlePage({ onNavigate }) {
                     <Zap size={13}/> 起動メイン効果
                   </button>
                 )}
+                {/* ライフ離れ効果ボタン（ナミ等: 自分ターン中に使用） */}
+                {ps.leaderEffect?.onLifeLeaveDraw && isMyTurn && inMainPhase && ps.life.length > 0 && (
+                  <button onClick={game.playerReturnLifeToHand} style={{ width: CARD.W * 1.5 }}
+                    className={`py-1.5 rounded-xl font-black text-[10px] bg-cyan-700/40 border border-cyan-600/50 text-cyan-200 hover:bg-cyan-600/50 transition-all flex items-center justify-center gap-1`}>
+                    🌊 ライフ→手札
+                  </button>
+                )}
                 {ps.leaderEffect?.note && !ps.leaderEffect?.hasActiveAbility && (
                   <div className="text-[9px] text-amber-500/55 text-center leading-tight px-1 line-clamp-2">{ps.leaderEffect.note}</div>
                 )}
@@ -2077,7 +2155,13 @@ export default function BattlePage({ onNavigate }) {
       {/* ブロッカーステップ */}
       <BlockerModal attackState={state.attackState} playerField={ps.field} onBlock={game.playerBlock} onPass={game.playerPassBlock}/>
       {/* カウンターステップ */}
-      <CounterModal attackState={state.attackState} playerHand={ps.hand} onCounter={game.playerCounter} onConfirm={game.playerConfirmCounter}/>
+      <CounterModal
+        attackState={state.attackState} playerHand={ps.hand}
+        onCounter={game.playerCounter} onConfirm={game.playerConfirmCounter}
+        playerLeader={ps.leader} playerLeaderEffect={ps.leaderEffect}
+        playerLeaderAbilityUsed={ps.leaderAbilityUsed}
+        onLeaderDefenseAbility={game.playerUseLeaderDefenseAbility}
+      />
       {/* キャラへの攻撃: ブロッカー後ダメージ確認 */}
       {state.attackState?.step === 'resolve-char' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
