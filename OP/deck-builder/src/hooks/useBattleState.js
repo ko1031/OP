@@ -3,7 +3,10 @@
 // ─────────────────────────────────────────────────────────────────────
 import { useState, useCallback } from 'react';
 import { LEADER_EFFECTS } from './useGameState';
-import { cpuDecide, cpuDecideBlocker, cpuDecideTrigger } from './cpuDecide';
+import {
+  cpuDecide, cpuDecideBlocker, cpuDecideTrigger,
+  IM_LEADER_ID, GOROUSEI_CARD_NUMBERS, GOROUSEI_FINISHER_NUMBER, KYO_NO_GYOKUZA_NUMBER,
+} from './cpuDecide';
 
 // ─── ユーティリティ ───────────────────────────────────────────────────
 function shuffle(arr) {
@@ -730,13 +733,25 @@ export function useBattleState() {
       }
 
       // ── ゲーム開始時ステージカードセットアップ（イム等）──────────────
+      // ステージ候補を「名前一致 OR 種族一致」で検索するヘルパー
+      const findSetupStages = (deck, eff) => {
+        const sName  = eff.setupStageName  || '';
+        const sTrait = eff.setupStageTrait || '';
+        return deck.filter(c =>
+          c.card_type === 'STAGE' &&
+          (
+            (sName  && c.name?.includes(sName)) ||
+            (sTrait && (c.traits || []).includes(sTrait))
+          )
+        );
+      };
+
       // CPU がステージセットアップリーダーの場合: 自動で場に出す
       const cLeaderEff = LEADER_EFFECTS[ns.cpu.leader?.card_number] || {};
       if (cLeaderEff.setupStageCard) {
-        const sName = cLeaderEff.setupStageName || '聖地マリージョア';
-        const cpuCandidates = ns.cpu.deck.filter(c => c.card_type === 'STAGE' && c.name?.includes(sName));
+        const cpuCandidates = findSetupStages(ns.cpu.deck, cLeaderEff);
         if (cpuCandidates.length > 0) {
-          // コスト最大のカードを自動選択（CPUは常に自動）
+          // コスト最大のカードを自動選択（虚の玉座 cost7 が聖地マリージョア cost1 より優先される）
           const stageCard = cpuCandidates.reduce((a, b) => (b.cost || 0) > (a.cost || 0) ? b : a);
           const newCpuDeck = ns.cpu.deck.filter(c => c._uid !== stageCard._uid);
           ns = addLog(`CPU【${ns.cpu.leader.name}効果】デッキから「${stageCard.name}」を場に登場！`, {
@@ -748,8 +763,7 @@ export function useBattleState() {
       // プレイヤーがステージセットアップリーダーの場合
       const pLeaderEff = LEADER_EFFECTS[ns.player.leader?.card_number] || {};
       if (pLeaderEff.setupStageCard) {
-        const sName = pLeaderEff.setupStageName || '聖地マリージョア';
-        const candidates = ns.player.deck.filter(c => c.card_type === 'STAGE' && c.name?.includes(sName));
+        const candidates = findSetupStages(ns.player.deck, pLeaderEff);
         if (candidates.length === 1) {
           // 1枚のみなら自動登場
           const best = candidates[0];
@@ -986,7 +1000,7 @@ export function useBattleState() {
       if (targetType === 'leader') {
         const blockers = c.field.filter(x => (/【ブロッカー】/.test(x.effect || '') || x._hasBlocker) && !x.tapped);
         if (blockers.length > 0) {
-          const blockerUid = cpuDecideBlocker(blockers, attackPower, c.life.length);
+          const blockerUid = cpuDecideBlocker(blockers, attackPower, c.life.length, c.leader?.card_number);
           if (blockerUid) {
             const blocker = c.field.find(x => x._uid === blockerUid);
             c = { ...c, field: c.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x) };
@@ -1387,8 +1401,125 @@ export function useBattleState() {
     setState(prev => {
       if (!prev || prev.activePlayer !== 'cpu' || prev.subPhase !== 'main') return prev;
       if (prev.cpuPendingAttacks?.length > 0) return prev; // 既にアタックキュー処理中
-      const decisions = cpuDecide(prev.cpu, prev.player, prev.turn);
+
       let ns = { ...prev };
+
+      // ── イムリーダー専用: 虚の玉座起動メイン ──────────────────────
+      // 起動コスト: ステージをレスト + DON!!3枚レスト
+      // 効果: アクティブDON!!数以下のコストの黒《五老星》を手札から無料登場
+      if (ns.cpu.leader?.card_number === IM_LEADER_ID) {
+        const c = ns.cpu;
+        const hasKyonoGyokuza =
+          c.stage?.card_number === KYO_NO_GYOKUZA_NUMBER && !c.stage.tapped;
+        if (hasKyonoGyokuza && c.donActive >= 3 && c.field.length < 5) {
+          // 手札から五老星キャラを探す（コスト高い順。OP13-082フィニッシャーは除外）
+          const donAfterCost = c.donActive - 3;
+          const gorouseiInHand = c.hand
+            .filter(card =>
+              card.card_type === 'CHARACTER' &&
+              card.card_number !== GOROUSEI_FINISHER_NUMBER &&
+              (GOROUSEI_CARD_NUMBERS.includes(card.card_number) || (card.traits || []).includes('五老星')) &&
+              (card.cost || 0) <= donAfterCost
+            )
+            .sort((a, b) => (b.cost || 0) - (a.cost || 0));
+          const playable = gorouseiInHand[0];
+          if (playable) {
+            const newStage = { ...c.stage, tapped: true };
+            const idx = c.hand.findIndex(x => x._uid === playable._uid);
+            const newHand = c.hand.filter((_, i) => i !== idx);
+            const hasRush = /【速攻】/.test(playable.effect || '');
+            const newField = [
+              ...c.field,
+              { ...playable, tapped: false, donAttached: 0, _summonedTurn: ns.turn, _hasRush: hasRush },
+            ];
+            ns = addLog(
+              `CPU【虚の玉座起動メイン】ステージ+DON!!×3レスト → 「${playable.name}」（コスト${playable.cost}）無料登場！`,
+              {
+                ...ns,
+                cpu: {
+                  ...c,
+                  stage: newStage,
+                  donActive: donAfterCost,
+                  donTapped: c.donTapped + 3,
+                  hand: newHand,
+                  field: newField,
+                },
+              }
+            );
+          }
+        }
+
+        // ── イムリーダー専用: OP13-082（五老星）起動メイン ────────────────
+        // 発動条件: フィールドにOP13-082がいる + トラッシュに3体以上の異なる五老星(パワー5000)
+        //           + アクティブDON!!1枚 + 手札1枚以上
+        const c2 = ns.cpu;
+        const finisherOnField = c2.field.find(card => card.card_number === GOROUSEI_FINISHER_NUMBER);
+        if (finisherOnField && c2.donActive >= 1 && c2.hand.length >= 1) {
+          // トラッシュから異名の五老星(パワー5000)を収集
+          const uniqueGorousei = [];
+          const seen = new Set();
+          for (const card of c2.trash) {
+            if (
+              card.card_type === 'CHARACTER' &&
+              (card.power || 0) === 5000 &&
+              (card.traits || []).includes('五老星') &&
+              !seen.has(card.name)
+            ) {
+              seen.add(card.name);
+              uniqueGorousei.push(card);
+            }
+          }
+          if (uniqueGorousei.length >= 3) {
+            // コスト消費: DON!!1レスト + 手札末尾を捨てる（最も価値の低いカード）
+            const discardCard = c2.hand[c2.hand.length - 1];
+            const newDonActive = c2.donActive - 1;
+            const newDonTapped = c2.donTapped + 1;
+            const newHand = c2.hand.filter(x => x._uid !== discardCard._uid);
+            let newTrash = [...c2.trash, { ...discardCard, faceDown: false }];
+            // フィールドキャラすべてトラッシュへ
+            const trashedChars = c2.field.map(x => ({ ...x, faceDown: false }));
+            newTrash = [...newTrash, ...trashedChars];
+            // トラッシュから最大5体の異なる五老星を選出して登場
+            const toSummon = [];
+            const summonSeen = new Set();
+            for (const card of newTrash) {
+              if (toSummon.length >= 5) break;
+              if (
+                card.card_type === 'CHARACTER' &&
+                (card.power || 0) === 5000 &&
+                (card.traits || []).includes('五老星') &&
+                !summonSeen.has(card.name)
+              ) {
+                summonSeen.add(card.name);
+                toSummon.push(card);
+              }
+            }
+            const summonUids = new Set(toSummon.map(x => x._uid));
+            const finalTrash = newTrash.filter(x => !summonUids.has(x._uid));
+            const newField = toSummon.map(card => ({
+              ...card, tapped: false, donAttached: 0, faceDown: false,
+              _summonedTurn: ns.turn, _hasRush: false,
+            }));
+            ns = addLog(
+              `CPU【五老星・起動メイン】フィールド${trashedChars.length}体トラッシュ → 五老星${toSummon.length}体登場！（${toSummon.map(x => x.name).join('、')}）`,
+              {
+                ...ns,
+                cpu: {
+                  ...c2,
+                  field: newField,
+                  hand: newHand,
+                  trash: finalTrash,
+                  donActive: newDonActive,
+                  donTapped: newDonTapped,
+                },
+              }
+            );
+          }
+        }
+      }
+      // ─────────────────────────────────────────────────────────────
+
+      const decisions = cpuDecide(ns.cpu, ns.player, ns.turn);
 
       // 1. カードプレイ
       for (const play of decisions.playDecisions) {

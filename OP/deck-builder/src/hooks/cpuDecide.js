@@ -12,6 +12,12 @@
 //   ⑩ リーダーパワーを scoreBoardState に組み込んでDON配分精度を向上
 // ─────────────────────────────────────────────────────────────────────
 
+// ─── イムリーダー固有の定数（useBattleState.jsでも参照）────────────
+export const IM_LEADER_ID           = 'OP13-079';
+export const GOROUSEI_CARD_NUMBERS  = ['OP13-083', 'OP13-089', 'OP13-080', 'OP13-091', 'OP13-084'];
+export const GOROUSEI_FINISHER_NUMBER = 'OP13-082';
+export const KYO_NO_GYOKUZA_NUMBER  = 'OP13-099';
+
 // ─── ユーティリティ ────────────────────────────────────────────────
 /** キャラの実効パワー（DON ボーナス込み、ターン所有者視点） */
 function effectivePower(card, isOwnerTurn = true) {
@@ -38,6 +44,74 @@ function getGamePhase(turn) {
   if (turn <= 3) return 'early';
   if (turn <= 7) return 'mid';
   return 'late';
+}
+
+// ─── イムリーダー専用ヘルパー ─────────────────────────────────────
+/** CPUがイムリーダーかどうかを判定 */
+function isImLeader(cpuSide) {
+  return cpuSide?.leader?.card_number === IM_LEADER_ID;
+}
+
+/** トラッシュ内の異なる名前のパワー5000《五老星》の数を数える */
+function countUniqueGorouseiInTrash(trash) {
+  const seen = new Set();
+  for (const c of (trash || [])) {
+    if (
+      c.card_type === 'CHARACTER' &&
+      (c.power || 0) === 5000 &&
+      (c.traits || []).includes('五老星') &&
+      !seen.has(c.name)
+    ) {
+      seen.add(c.name);
+    }
+  }
+  return seen.size;
+}
+
+/**
+ * イムリーダー専用カードプレイ決定
+ * 五老星キャラを積極的に登場させ、条件が揃えばOP13-082フィニッシャーを出す
+ */
+function decideImCardPlays(cpuSide, _playerSide, _turn) {
+  const { hand, field, donActive, trash } = cpuSide;
+  const playDecisions = [];
+  let remainingDon = donActive;
+  const maxField = 5;
+
+  // OP13-082起動条件: トラッシュに3体以上の異なる五老星(パワー5000)がいるか
+  const uniqueGorouseiInTrash = countUniqueGorouseiInTrash(trash);
+  const canUseFinisher = uniqueGorouseiInTrash >= 3;
+
+  const candidates = hand
+    .filter(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= remainingDon)
+    .map(c => {
+      const isGorousei =
+        GOROUSEI_CARD_NUMBERS.includes(c.card_number) || (c.traits || []).includes('五老星');
+      const isFinisher = c.card_number === GOROUSEI_FINISHER_NUMBER;
+      return { card: c, isGorousei, isFinisher, cost: c.cost || 0 };
+    });
+
+  if (candidates.length === 0) return { playDecisions, remainingDon };
+
+  // 優先度: フィニッシャー（条件達成時）> 五老星（コスト高順）> その他
+  candidates.sort((a, b) => {
+    const aFin = a.isFinisher && canUseFinisher;
+    const bFin = b.isFinisher && canUseFinisher;
+    if (aFin && !bFin) return -1;
+    if (bFin && !aFin) return 1;
+    if (a.isGorousei && !b.isGorousei) return -1;
+    if (b.isGorousei && !a.isGorousei) return 1;
+    return b.cost - a.cost;
+  });
+
+  for (const { card, cost } of candidates) {
+    if (field.length + playDecisions.length >= maxField) break;
+    if (cost > remainingDon) continue;
+    playDecisions.push({ type: 'play', uid: card._uid, cost });
+    remainingDon -= cost;
+  }
+
+  return { playDecisions, remainingDon };
 }
 
 // ─── ⑦ 脅威スコア ────────────────────────────────────────────────
@@ -483,9 +557,10 @@ function decideAttacks(cpuSide, playerSide, turn) {
 export function cpuDecide(cpuSide, playerSide, turn) {
   const { leaderEffect } = cpuSide;
 
-  // ① カードプレイ
-  const { playDecisions, remainingDon: donAfterPlay } =
-    decideCardPlays(cpuSide, playerSide, turn);
+  // ① カードプレイ（イムリーダーは専用ロジック）
+  const { playDecisions, remainingDon: donAfterPlay } = isImLeader(cpuSide)
+    ? decideImCardPlays(cpuSide, playerSide, turn)
+    : decideCardPlays(cpuSide, playerSide, turn);
 
   // ② DON!! 配分（グリーディーBest-First）
   const { donAttachments } =
@@ -511,8 +586,11 @@ export function cpuDecide(cpuSide, playerSide, turn) {
  *
  * @returns blockerUid or null
  */
-export function cpuDecideBlocker(blockers, attackPower, leaderLife) {
+export function cpuDecideBlocker(blockers, attackPower, leaderLife, cpuLeaderCardNumber) {
   if (blockers.length === 0) return null;
+
+  // イムリーダーは五老星をブロッカーに使わない（トラッシュへ送り込むのが目標）
+  if (cpuLeaderCardNumber === IM_LEADER_ID) return null;
 
   // ライフ残り 1 = 次に通ったらゲームオーバー → 必ずブロック
   const isLethal = leaderLife <= 1;
