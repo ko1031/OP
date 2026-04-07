@@ -19,39 +19,76 @@ async function fetchCards() {
   return data;
 }
 
+/** 効果テキストの「」〔〕内の名称をすべて抽出 */
+function extractQuotedNames(text) {
+  const names = [];
+  const re1 = /「([^」]+)」/g;
+  const re2 = /〔([^〕]+)〕/g;
+  let m;
+  while ((m = re1.exec(text)) !== null) names.push(m[1]);
+  while ((m = re2.exec(text)) !== null) names.push(m[1]);
+  return names;
+}
+
 /** 選択カードから相性の良いカードを絞り込むフィルターを生成 */
 function buildSynergyFilters(card, allCards) {
   const allText = (card.effect || '') + ' ' + (card.trigger || '');
+  const colors = card.colors?.length > 0 ? [...card.colors] : undefined;
 
   // Priority 1: 効果テキストにコスト制約付きキャラ登場効果がある場合
   // 例: "コスト5以下のキャラ1枚を登場させる"
   const costMaxMatch = allText.match(/コスト(\d+)以下[^。\n]*キャラ/);
   const costMinMatch = allText.match(/コスト(\d+)以上[^。\n]*キャラ/);
-
   if (costMaxMatch || costMinMatch) {
     const f = { types: ['CHARACTER'] };
     if (costMaxMatch) f.costMax = parseInt(costMaxMatch[1]);
     if (costMinMatch) f.costMin = parseInt(costMinMatch[1]);
-    if (card.colors?.length > 0) f.colors = [...card.colors];
+    if (colors) f.colors = colors;
     return f;
   }
 
-  // Priority 2: このカードの名前を効果テキストに持つカードを検索
-  // 例: ホーリーを選択 → 効果に「ホーリー」と書かれているオームなどを検索
-  if (card.name && allCards?.length > 0) {
-    const nameHits = allCards.filter(c =>
-      c.card_number !== card.card_number &&
-      ((c.effect || '').includes(card.name) || (c.trigger || '').includes(card.name))
+  if (allCards?.length > 0) {
+    // 効果テキスト内の「」〔〕から名称候補を抽出
+    const quotedNames = extractQuotedNames(allText);
+
+    // Priority 2: 効果テキストに特定の種族（特徴）の記載がある
+    // 例: 「麦わらの一味」を持つキャラ → 麦わらの一味 + 同じ色で検索
+    const allTraits = new Set(allCards.flatMap(c => c.traits || []));
+    const matchedTrait = quotedNames.find(n => allTraits.has(n));
+    if (matchedTrait) {
+      const f = { text: matchedTrait };
+      if (colors) f.colors = colors;
+      return f;
+    }
+
+    // Priority 3: 効果テキストに特定のカード名称の記載がある
+    // 例: 「ホーキンス」1枚をサーチ → ホーキンス + 同じ色で検索
+    const cardNameSet = new Set(
+      allCards.filter(c => c.card_number !== card.card_number).map(c => c.name)
     );
-    if (nameHits.length > 0) {
-      // 色フィルタはあえてかけず、名前で関連するカードを広く表示
-      return { text: card.name };
+    const matchedCardName = quotedNames.find(n => cardNameSet.has(n));
+    if (matchedCardName) {
+      const f = { text: matchedCardName };
+      if (colors) f.colors = colors;
+      return f;
+    }
+
+    // Priority 4: このカードの名前が他カードの効果テキストに登場する
+    // 例: ホーリーを選択 → 効果に「ホーリー」と書かれているオームなどを検索
+    if (card.name) {
+      const nameHits = allCards.filter(c =>
+        c.card_number !== card.card_number &&
+        ((c.effect || '').includes(card.name) || (c.trigger || '').includes(card.name))
+      );
+      if (nameHits.length > 0) {
+        return { text: card.name };
+      }
     }
   }
 
-  // Priority 3 (フォールバック): 同じ色 + 同じ種族（特徴）を組み合わせて絞り込む
+  // Priority 5 (フォールバック): 同じ色 + 同じ種族（特徴）を組み合わせて絞り込む
   const f = {};
-  if (card.colors?.length > 0) f.colors = [...card.colors];
+  if (colors) f.colors = colors;
   if ((card.traits || []).length > 0) f.text = card.traits[0];
   return f;
 }
