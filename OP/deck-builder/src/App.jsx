@@ -20,7 +20,7 @@ async function fetchCards() {
 }
 
 /** 選択カードから相性の良いカードを絞り込むフィルターを生成 */
-function buildSynergyFilters(card) {
+function buildSynergyFilters(card, allCards) {
   const allText = (card.effect || '') + ' ' + (card.trigger || '');
 
   // Priority 1: 効果テキストにコスト制約付きキャラ登場効果がある場合
@@ -36,14 +36,27 @@ function buildSynergyFilters(card) {
     return f;
   }
 
-  // Priority 2: 特徴（種族）ベース
+  // Priority 2: このカードの名前を効果テキストに持つカードを検索
+  // 例: ホーリーを選択 → 効果に「ホーリー」と書かれているオームなどを検索
+  if (card.name && allCards?.length > 0) {
+    const nameHits = allCards.filter(c =>
+      c.card_number !== card.card_number &&
+      ((c.effect || '').includes(card.name) || (c.trigger || '').includes(card.name))
+    );
+    if (nameHits.length > 0) {
+      // 色フィルタはあえてかけず、名前で関連するカードを広く表示
+      return { text: card.name };
+    }
+  }
+
+  // Priority 3: 特徴（種族）ベース
   if ((card.traits || []).length > 0) {
     const f = { text: card.traits[0] };
     if (card.colors?.length > 0) f.colors = [...card.colors];
     return f;
   }
 
-  // Priority 3: 同じ色
+  // Priority 4: 同じ色
   if ((card.colors || []).length > 0) {
     return { colors: [...card.colors] };
   }
@@ -117,7 +130,7 @@ export default function App({ onNavigate }) {
   };
 
   const handleFindSynergy = (card) => {
-    setFilters(buildSynergyFilters(card));
+    setFilters(buildSynergyFilters(card, allCards));
     setMobileView('cards');
   };
 
