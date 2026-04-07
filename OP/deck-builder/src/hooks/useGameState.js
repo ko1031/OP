@@ -377,6 +377,9 @@ export const LEADER_EFFECTS = {
     note: 'ルール: コスト2以上のイベントをデッキに入れられない。ゲーム開始時、《聖地マリージョア》ステージカード1枚まで登場',
     activeAbility: '【起動メイン・ターン1回】自分の《天竜人》キャラか手札1枚をトラッシュに置ける: 1枚ドロー',
     hasActiveAbility: true,
+    // ゲーム開始時にデッキから「聖地マリージョア」ステージカードを場に出す
+    setupStageCard: true,
+    setupStageName: '聖地マリージョア',
   },
   // 黄ジュエリー・ボニー OP13-100 — トリガーキャラ登場時DON!!付与
   'OP13-100': {

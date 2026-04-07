@@ -357,6 +357,12 @@ function ActionMenu({ card, context, onAction, onClose }) {
     if ((card.donAttached||0) > 0) actions.push({ id:'detach-don-leader', label:`💛 DON!!を外す（現在+${card.donAttached}）` });
     actions.push({ id:'detail', label:'🔍 効果を確認' });
   }
+  if (context === 'stage') {
+    if (!card.tapped && /【起動メイン/.test(card.effect || ''))
+      actions.push({ id:'stage-active', label:'⚡ 起動メイン効果を発動' });
+    actions.push({ id:'detail', label:'🔍 効果を確認' });
+    actions.push({ id:'trash-stage', label:'🗑 ステージをトラッシュ' });
+  }
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-[#0d1530] border border-amber-700/40 rounded-2xl shadow-2xl p-2 min-w-[260px]" onClick={e => e.stopPropagation()}>
@@ -421,8 +427,12 @@ function parseEntryEffect(effectText) {
     autoActions.push({ id:'playFromTrash', limit, icon:'💀', label:`トラッシュから${limitLabel}キャラを登場（選択）`, color:'text-pink-300' });
   }
 
-  // 相手キャラをレストにする
-  const restM = entryText.match(/相手.*?レストにする|レストにする.*?相手/);
+  // 相手キャラすべてをレスト（方舟ノアなど）
+  const restAllM = entryText.match(/相手のキャラすべてを.*?レスト|相手.*?すべてを.*?レストにする/);
+  if (restAllM)
+    autoActions.push({ id:'restAllOpponent', icon:'💤', label:'相手キャラ全体をレスト（自動）', color:'text-orange-400' });
+  // 相手キャラをレストにする（1体選択）
+  const restM = !restAllM && entryText.match(/相手.*?レストにする|レストにする.*?相手/);
   if (restM)
     autoActions.push({ id:'restOpponent', icon:'💤', label:'相手キャラをレスト（選択）', color:'text-orange-400' });
 
@@ -684,6 +694,7 @@ function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
       if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
       if (a.id === 'search') game.playerBeginSearch(a.count);
       if (a.id === 'addLife') game.playerAddLife();
+      if (a.id === 'restAllOpponent') game.playerRestAllCpuChars();
     });
     // 連鎖効果（手札/トラッシュから登場 または 相手キャラ対象効果）
     const chainPlay = autoActions.find(a =>
@@ -1142,13 +1153,293 @@ function getCardCounterValueUI(card) {
   return parseEventCounterValueUI(card);
 }
 
+// ─── ステージカードセットアップモーダル（イムリーダー等）─────────────
+function StageSetupModal({ pendingStageSetup, onConfirm, onSkip }) {
+  if (!pendingStageSetup) return null;
+  const { candidates } = pendingStageSetup;
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-emerald-600/40 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-5">
+        <div className="text-center mb-4">
+          <div className="text-emerald-400 font-black text-lg mb-1">🏯 ゲーム開始時効果</div>
+          <div className="text-[11px] text-emerald-200/70 leading-relaxed">
+            イムリーダー効果: デッキから「聖地マリージョア」を場に出せます
+          </div>
+        </div>
+        <div className="flex gap-3 justify-center mb-4">
+          {candidates.map(card => (
+            <div key={card._uid}
+              className="flex flex-col items-center gap-1.5 cursor-pointer group"
+              onClick={() => onConfirm(card._uid)}>
+              <div className="rounded-xl overflow-hidden border-2 border-emerald-500/50 group-hover:border-emerald-300 group-hover:scale-105 transition-all"
+                style={{ width: 80, height: 112 }}>
+                <CardImage card={card} className="w-full h-full object-cover" />
+              </div>
+              <div className="text-[9px] text-emerald-300/80 text-center font-bold">{card.name}</div>
+              <div className="text-[8px] text-gray-500/60">コスト{card.cost}</div>
+              <div className="text-[9px] bg-emerald-700/40 text-emerald-200 px-2 py-0.5 rounded-full border border-emerald-600/40">
+                場に出す
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="text-[9px] text-emerald-400/60 text-center mb-3 bg-emerald-900/20 rounded-lg p-2 leading-relaxed">
+          ✦ 聖地マリージョア: 自分のターン中、天竜人キャラのコストを-1
+        </div>
+        <button onClick={onSkip}
+          className="w-full py-2 rounded-xl text-xs text-gray-500/60 border border-gray-700/30 hover:bg-gray-800/30 transition-all">
+          スキップ（使用しない）
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── 五老星（OP13-082）起動メイン効果モーダル ────────────────────────
+function GoroseiAbilityModal({ card, playerHand, playerField, playerTrash, playerDonActive, onActivate, onSkip }) {
+  const [discardUid, setDiscardUid] = useState(null);
+  if (!card) return null;
+
+  // トラッシュからの召喚候補を計算（パワー5000の《五老星》、異名）
+  const trashedGorosei = (() => {
+    const seen = new Set();
+    return playerTrash.filter(c => {
+      if (c.card_type !== 'CHARACTER' || (c.power || 0) !== 5000) return false;
+      if (!(c.traits || []).includes('五老星')) return false;
+      if (seen.has(c.name)) return false;
+      seen.add(c.name);
+      return true;
+    }).slice(0, 5);
+  })();
+
+  const canActivate = playerDonActive >= 1 && discardUid;
+
+  return (
+    <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-purple-900/30">
+          <div className="w-9 h-9 rounded-full bg-purple-800/40 border border-purple-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-lg">👑</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-purple-600/60 uppercase tracking-widest">起動メイン効果</div>
+            <div className="text-purple-100 font-black text-sm">五老星</div>
+            <div className="text-purple-700/60 text-[10px]">パワー12,000</div>
+          </div>
+        </div>
+
+        {/* コスト */}
+        <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl p-3 mb-3">
+          <div className="text-[9px] text-amber-500/80 font-bold mb-1.5">⚡ コスト（両方必要）</div>
+          <div className="flex gap-3 items-center">
+            <div className={`text-[11px] px-2 py-1 rounded-lg border ${playerDonActive >= 1 ? 'text-yellow-200 bg-yellow-900/30 border-yellow-700/40' : 'text-red-400 bg-red-900/20 border-red-700/30'}`}>
+              DON!!1枚レスト {playerDonActive < 1 && '⚠ 不足'}
+            </div>
+            <div className={`text-[11px] px-2 py-1 rounded-lg border ${discardUid ? 'text-green-200 bg-green-900/30 border-green-700/40' : 'text-gray-400 bg-gray-900/20 border-gray-700/30'}`}>
+              手札1枚捨て {discardUid ? '✓ 選択済み' : '→ 下から選択'}
+            </div>
+          </div>
+        </div>
+
+        {/* 手札選択 */}
+        <div className="mb-3">
+          <div className="text-[9px] text-gray-400/60 font-bold mb-1.5">捨てるカードを選択：</div>
+          <div className="flex gap-2 flex-wrap justify-center max-h-24 overflow-y-auto">
+            {playerHand.map(hc => (
+              <div key={hc._uid}
+                className={`cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${discardUid === hc._uid ? 'border-red-400 scale-105' : 'border-gray-700/40 hover:border-red-500/50'}`}
+                style={{ width: 48, height: 67 }}
+                onClick={() => setDiscardUid(d => d === hc._uid ? null : hc._uid)}>
+                <CardImage card={hc} className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 効果プレビュー */}
+        <div className="bg-purple-900/20 border border-purple-700/30 rounded-xl p-3 mb-4">
+          <div className="text-[9px] text-purple-400/70 font-bold mb-1.5">📋 効果プレビュー</div>
+          <div className="text-[10px] text-purple-200/80 mb-2">
+            フィールドのキャラ <span className="text-red-300 font-bold">{playerField.length}体</span> をトラッシュへ
+          </div>
+          {trashedGorosei.length > 0 ? (
+            <>
+              <div className="text-[10px] text-purple-200/80 mb-1.5">
+                トラッシュから <span className="text-green-300 font-bold">{trashedGorosei.length}体</span> 登場：
+              </div>
+              <div className="flex gap-1.5 flex-wrap justify-center">
+                {trashedGorosei.map((gc, i) => (
+                  <div key={i} className="flex flex-col items-center gap-0.5">
+                    <div className="rounded-lg overflow-hidden border border-emerald-700/50" style={{ width: 42, height: 58 }}>
+                      <CardImage card={gc} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="text-[7px] text-emerald-400/70 text-center max-w-[42px] truncate">{gc.name}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="text-[10px] text-gray-500/60">トラッシュに召喚できる五老星なし</div>
+          )}
+        </div>
+
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-purple-800/40 text-purple-600/70 text-sm hover:bg-purple-900/20 transition-all">
+            発動しない
+          </button>
+          <button
+            onClick={() => canActivate && onActivate(card._uid, discardUid)}
+            disabled={!canActivate}
+            className={`flex-1 py-2 rounded-xl text-sm font-black transition-all ${canActivate ? P.btnGold : 'bg-gray-800/40 text-gray-600/50 cursor-not-allowed border border-gray-700/30'}`}>
+            👑 起動メイン発動！
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ステージ起動メイン効果パーサー ──────────────────────────────────
+function parseStageActiveEffect(card) {
+  const effectText = card?.effect || '';
+  const match = effectText.match(/【起動メイン[^】]*】([\s\S]*?)(?=【|$)/);
+  if (!match) return { abilityText: null, autoActions: [] };
+  const abilityText = match[0].trim();
+  const body = match[1].trim();
+  // コロン以降が効果本体
+  const colonIdx = body.indexOf('：');
+  const effectBody = colonIdx >= 0 ? body.slice(colonIdx + 1).trim() : body;
+  const costBody = colonIdx >= 0 ? body.slice(0, colonIdx) : '';
+  const autoActions = [];
+
+  // コスト: 手札1枚を捨てる
+  if (/手札.*?1枚.*?捨て/.test(costBody) || /手札.*?1枚.*?捨て/.test(effectBody.slice(0, 20)))
+    autoActions.push({ id:'discardHand', icon:'🗑️', label:'手札1枚を捨てる（コスト）', color:'text-gray-300' });
+
+  // ドロー
+  const drawM = effectBody.match(/カード(\d+)枚を引く/);
+  if (drawM && !effectBody.includes('場合') && !effectBody.includes('ならば'))
+    autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
+
+  // サーチ
+  const searchM = effectBody.match(/デッキの上から(\d+)枚/);
+  if (searchM)
+    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ`, color:'text-purple-300' });
+
+  // DONデッキからDON追加
+  if (/ドン‼デッキからドン‼1枚.*?追加|ドン‼デッキからドン‼1枚.*?レストで追加/.test(effectBody))
+    autoActions.push({ id:'donAdd', icon:'💛+', label:'DON!!デッキからDON!!1枚追加（自動）', color:'text-yellow-300' });
+  // DON!!をアクティブにする
+  else if (/ドン‼1枚.*?アクティブ|アクティブ.*?ドン‼1枚/.test(effectBody))
+    autoActions.push({ id:'donActivate', icon:'💛↑', label:'レストDON!!1枚をアクティブにする（自動）', color:'text-yellow-300' });
+
+  // 相手キャラ全体レスト
+  if (/相手のキャラすべてを.*?レスト|相手.*?すべてを.*?レストにする/.test(effectBody))
+    autoActions.push({ id:'restAllOpponent', icon:'💤', label:'相手キャラ全体をレスト（自動）', color:'text-orange-400' });
+  // 相手キャラ1体レスト（選択）
+  else if (/相手.*?レストにする|レストにする.*?相手/.test(effectBody))
+    autoActions.push({ id:'restOpponent', icon:'💤', label:'相手キャラをレスト（選択）', color:'text-orange-400' });
+
+  // 相手キャラKO
+  if (/相手.*?KOする|KOする.*?相手/.test(effectBody))
+    autoActions.push({ id:'koOpponent', icon:'💀', label:'相手キャラをKO（選択）', color:'text-red-400' });
+
+  return { abilityText, autoActions };
+}
+
+// ─── StageActiveModal（ステージ起動メイン効果）────────────────────────
+function StageActiveModal({ card, onActivate, onSkip, game, onChainPlay }) {
+  const { abilityText, autoActions } = parseStageActiveEffect(card);
+  if (!abilityText) return null;
+  const handleActivate = () => {
+    // ステージをレスト
+    game.playerUseStageAbility();
+    // 即時自動効果
+    autoActions.forEach(a => {
+      if (a.id === 'draw')           game.playerDraw(a.count);
+      if (a.id === 'search')         game.playerBeginSearch(a.count);
+      if (a.id === 'donAdd')         game.playerAddDonFromDeck();
+      if (a.id === 'donActivate')    game.playerActivateTappedDon();
+      if (a.id === 'restAllOpponent') game.playerRestAllCpuChars();
+    });
+    // 連鎖効果（手札を捨てる → 先に実行 → その後ターゲット系）
+    const discardAction = autoActions.find(a => a.id === 'discardHand');
+    const targetAction  = autoActions.find(a =>
+      a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent'
+    );
+    if (discardAction && onChainPlay) onChainPlay(discardAction);
+    else if (targetAction && onChainPlay) onChainPlay(targetAction);
+    onActivate();
+  };
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm" onClick={onSkip}>
+      <div className="bg-[#0a0f24] border border-purple-600/45 rounded-2xl shadow-2xl p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 mb-3 pb-2.5 border-b border-purple-900/30">
+          <div className="w-9 h-9 rounded-full bg-purple-800/40 border border-purple-600/40 flex items-center justify-center flex-shrink-0">
+            <span className="text-base">🏝</span>
+          </div>
+          <div>
+            <div className="text-[9px] text-purple-600/60 uppercase tracking-widest">ステージ 起動メイン</div>
+            <div className="text-amber-100 font-black text-sm leading-tight">{card?.name}</div>
+          </div>
+        </div>
+        <div className="bg-[#0d1530]/80 rounded-xl p-3 border border-purple-900/25 mb-3">
+          <div className="text-[9px] text-purple-600/50 uppercase tracking-wider mb-1.5">【起動メイン】</div>
+          <div className="text-amber-100/90 text-[11px] leading-relaxed whitespace-pre-line">{abilityText}</div>
+        </div>
+        {autoActions.length > 0 ? (
+          <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5">⚙ 「発動する」で自動実行</div>
+            {autoActions.map(a => (
+              <div key={a.id} className={`flex items-center gap-1.5 text-[11px] ${a.color}`}>
+                <span>{a.icon}</span><span>{a.label}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-amber-900/15 border border-amber-800/25 rounded-xl px-3 py-2 mb-3">
+            <div className="text-[9px] text-amber-600/60">⚠ この効果はゲームボードで手動操作が必要です。</div>
+          </div>
+        )}
+        <div className="text-[9px] text-purple-500/50 text-center mb-3">発動するとステージをレスト状態にします</div>
+        <div className="flex gap-2.5">
+          <button onClick={onSkip} className="flex-1 py-2 rounded-xl border border-purple-800/40 text-purple-600/70 text-sm hover:bg-purple-900/20 transition-all">発動しない</button>
+          <button onClick={handleActivate} className={`flex-1 py-2 rounded-xl text-sm font-black ${P.btnGold}`}>⚡ 発動する</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// イベントカードのカウンター効果を解析（UI用）
+function parseCounterEventEffectUI(card) {
+  if (card?.card_type !== 'EVENT') return null;
+  const fullEffect = card?.effect || '';
+  if (!fullEffect.includes('【カウンター】')) return null;
+  const m = fullEffect.match(/【カウンター】([\s\S]*?)(?=【[^カウンター]|$)/);
+  const counterText = m ? m[1] : (fullEffect.split('【カウンター】')[1] || '');
+  const donCostM = counterText.match(/ドン[!!‼]{1,2}[-ー−](\d+)/);
+  const donCost = donCostM ? parseInt(donCostM[1]) : 0;
+  const powerM = counterText.match(/パワー[+＋](\d+)/);
+  const powerBoost = powerM ? parseInt(powerM[1]) : 0;
+  const hasRest = /相手の.*?キャラ.*?レストにする/.test(counterText);
+  const hasKo = /相手の.*?キャラ.*?KOする/.test(counterText);
+  const hasReturn = /相手の.*?キャラ.*?手札に戻す/.test(counterText);
+  const hasDraw = /カード\d+枚.*?引く/.test(counterText);
+  const hasPowerMinus = /相手の.*?パワー[-−]\d+/.test(counterText);
+  const hasChangeTarget = /アタックの対象を変更/.test(counterText);
+  return { donCost, powerBoost, hasRest, hasKo, hasReturn, hasDraw, hasPowerMinus, hasChangeTarget };
+}
+
 // ─── カウンターステップモーダル（CPU攻撃時）──────────────────────────
 function CounterModal({
-  attackState, playerHand, onCounter, onConfirm,
+  attackState, playerHand, playerDonActive, onCounter, onConfirm,
   playerLeader, playerLeaderEffect, playerLeaderAbilityUsed, onLeaderDefenseAbility,
 }) {
   const [selectingDiscard, setSelectingDiscard] = useState(false);
   if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
+  // pendingCounterEffect がある場合はこのモーダルは表示しない（TargetModal に委ねる）
+  if (attackState.pendingCounterEffect) return null;
   const { attackPower, defensePower, targetType } = attackState;
   const willSurvive = defensePower > attackPower;
   // キャラカード（counter フィールド）とイベントカード（【カウンター】効果）を両方含む
@@ -1237,22 +1528,47 @@ function CounterModal({
             <div className="text-[10px] text-purple-400/60 font-bold text-center mb-2">
               カウンターカード（クリックで発動）— キャラはトラッシュへ、イベントは効果発動
             </div>
-            <div className="flex gap-2 flex-wrap justify-center max-h-36 overflow-y-auto">
+            <div className="flex gap-2 flex-wrap justify-center max-h-40 overflow-y-auto">
               {counterCards.map(card => {
                 const cval = getCardCounterValueUI(card);
                 const isEvent = card.card_type === 'EVENT';
+                const evtInfo = isEvent ? parseCounterEventEffectUI(card) : null;
+                const donCost = evtInfo?.donCost ?? 0;
+                const notEnoughDon = donCost > 0 && (playerDonActive || 0) < donCost;
+                const extraFx = evtInfo && (evtInfo.hasRest || evtInfo.hasKo || evtInfo.hasReturn || evtInfo.hasDraw || evtInfo.hasPowerMinus || evtInfo.hasChangeTarget);
                 return (
-                  <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => onCounter(card._uid)}>
-                    <div className={`rounded-xl overflow-hidden border-2 group-hover:scale-105 transition-all ${
-                      isEvent ? 'border-blue-500/50 group-hover:border-blue-400' : 'border-purple-500/50 group-hover:border-purple-400'
+                  <div key={card._uid}
+                    className={`flex flex-col items-center gap-1 group ${notEnoughDon ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                    onClick={() => !notEnoughDon && onCounter(card._uid)}
+                    title={notEnoughDon ? `DON!!が足りません（必要:${donCost}）` : (card.name || '')}>
+                    <div className={`rounded-xl overflow-hidden border-2 transition-all ${
+                      notEnoughDon ? 'border-gray-700/40' :
+                      isEvent ? 'border-blue-500/50 group-hover:border-blue-400 group-hover:scale-105' : 'border-purple-500/50 group-hover:border-purple-400 group-hover:scale-105'
                     }`} style={{ width: 68, height: 95 }}>
                       <CardImage card={card} className="w-full h-full object-cover" />
                     </div>
+                    {/* DON!! コスト表示 */}
+                    {donCost > 0 && (
+                      <div className={`text-[8px] font-black px-1 py-0.5 rounded-full border ${
+                        notEnoughDon ? 'text-gray-500 bg-gray-900/40 border-gray-700/50' : 'text-yellow-300 bg-yellow-900/40 border-yellow-700/50'
+                      }`}>DON!!-{donCost}</div>
+                    )}
                     <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
                       isEvent
                         ? 'text-blue-300 bg-blue-900/40 border-blue-700/50'
                         : 'text-purple-300 bg-purple-900/40 border-purple-700/50'
                     }`}>+{cval.toLocaleString()}</div>
+                    {/* 追加効果アイコン */}
+                    {extraFx && (
+                      <div className="flex gap-0.5 flex-wrap justify-center max-w-[68px]">
+                        {evtInfo.hasRest && <span className="text-[7px] bg-cyan-900/50 text-cyan-300 px-1 rounded">レスト</span>}
+                        {evtInfo.hasKo && <span className="text-[7px] bg-red-900/50 text-red-300 px-1 rounded">KO</span>}
+                        {evtInfo.hasReturn && <span className="text-[7px] bg-amber-900/50 text-amber-300 px-1 rounded">戻す</span>}
+                        {evtInfo.hasDraw && <span className="text-[7px] bg-green-900/50 text-green-300 px-1 rounded">ドロー</span>}
+                        {evtInfo.hasPowerMinus && <span className="text-[7px] bg-orange-900/50 text-orange-300 px-1 rounded">弱体</span>}
+                        {evtInfo.hasChangeTarget && <span className="text-[7px] bg-violet-900/50 text-violet-300 px-1 rounded">対象変更</span>}
+                      </div>
+                    )}
                     <div className="text-[8px] text-gray-500/60">{isEvent ? 'EVT' : 'CHR'}</div>
                   </div>
                 );
@@ -1272,6 +1588,68 @@ function CounterModal({
               : 'このまま受ける'}
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── カウンター効果ターゲット選択モーダル（レスト/KO/手札戻し）──────────
+function CounterEffectTargetModal({ attackState, cpuField, onSelectTarget, onSkip }) {
+  const pendingEf = attackState?.pendingCounterEffect;
+  if (!pendingEf) return null;
+
+  const typeLabels = {
+    rest: { label: 'レストにする', color: 'cyan', icon: '💤', desc: '相手のキャラを1体選んでレストにしてください' },
+    ko: { label: 'KOする', color: 'red', icon: '💥', desc: '相手のキャラを1体選んでKOしてください' },
+    returnHand: { label: '手札に戻す', color: 'amber', icon: '↩️', desc: '相手のキャラを1体選んで手札に戻してください' },
+  };
+  const info = typeLabels[pendingEf.type] || { label: '効果', color: 'purple', icon: '⚡', desc: '対象を選んでください' };
+  const condLabel = pendingEf.condition ? `（条件: ${pendingEf.condition}）` : '';
+
+  // 条件フィルタ（conditionFn があれば適用、なければ全体）
+  const eligible = cpuField.filter(c => !pendingEf.conditionFn || pendingEf.conditionFn(c));
+
+  const colorMap = {
+    cyan: 'border-cyan-600/40 text-cyan-400',
+    red: 'border-red-600/40 text-red-400',
+    amber: 'border-amber-600/40 text-amber-400',
+    purple: 'border-purple-600/40 text-purple-400',
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+      <div className={`bg-[#0a0f24] border rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-5 ${colorMap[info.color] || colorMap.purple}`}>
+        <div className="text-center mb-3">
+          <div className={`font-black text-lg mb-1 ${colorMap[info.color]?.split(' ')[1]}`}>
+            {info.icon} カウンター効果: {info.label}
+          </div>
+          <div className="text-[10px] text-gray-400/70">{info.desc}{condLabel}</div>
+        </div>
+        {eligible.length === 0 ? (
+          <div className="text-center text-[11px] text-gray-500/60 mb-4">対象となるキャラがいません</div>
+        ) : (
+          <div className="flex gap-2 flex-wrap justify-center max-h-44 overflow-y-auto mb-4">
+            {eligible.map(card => (
+              <div key={card._uid}
+                className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onSelectTarget(card._uid)}>
+                <div className={`rounded-xl overflow-hidden border-2 group-hover:scale-105 transition-all ${
+                  info.color === 'red' ? 'border-red-500/50 group-hover:border-red-400' :
+                  info.color === 'cyan' ? 'border-cyan-500/50 group-hover:border-cyan-400' :
+                  'border-amber-500/50 group-hover:border-amber-400'
+                }`} style={{ width: 68, height: 95 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[8px] text-gray-400/70 text-center max-w-[68px] truncate">{card.name}</div>
+                <div className="text-[8px] text-gray-500/50">Pw:{(card.power || 0).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <button onClick={onSkip}
+          className="w-full py-2 rounded-xl text-xs text-gray-500/60 border border-gray-700/30 hover:bg-gray-800/30 transition-all">
+          スキップ（対象なし）
+        </button>
       </div>
     </div>
   );
@@ -1501,6 +1879,8 @@ export default function BattlePage({ onNavigate }) {
   const [showLeaderAbilityModal, setShowLeaderAbilityModal] = useState(false);
   const [charSelectInfo, setCharSelectInfo] = useState(null);
   const [pendingCharAbility, setPendingCharAbility] = useState(null);
+  const [pendingGoroseiAbility, setPendingGoroseiAbility] = useState(null);
+  const [pendingStageActive, setPendingStageActive] = useState(null);
   const [phaseError, setPhaseError] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
   const [dragOver, setDragOver] = useState(null);
@@ -1585,6 +1965,7 @@ export default function BattlePage({ onNavigate }) {
         if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
       } else if (zone === 'stage' && card.card_type === 'STAGE') {
         game.playerPlayStage(card._uid);
+        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
       } else if (zone === 'event' && card.card_type === 'EVENT') {
         game.playerPlayEvent(card._uid);
         if (card.effect) setPendingEventEffect(card);
@@ -1632,7 +2013,12 @@ export default function BattlePage({ onNavigate }) {
   }, [game]);
 
   const handleCharActiveAbility = useCallback((card) => {
-    setPendingCharAbility(card);
+    // OP13-082（10コスト五老星）は専用モーダルへ
+    if (card?.card_number === 'OP13-082') {
+      setPendingGoroseiAbility(card);
+    } else {
+      setPendingCharAbility(card);
+    }
   }, []);
 
   // ─── ハンドラー ─────────────────────────────────────────────────
@@ -1679,6 +2065,7 @@ export default function BattlePage({ onNavigate }) {
     if (!card || !game) return;
     if (actionId === 'detail') { setDetailCard(card); setActionMenu(null); return; }
     if (actionId === 'char-active') { handleCharActiveAbility(card); setActionMenu(null); return; }
+    if (actionId === 'stage-active') { setPendingStageActive(card); setActionMenu(null); return; }
     const phaseErr = getPhaseActionError(actionId, state?.subPhase);
     if (phaseErr) { showPhaseError(phaseErr); setActionMenu(null); return; }
     switch (actionId) {
@@ -1687,7 +2074,11 @@ export default function BattlePage({ onNavigate }) {
         if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
         break;
       }
-      case 'stage': game.playerPlayStage(card._uid); break;
+      case 'stage': {
+        game.playerPlayStage(card._uid);
+        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+        break;
+      }
       case 'event': {
         game.playerPlayEvent(card._uid);
         if (card.effect) setPendingEventEffect(card);
@@ -2187,11 +2578,27 @@ export default function BattlePage({ onNavigate }) {
       {/* カウンターステップ */}
       <CounterModal
         attackState={state.attackState} playerHand={ps.hand}
+        playerDonActive={ps.donActive}
         onCounter={game.playerCounter} onConfirm={game.playerConfirmCounter}
         playerLeader={ps.leader} playerLeaderEffect={ps.leaderEffect}
         playerLeaderAbilityUsed={ps.leaderAbilityUsed}
         onLeaderDefenseAbility={game.playerUseLeaderDefenseAbility}
       />
+      {/* カウンター効果ターゲット選択（レスト/KO/手札戻し） */}
+      <CounterEffectTargetModal
+        attackState={state.attackState}
+        cpuField={cs.field}
+        onSelectTarget={game.playerSelectCounterEffectTarget}
+        onSkip={game.playerSkipCounterEffect}
+      />
+      {/* イムリーダー: 複数候補時のステージカード選択 */}
+      {state.pendingStageSetup && (
+        <StageSetupModal
+          pendingStageSetup={state.pendingStageSetup}
+          onConfirm={game.playerConfirmStageSetup}
+          onSkip={() => game.playerConfirmStageSetup(null)}
+        />
+      )}
       {/* キャラへの攻撃: ブロッカー後ダメージ確認 */}
       {state.attackState?.step === 'resolve-char' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -2290,6 +2697,38 @@ export default function BattlePage({ onNavigate }) {
           else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
           else setPendingChainPlay(action);
         }}/>}
+
+      {/* ステージ起動メイン効果 */}
+      {pendingStageActive && (
+        <StageActiveModal
+          card={pendingStageActive}
+          game={game}
+          onActivate={() => setPendingStageActive(null)}
+          onSkip={() => setPendingStageActive(null)}
+          onChainPlay={(action) => {
+            if (action.id === 'discardHand') setPendingDiscardHand(true);
+            else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
+            else setPendingChainPlay(action);
+            setPendingStageActive(null);
+          }}
+        />
+      )}
+
+      {/* 五老星（OP13-082）起動メイン効果 */}
+      {pendingGoroseiAbility && (
+        <GoroseiAbilityModal
+          card={pendingGoroseiAbility}
+          playerHand={ps.hand}
+          playerField={ps.field}
+          playerTrash={ps.trash}
+          playerDonActive={ps.donActive}
+          onActivate={(charUid, discardUid) => {
+            game.playerUseGoroseiAbility(charUid, discardUid);
+            setPendingGoroseiAbility(null);
+          }}
+          onSkip={() => setPendingGoroseiAbility(null)}
+        />
+      )}
 
       {/* サーチモーダル */}
       {(ps.searchReveal?.length || 0) > 0 && (

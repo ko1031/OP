@@ -21,6 +21,22 @@ function autoTapDon(side, cost) {
   return { ...side, donActive: side.donActive - n, donTapped: side.donTapped + n };
 }
 
+// ステージカードによるコスト削減を考慮した実効コストを返す
+// 例: 聖地マリージョア → 天竜人キャラ（コスト2以上）のコストを-1
+function computeEffectiveCost(card, playerSide) {
+  let cost = card.cost || 0;
+  const stageName = playerSide.stage?.name || '';
+  if (
+    stageName.includes('聖地マリージョア') &&
+    card.card_type === 'CHARACTER' &&
+    cost >= 2 &&
+    (card.traits || []).includes('天竜人')
+  ) {
+    cost = Math.max(0, cost - 1);
+  }
+  return cost;
+}
+
 function hasTrigger(card) {
   return /【トリガー】/.test(card?.effect || '');
 }
@@ -279,6 +295,85 @@ function getCardCounterValue(card) {
   if (!card) return 0;
   if ((card.counter || 0) > 0) return card.counter;
   return parseEventCounterValue(card);
+}
+
+// イベントカードの【カウンター】効果を詳細解析
+// 返り値: { donCost, powerBoost, effects: [{type, condition, count}] }
+function parseCounterEventEffect(card) {
+  if (card?.card_type !== 'EVENT') return null;
+  const fullEffect = card?.effect || '';
+  if (!fullEffect.includes('【カウンター】')) return null;
+
+  // 【カウンター】以降のテキストを取得（次の【...】タグまで）
+  const m = fullEffect.match(/【カウンター】([\s\S]*?)(?=【[^カウンター]|$)/);
+  const counterText = m ? m[1] : fullEffect.split('【カウンター】')[1] || '';
+
+  // DON!!コスト（例: ドン!!-1, ドン‼-2）
+  const donCostM = counterText.match(/ドン[!!‼]{1,2}[-ー−](\d+)/);
+  const donCost = donCostM ? parseInt(donCostM[1]) : 0;
+
+  // 自分側へのパワーブースト（例: パワー+2000）
+  const powerBoostM = counterText.match(/(?:自分の)?(?:リーダーか)?(?:キャラ(?:\d+枚)?(?:まで)?)?(?:を、このバトル中、)?パワー[+＋](\d+)/);
+  const powerBoost = powerBoostM ? parseInt(powerBoostM[1]) : 0;
+
+  const effects = [];
+
+  // 相手キャラをレストにする
+  const restM = counterText.match(/相手のコスト(\d+)以下のキャラ.*?レストにする|相手のキャラ\d*枚.*?レストにする|相手のアクティブのコスト(\d+)以下のキャラ.*?レストにする/);
+  if (restM || /相手の[アクティブ]*?キャラ.*?レストにする/.test(counterText)) {
+    const costCond = counterText.match(/相手の(?:アクティブの)?コスト(\d+)以下のキャラ.*?レストにする/);
+    effects.push({
+      type: 'rest',
+      condition: costCond ? `コスト${costCond[1]}以下` : null,
+      conditionFn: costCond ? (c => (c.cost || 0) <= parseInt(costCond[1])) : null,
+    });
+  }
+
+  // 相手キャラをKOする
+  if (/相手の.*?キャラ.*?KOする/.test(counterText)) {
+    const koCostCond = counterText.match(/相手の(?:アクティブの)?コスト(\d+)以下のキャラ.*?KOする/);
+    const koPowerCond = counterText.match(/相手の元々のパワー(\d+)以下のキャラ.*?KOする/);
+    let condition = null;
+    let conditionFn = null;
+    if (koCostCond) {
+      condition = `コスト${koCostCond[1]}以下`;
+      conditionFn = (c => (c.cost || 0) <= parseInt(koCostCond[1]));
+    } else if (koPowerCond) {
+      condition = `元パワー${parseInt(koPowerCond[1]).toLocaleString()}以下`;
+      conditionFn = (c => (c.power || 0) <= parseInt(koPowerCond[1]));
+    }
+    effects.push({ type: 'ko', condition, conditionFn });
+  }
+
+  // 相手キャラを手札に戻す
+  if (/相手の.*?キャラ.*?手札に戻す/.test(counterText)) {
+    const retCostCond = counterText.match(/相手の(?:コスト(\d+)以下の)?キャラ.*?手札に戻す/);
+    const condition = retCostCond?.[1] ? `コスト${retCostCond[1]}以下` : null;
+    effects.push({
+      type: 'returnHand',
+      condition,
+      conditionFn: retCostCond?.[1] ? (c => (c.cost || 0) <= parseInt(retCostCond[1])) : null,
+    });
+  }
+
+  // カードをドローする
+  const drawM = counterText.match(/カード(\d+)枚.*?引く/);
+  if (drawM) {
+    effects.push({ type: 'draw', count: parseInt(drawM[1]) });
+  }
+
+  // 相手のパワー下げ（ログのみ）
+  const powerMinusM = counterText.match(/相手の.*?パワー[-−](\d+)/);
+  if (powerMinusM) {
+    effects.push({ type: 'powerMinus', value: parseInt(powerMinusM[1]) });
+  }
+
+  // アタック対象変更（ログのみ）
+  if (/アタックの対象を変更/.test(counterText)) {
+    effects.push({ type: 'changeTarget' });
+  }
+
+  return { donCost, powerBoost, effects };
 }
 
 // CPU自動カウンター判断
@@ -587,6 +682,7 @@ export function useBattleState() {
       cpuThinking: false,
       battleLog: [{ msg: `対戦開始！ ${playerLeader?.name} vs CPU(${cpuLeader?.name})`, ts: Date.now() }],
       winner: null,
+      pendingStageSetup: null,
     });
   }, []);
 
@@ -611,6 +707,43 @@ export function useBattleState() {
         const newHand = combined.splice(0, 5);
         ns = addLog('CPUマリガン', { ...ns, cpu: { ...prev.cpu, hand: newHand, deck: combined } });
       }
+
+      // ── ゲーム開始時ステージカードセットアップ（イム等）──────────────
+      // CPU がステージセットアップリーダーの場合: 自動で場に出す
+      const cLeaderEff = LEADER_EFFECTS[ns.cpu.leader?.card_number] || {};
+      if (cLeaderEff.setupStageCard) {
+        const sName = cLeaderEff.setupStageName || '聖地マリージョア';
+        const idx = ns.cpu.deck.findIndex(c => c.card_type === 'STAGE' && c.name?.includes(sName));
+        if (idx >= 0) {
+          const stageCard = ns.cpu.deck[idx];
+          const newCpuDeck = ns.cpu.deck.filter((_, i) => i !== idx);
+          ns = addLog(`CPU【${ns.cpu.leader.name}効果】デッキから「${stageCard.name}」を場に登場！`, {
+            ...ns, cpu: { ...ns.cpu, deck: newCpuDeck, stage: { ...stageCard, tapped: false } },
+          });
+        }
+      }
+
+      // プレイヤーがステージセットアップリーダーの場合
+      const pLeaderEff = LEADER_EFFECTS[ns.player.leader?.card_number] || {};
+      if (pLeaderEff.setupStageCard) {
+        const sName = pLeaderEff.setupStageName || '聖地マリージョア';
+        const candidates = ns.player.deck.filter(c => c.card_type === 'STAGE' && c.name?.includes(sName));
+        if (candidates.length === 1) {
+          // 1枚のみなら自動登場
+          const best = candidates[0];
+          const newDeck = ns.player.deck.filter(c => c._uid !== best._uid);
+          ns = addLog(`【${ns.player.leader.name}効果】デッキから「${best.name}」を場に登場！`, {
+            ...ns,
+            player: { ...ns.player, deck: newDeck, stage: { ...best, tapped: false } },
+          });
+        } else if (candidates.length > 1) {
+          // 複数候補はモーダルで選択
+          return addLog(`【${ns.player.leader.name}効果】デッキからステージカードを場に出せます`, {
+            ...ns, phase: 'game', subPhase: 'refresh', pendingStageSetup: { candidates },
+          });
+        }
+      }
+
       return addLog('マリガン確定！ゲーム開始', { ...ns, phase: 'game', subPhase: 'refresh' });
     });
   }, []);
@@ -716,14 +849,17 @@ export function useBattleState() {
       const card = p.hand[idx];
       if (card.card_type !== 'CHARACTER') return addLog('キャラクターのみ登場できます', prev);
       if (p.field.length >= 5) return addLog('フィールドが満員（最大5枚）', prev);
-      const cost = card.cost || 0;
+      // ステージ効果によるコスト削減を適用（例: 聖地マリージョア → 天竜人-1）
+      const baseCost = card.cost || 0;
+      const cost = computeEffectiveCost(card, p);
+      const costNote = cost < baseCost ? `（聖地マリージョア-${baseCost - cost}）` : '';
       if (p.donActive < cost) return addLog(`コスト${cost}が足りません（アクティブDON!!: ${p.donActive}）`, prev);
       const afterDon = autoTapDon(p, cost);
       // _summonedTurn: 登場したターン番号を記録（速攻がなければそのターンアタック不可）
       const hasRush = /【速攻】/.test(card.effect || '');
       const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }];
       const newHand = afterDon.hand.filter((_, i) => i !== idx);
-      return addLog(`「${card.name}」（コスト${cost}）登場${hasRush ? '【速攻】' : ''}`, {
+      return addLog(`「${card.name}」（コスト${cost}${costNote}）登場${hasRush ? '【速攻】' : ''}`, {
         ...prev, player: { ...afterDon, hand: newHand, field: newField },
       });
     });
@@ -1011,6 +1147,77 @@ export function useBattleState() {
       const counterVal = getCardCounterValue(card);
       if (counterVal <= 0) return addLog('このカードにはカウンター値がありません', prev);
 
+      // ── イベントカード固有の処理 ──────────────────────────────────────
+      if (card.card_type === 'EVENT') {
+        const parsed = parseCounterEventEffect(card);
+        if (parsed) {
+          // DON!!コストチェック
+          if (parsed.donCost > 0 && p.donActive < parsed.donCost) {
+            return addLog(
+              `DON!!が足りません（必要: ${parsed.donCost}、手持ちアクティブ: ${p.donActive}）`,
+              prev
+            );
+          }
+          // カードを消費 & DON!!コスト消費
+          const newHand = p.hand.filter(c => c._uid !== cardUid);
+          const newTrash = [...p.trash, { ...card, faceDown: false }];
+          const newDonActive = p.donActive - parsed.donCost;
+          const newDonDeck = p.donDeck + parsed.donCost;
+
+          // パワーブースト適用
+          const newDefense = prev.attackState.defensePower + parsed.powerBoost;
+
+          let logParts = [`カウンターイベント「${card.name}」`];
+          if (parsed.donCost > 0) logParts.push(`DON!!-${parsed.donCost}`);
+          if (parsed.powerBoost > 0) logParts.push(`+${parsed.powerBoost}（防御力: ${newDefense}）`);
+
+          // 複合効果の処理
+          let pendingEffects = parsed.effects.filter(
+            ef => ef.type === 'rest' || ef.type === 'ko' || ef.type === 'returnHand'
+          );
+          let ns = addLog(logParts.join(' '), {
+            ...prev,
+            player: { ...p, hand: newHand, trash: newTrash, donActive: newDonActive, donDeck: newDonDeck },
+            attackState: {
+              ...prev.attackState,
+              defensePower: newDefense,
+              counterBonus: (prev.attackState.counterBonus || 0) + parsed.powerBoost,
+            },
+          });
+
+          // ドロー効果を自動適用
+          for (const ef of parsed.effects) {
+            if (ef.type === 'draw' && ef.count > 0) {
+              const pl = ns.player;
+              const drawn = pl.deck.slice(0, ef.count);
+              if (drawn.length > 0) {
+                ns = addLog(`カウンター効果: カード${drawn.length}枚ドロー`, {
+                  ...ns,
+                  player: { ...pl, deck: pl.deck.slice(ef.count), hand: [...pl.hand, ...drawn.map(c => ({ ...c, faceDown: false }))] },
+                });
+              }
+            } else if (ef.type === 'powerMinus') {
+              ns = addLog(`カウンター効果:「相手のパワー-${ef.value}」（ターン中・手動確認）`, ns);
+            } else if (ef.type === 'changeTarget') {
+              ns = addLog(`カウンター効果:「アタックの対象を変更」（手動確認）`, ns);
+            }
+          }
+
+          // ターゲット選択が必要な効果があれば pendingCounterEffect にセット
+          if (pendingEffects.length > 0) {
+            return {
+              ...ns,
+              attackState: {
+                ...ns.attackState,
+                pendingCounterEffect: pendingEffects[0],
+              },
+            };
+          }
+          return ns;
+        }
+      }
+
+      // ── キャラカードカウンター（従来処理）────────────────────────────
       const newHand = p.hand.filter(c => c._uid !== cardUid);
       const newTrash = [...p.trash, { ...card, faceDown: false }];
       const newDefense = prev.attackState.defensePower + counterVal;
@@ -1023,6 +1230,72 @@ export function useBattleState() {
           defensePower: newDefense,
           counterBonus: (prev.attackState.counterBonus || 0) + counterVal,
         },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: カウンター効果のターゲットを選択（レスト/KO/手札戻し）──
+  const playerSelectCounterEffectTarget = useCallback((targetUid) => {
+    setState(prev => {
+      if (!prev?.attackState?.pendingCounterEffect) return prev;
+      const ef = prev.attackState.pendingCounterEffect;
+      const cpu = prev.cpu;
+
+      if (ef.type === 'rest') {
+        const target = cpu.field.find(x => x._uid === targetUid);
+        if (!target) return prev;
+        const newCpuField = cpu.field.map(x => x._uid === targetUid ? { ...x, tapped: true } : x);
+        return addLog(`カウンター効果:「${target.name}」をレストにした！`, {
+          ...prev,
+          cpu: { ...cpu, field: newCpuField },
+          attackState: { ...prev.attackState, pendingCounterEffect: null },
+        });
+      }
+
+      if (ef.type === 'ko') {
+        const target = cpu.field.find(x => x._uid === targetUid);
+        if (!target) return prev;
+        const donBack = target.donAttached || 0;
+        return addLog(`カウンター効果:「${target.name}」をKO！`, {
+          ...prev,
+          cpu: {
+            ...cpu,
+            field: cpu.field.filter(x => x._uid !== targetUid),
+            trash: [...cpu.trash, { ...target, faceDown: false }],
+            donActive: cpu.donActive + donBack,
+          },
+          attackState: { ...prev.attackState, pendingCounterEffect: null },
+        });
+      }
+
+      if (ef.type === 'returnHand') {
+        const target = cpu.field.find(x => x._uid === targetUid);
+        if (!target) return prev;
+        const donBack = target.donAttached || 0;
+        return addLog(`カウンター効果:「${target.name}」を手札に戻した！`, {
+          ...prev,
+          cpu: {
+            ...cpu,
+            field: cpu.field.filter(x => x._uid !== targetUid),
+            hand: [...cpu.hand, { ...target, donAttached: 0 }],
+            donActive: cpu.donActive + donBack,
+          },
+          attackState: { ...prev.attackState, pendingCounterEffect: null },
+        });
+      }
+
+      return prev;
+    });
+  }, []);
+
+  // ── プレイヤー: カウンター効果をスキップ ─────────────────────────────
+  const playerSkipCounterEffect = useCallback(() => {
+    setState(prev => {
+      if (!prev?.attackState?.pendingCounterEffect) return prev;
+      const ef = prev.attackState.pendingCounterEffect;
+      return addLog(`カウンター効果「${ef.type}」をスキップ`, {
+        ...prev,
+        attackState: { ...prev.attackState, pendingCounterEffect: null },
       });
     });
   }, []);
@@ -1498,6 +1771,144 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: ゲーム開始時ステージカードセットアップ確定（イム等）──
+  const playerConfirmStageSetup = useCallback((stageUid) => {
+    setState(prev => {
+      if (!prev?.pendingStageSetup) return prev;
+      if (!stageUid) {
+        // スキップ
+        return addLog('ステージカード設置をスキップ', { ...prev, pendingStageSetup: null });
+      }
+      const p = prev.player;
+      const stageCard = p.deck.find(c => c._uid === stageUid);
+      if (!stageCard) return prev;
+      const newDeck = p.deck.filter(c => c._uid !== stageUid);
+      return addLog(`【イム効果】デッキから「${stageCard.name}」を場に登場！`, {
+        ...prev,
+        player: { ...p, deck: newDeck, stage: { ...stageCard, tapped: false } },
+        pendingStageSetup: null,
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: ステージ起動メイン（ステージをレスト）───────────────
+  const playerUseStageAbility = useCallback(() => {
+    setState(prev => {
+      if (!prev || prev.activePlayer !== 'player' || prev.subPhase !== 'main') return prev;
+      const p = prev.player;
+      if (!p.stage) return addLog('ステージがありません', prev);
+      if (p.stage.tapped) return addLog('ステージはすでにレスト状態です', prev);
+      return addLog(`ステージ「${p.stage.name}」をレスト（起動メイン発動）`, {
+        ...prev, player: { ...p, stage: { ...p.stage, tapped: true } },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: レスト中のDON!!1枚をアクティブに（ゾウなど）──────
+  const playerActivateTappedDon = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (p.donTapped <= 0) return addLog('レスト中のDON!!がありません', prev);
+      return addLog('DON!!1枚をアクティブにする', {
+        ...prev, player: { ...p, donTapped: p.donTapped - 1, donActive: p.donActive + 1 },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: DON!!デッキからDON!!1枚追加（鬼ヶ島など）──────────
+  const playerAddDonFromDeck = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if ((p.donDeck || 0) <= 0) return addLog('DON!!デッキが空です', prev);
+      return addLog('DON!!デッキからDON!!1枚追加（アクティブ）', {
+        ...prev, player: { ...p, donDeck: (p.donDeck || 0) - 1, donActive: p.donActive + 1 },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 効果でCPUキャラ全体をレスト（方舟ノアなど）────────
+  const playerRestAllCpuChars = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const c = prev.cpu;
+      if (c.field.length === 0) return addLog('相手フィールドにキャラがいません', prev);
+      return addLog(`効果: 相手キャラ${c.field.length}体を全てレスト！`, {
+        ...prev, cpu: { ...c, field: c.field.map(x => ({ ...x, tapped: true })) },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 五老星（OP13-082）起動メイン効果 ──────────────────
+  // コスト: DON!!1枚レスト + 手札1枚捨て
+  // 効果: 自分のキャラすべてをトラッシュへ → トラッシュからパワー5000の異名五老星5体まで登場
+  const playerUseGoroseiAbility = useCallback((charUid, discardUid) => {
+    setState(prev => {
+      if (!prev || prev.activePlayer !== 'player' || prev.subPhase !== 'main') return prev;
+      const p = prev.player;
+      // リーダーチェック
+      if (!p.leader?.name?.includes('イム')) {
+        return addLog('リーダーが「イム」ではありません', prev);
+      }
+      // DON!!チェック（1枚レスト）
+      if (p.donActive < 1) {
+        return addLog('アクティブDON!!が1枚必要です', prev);
+      }
+      // 手札チェック
+      const discardCard = p.hand.find(c => c._uid === discardUid);
+      if (!discardCard) return addLog('捨てるカードが見つかりません', prev);
+
+      // コスト消費: DON!!1レスト + 手札捨て
+      const newDonActive = p.donActive - 1;
+      const newDonTapped = p.donTapped + 1;
+      const newHand = p.hand.filter(c => c._uid !== discardUid);
+      let newTrash = [...p.trash, { ...discardCard, faceDown: false }];
+
+      // フィールドのキャラすべてをトラッシュへ（五老星本体含む）
+      const trashedChars = p.field.map(c => ({ ...c, faceDown: false }));
+      newTrash = [...newTrash, ...trashedChars];
+
+      // トラッシュからパワー5000の《五老星》、カード名の異なるものを最大5体選択
+      const seen = new Set();
+      const toSummon = [];
+      for (const c of newTrash) {
+        if (toSummon.length >= 5) break;
+        if (
+          c.card_type === 'CHARACTER' &&
+          (c.power || 0) === 5000 &&
+          (c.traits || []).includes('五老星') &&
+          !seen.has(c.name)
+        ) {
+          seen.add(c.name);
+          toSummon.push(c);
+        }
+      }
+
+      // トラッシュから召喚する分を除いてフィールドへ
+      const summonUids = new Set(toSummon.map(c => c._uid));
+      const finalTrash = newTrash.filter(c => !summonUids.has(c._uid));
+      const newField = toSummon.map(c => ({
+        ...c, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: false,
+      }));
+
+      return addLog(
+        `【五老星・起動メイン】フィールド${trashedChars.length}体トラッシュ → トラッシュから五老星${toSummon.length}体登場！（${toSummon.map(c => c.name).join('、')}）`,
+        {
+          ...prev,
+          player: {
+            ...p,
+            hand: newHand,
+            field: newField,
+            trash: finalTrash,
+            donActive: newDonActive,
+            donTapped: newDonTapped,
+          },
+        }
+      );
+    });
+  }, []);
+
   // ── プレイヤー: ステージトラッシュ ────────────────────────────────
   const playerTrashStage = useCallback(() => {
     setState(prev => {
@@ -1826,6 +2237,10 @@ export function useBattleState() {
     playerBlock,
     playerPassBlock,
     playerCounter,
+    playerSelectCounterEffectTarget,
+    playerSkipCounterEffect,
+    playerConfirmStageSetup,
+    playerUseGoroseiAbility,
     playerResolveCharAttack,
     playerConfirmCounter,
     processCpuPendingAttack,
@@ -1864,6 +2279,10 @@ export function useBattleState() {
     playerGiveCharBlocker,
     playerUseLeaderDefenseAbility,
     playerReturnLifeToHand,
+    playerUseStageAbility,
+    playerActivateTappedDon,
+    playerAddDonFromDeck,
+    playerRestAllCpuChars,
     resetBattle,
   };
 }
