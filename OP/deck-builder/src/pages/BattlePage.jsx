@@ -397,7 +397,7 @@ function ActionMenu({ card, context, onAction, onClose }) {
 }
 
 // ─── 効果パーサー（一人回しから移植）─────────────────────────────────
-function parseEntryEffect(effectText) {
+function parseEntryEffect(effectText, myLifeCount) {
   if (!effectText) return { entryText: '', autoActions: [] };
   const m = effectText.match(/【登場時】([\s\S]*?)(?=【|$)/);
   const entryText = m ? m[1].trim() : '';
@@ -413,10 +413,14 @@ function parseEntryEffect(effectText) {
   if (drawM && !entryText.includes('場合') && !entryText.includes('ならば') && !entryText.includes('なら'))
     autoActions.push({ id:'draw', count: parseInt(drawM[1]), icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
 
-  // サーチ（デッキトップN枚を見る）
+  // サーチ（デッキトップN枚を見る）- ライフ追加文との競合を除外
   const searchM = entryText.match(/デッキの上から(\d+)枚/);
-  if (searchM)
-    autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  if (searchM) {
+    const deckTopSentence = entryText.split(/[。]/).find(s => /デッキの上から/.test(s)) || '';
+    if (!/ライフ.*加える/.test(deckTopSentence)) {
+      autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+    }
+  }
 
   // 手札からキャラを登場させる
   const playFromHandM = entryText.match(/手札から[^。]*?キャラカード[^。]*?登場させる/);
@@ -458,10 +462,38 @@ function parseEntryEffect(effectText) {
   if (deckBotEntryM)
     autoActions.push({ id:'deckBottomOpponent', icon:'⬇️', label:'相手キャラをデッキ下へ（選択）', color:'text-purple-400' });
 
-  // ライフに加える
-  const lifeAddM = entryText.match(/ライフの上に加える/);
-  if (lifeAddM)
-    autoActions.push({ id:'addLife', icon:'❤️', label:'デッキトップ1枚をライフに追加（自動）', color:'text-red-300' });
+  // ライフに加える（デッキトップ → ライフの上、無条件のみ自動）
+  // 実際のカードテキスト: "デッキの上から1枚をライフの上に加える"
+  // キャラ→ライフ等の別操作とは区別するため発生源をデッキに限定
+  {
+    const sentences = entryText.split(/[。]/);
+    const lifeAddSentence = sentences.find(s =>
+      /(デッキの上から|デッキトップ).*ライフ.*加える/.test(s)
+    );
+    if (lifeAddSentence && !/場合|：/.test(lifeAddSentence)) {
+      autoActions.push({ id:'addLife', icon:'❤️', label:'デッキトップ1枚をライフの上に追加（自動）', color:'text-red-300' });
+    }
+  }
+
+  // 条件付きライフ追加: 「自分のライフがN枚以下/以上の場合、デッキトップをライフに」
+  // 例: EB04-054「自分のライフが2枚以下の場合、デッキの上から1枚をライフの上に加える」
+  if (myLifeCount !== undefined) {
+    const condM = entryText.match(
+      /自分のライフが(\d+)枚(以下|以上)の場合[^。]*(デッキの上から|デッキトップ)[^。]*ライフ.*加える/
+    );
+    if (condM) {
+      const threshold = parseInt(condM[1]);
+      const op = condM[2];
+      const condMet = op === '以下' ? myLifeCount <= threshold : myLifeCount >= threshold;
+      if (condMet) {
+        autoActions.push({ id:'addLife', icon:'❤️',
+          label:`ライフ${threshold}枚${op}のため、デッキトップをライフの上に追加（自動）`, color:'text-red-300' });
+      } else {
+        autoActions.push({ id:'info', icon:'ℹ️',
+          label:`ライフが${threshold}枚${op}でないため効果なし（スキップ）`, color:'text-gray-400' });
+      }
+    }
+  }
 
   // 速攻を得る
   const rushM = entryText.match(/【速攻】を得る/);
@@ -698,7 +730,8 @@ function DiscardHandModal({ hand, onDiscard, onCancel }) {
 
 // ─── 効果モーダル（登場時）──────────────────────────────────────────
 function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
-  const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
+  const myLifeCount = game?.state?.player?.life?.length ?? 0;
+  const { entryText, autoActions } = parseEntryEffect(card?.effect || '', myLifeCount);
   const handleActivate = () => {
     // 即時自動実行アクション
     autoActions.forEach(a => {

@@ -728,7 +728,7 @@ function SearchStartPanel({ deckCount, onBegin, onClose }) {
 }
 
 // ─── 登場時効果パーサー ──────────────────────────
-function parseEntryEffect(effectText) {
+function parseEntryEffect(effectText, myLifeCount) {
   if (!effectText) return { entryText: '', autoActions: [] };
 
   // 【登場時】セクションを抽出（次の【】が来るまで）
@@ -751,11 +751,15 @@ function parseEntryEffect(effectText) {
       icon:'📚', label:`${drawM[1]}枚ドロー（自動）`, color:'text-blue-300' });
   }
 
-  // ── サーチ: 「デッキの上からN枚」
+  // ── サーチ: 「デッキの上からN枚」（ライフ追加文と競合する場合は除外）
   const searchM = entryText.match(/デッキの上から(\d+)枚/);
   if (searchM) {
-    autoActions.push({ id:'search', count: parseInt(searchM[1]),
-      icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+    // 同じ文にライフへの追加が含まれる場合はaddLifeで処理するためスキップ
+    const deckTopSentence = entryText.split(/[。]/).find(s => /デッキの上から/.test(s)) || '';
+    if (!/ライフ.*加える/.test(deckTopSentence)) {
+      autoActions.push({ id:'search', count: parseInt(searchM[1]),
+        icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+    }
   }
 
   // ── 手札からキャラ登場（コスト以下）: 「コストX以下のキャラ1枚まで登場」
@@ -773,10 +777,38 @@ function parseEntryEffect(effectText) {
       icon:'💀', label:`トラッシュからコスト${cost}以下のキャラを1枚登場`, color:'text-orange-300' });
   }
 
-  // ── ライフ追加: 「ライフを上から1枚追加」or「デッキトップをライフに」
-  if (/ライフ.*?1枚.*?追加|デッキトップ.*?ライフ/.test(entryText)) {
-    autoActions.push({ id:'addLife',
-      icon:'❤', label:`デッキトップをライフに追加`, color:'text-red-300' });
+  // ── ライフ追加: デッキトップをライフの上に加える（無条件のみ自動）
+  // 実際のカードテキスト例: "デッキの上から1枚をライフの上に加える"
+  {
+    const sentences = entryText.split(/[。]/);
+    const lifeAddSentence = sentences.find(s =>
+      /(デッキの上から|デッキトップ).*ライフ.*加える/.test(s)
+    );
+    // 「場合」「：」が含まれる場合は条件付き効果なので下の条件付きブロックで処理
+    if (lifeAddSentence && !/場合|：/.test(lifeAddSentence)) {
+      autoActions.push({ id:'addLife',
+        icon:'❤', label:`デッキトップをライフの上に追加（自動）`, color:'text-red-300' });
+    }
+  }
+
+  // ── 条件付きライフ追加: 「自分のライフがN枚以下/以上の場合、デッキトップをライフに」
+  // 例: EB04-054「自分のライフが2枚以下の場合、デッキの上から1枚をライフの上に加える」
+  if (myLifeCount !== undefined) {
+    const condM = entryText.match(
+      /自分のライフが(\d+)枚(以下|以上)の場合[^。]*(デッキの上から|デッキトップ)[^。]*ライフ.*加える/
+    );
+    if (condM) {
+      const threshold = parseInt(condM[1]);
+      const op = condM[2]; // 以下 or 以上
+      const condMet = op === '以下' ? myLifeCount <= threshold : myLifeCount >= threshold;
+      if (condMet) {
+        autoActions.push({ id:'addLife',
+          icon:'❤', label:`ライフ${threshold}枚${op}のため、デッキトップをライフの上に追加（自動）`, color:'text-red-300' });
+      } else {
+        autoActions.push({ id:'info',
+          icon:'ℹ', label:`ライフが${threshold}枚${op}でないため効果なし（スキップ）`, color:'text-gray-400' });
+      }
+    }
   }
 
   // ── 情報表示のみ（手動操作が必要な複雑効果）
@@ -856,7 +888,8 @@ function parseActiveAbility(card) {
 
 // ─── 登場時効果モーダル ──────────────────────────
 function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
-  const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
+  const myLifeCount = game?.state?.life?.length ?? 0;
+  const { entryText, autoActions } = parseEntryEffect(card?.effect || '', myLifeCount);
 
   const handleActivate = () => {
     // chain actions（playFromHand/playFromTrash）は後で別モーダルで処理

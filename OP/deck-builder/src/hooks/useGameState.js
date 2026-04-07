@@ -1252,8 +1252,9 @@ export function useGameState() {
     setState(prev => {
       if (!prev || prev.deck.length === 0) return addLog('デッキにカードがありません', prev || {});
       const [top, ...newDeck] = prev.deck;
-      return addLog(`（効果）「${top.name}」をライフに追加（ライフ${prev.life.length + 1}枚）`, {
-        ...prev, deck: newDeck, life: [...prev.life, { ...top, faceDown: true }],
+      // 「ライフの上に加える」= ライフ配列の先頭（インデックス0 = ライフの上）に追加
+      return addLog(`（効果）「${top.name}」をライフの上に追加（ライフ${prev.life.length + 1}枚）`, {
+        ...prev, deck: newDeck, life: [{ ...top, faceDown: true }, ...prev.life],
       });
     });
   }, [addLog]);
