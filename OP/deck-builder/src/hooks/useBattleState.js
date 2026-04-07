@@ -31,6 +31,221 @@ function hasBanish(card) {
   return /【バニッシュ】/.test(card?.effect || '');
 }
 
+// ─── KO・場離れ耐性チェック ────────────────────────────────────────
+// 「このキャラは相手の効果でKOされない」（テキスト先頭から判定）
+function isImmuneToEffectKo(card) {
+  return /^このキャラは相手の効果でKOされない/.test(card?.effect || '');
+}
+// 「このキャラは相手の効果で場を離れない」
+function isImmuneToEffectLeave(card) {
+  return /^このキャラは相手の効果で場を離れない/.test(card?.effect || '');
+}
+// バトルでKOされない（常時 or DON!!×1付きで）
+// ※カードテキストは「ドン!!×1」(ASCII !)と「ドン‼×1」(U+203C)が混在するため両方対応
+function isBattleKoImmune(card) {
+  const e = card?.effect || '';
+  if (/^このキャラはバトルでKOされない/.test(e)) return true;
+  if (/【ドン[!!‼]{1,2}×1】このキャラはバトルでKOされない/.test(e) && (card?.donAttached || 0) >= 1) return true;
+  return false;
+}
+
+// ─── 条件パワーバフ計算 ───────────────────────────────────────────
+// ownSide: カードの持ち主のサイド、oppSide: 相手サイド
+function getConditionalPowerBuff(card, ownSide, oppSide) {
+  let bonus = 0;
+  const e = card?.effect || '';
+  if (!e) return 0;
+
+  // 自分のライフがN枚以下
+  const myLifeM = e.match(/自分のライフが(\d+)枚以下の場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (myLifeM && ownSide.life.length <= parseInt(myLifeM[1])) bonus += parseInt(myLifeM[2]);
+
+  // 相手のライフがN枚以上
+  const oppLifeM = e.match(/相手のライフが(\d+)枚以上の場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (oppLifeM && oppSide.life.length >= parseInt(oppLifeM[1])) bonus += parseInt(oppLifeM[2]);
+
+  // 自分の手札がN枚以下
+  const handLteM = e.match(/(?:自分の)?手札が(\d+)枚以下の場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (handLteM && ownSide.hand.length <= parseInt(handLteM[1])) bonus += parseInt(handLteM[2]);
+
+  // 自分のデッキがN枚以下
+  const deckLteM = e.match(/自分のデッキが(\d+)枚以下の場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (deckLteM && ownSide.deck.length <= parseInt(deckLteM[1])) bonus += parseInt(deckLteM[2]);
+
+  // 自分の場のDON!!がN枚以上
+  const donGteM = e.match(/自分の(?:場の)?(?:ドン‼|DON!!)が(\d+)枚以上(?:ある場合|の場合)、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (donGteM) {
+    const totalDon = (ownSide.donActive || 0) + (ownSide.donTapped || 0);
+    if (totalDon >= parseInt(donGteM[1])) bonus += parseInt(donGteM[2]);
+  }
+
+  // 自分のレストのDON!!がN枚以上
+  const donRestGteM = e.match(/自分のレストの(?:ドン‼|DON!!)が(\d+)枚以上(?:ある場合|の場合)、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (donRestGteM && (ownSide.donTapped || 0) >= parseInt(donRestGteM[1])) bonus += parseInt(donRestGteM[2]);
+
+  // 相手のレストキャラがN枚以上
+  const oppRestCharM = e.match(/相手のレストのキャラが(\d+)枚以上いる場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (oppRestCharM && oppSide.field.filter(x => x.tapped).length >= parseInt(oppRestCharM[1])) bonus += parseInt(oppRestCharM[2]);
+
+  // トラッシュN枚につきパワー+M（リーダー条件あり）
+  const trashPerM = e.match(/自分のトラッシュ(\d+)枚につき、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
+  if (trashPerM) bonus += Math.floor((ownSide.trash?.length || 0) / parseInt(trashPerM[1])) * parseInt(trashPerM[2]);
+
+  return bonus;
+}
+
+// 攻撃パワー計算（自分ターン中バフ・DON!!パワー込み）
+function computeAttackPower(card, ownSide, oppSide) {
+  let power = (card.power || 0) + (card.donAttached || 0) * 1000;
+  const e = card.effect || '';
+
+  // 手札N枚につきパワー+M（OP01-072 スマイリー等）
+  const handPerM = e.match(/自分の手札(\d+)枚につき、このキャラはパワー[＋+](\d+)/);
+  if (handPerM) power += Math.floor((ownSide.hand?.length || 0) / parseInt(handPerM[1])) * parseInt(handPerM[2]);
+
+  // 【自分のターン中】レストDON!!N枚につきパワー+M（EB01-014 サンジ）
+  const donRestPerM = e.match(/【自分のターン中】自分のレストのドン‼?(\d+)枚につき、このキャラは、?パワー[＋+](\d+)/);
+  if (donRestPerM) power += Math.floor((ownSide.donTapped || 0) / parseInt(donRestPerM[1])) * parseInt(donRestPerM[2]);
+
+  // 共通条件バフ
+  power += getConditionalPowerBuff(card, ownSide, oppSide);
+  return power;
+}
+
+// 防御パワー計算（相手ターン中バフ込み・DON!!パワーなし）
+function computeDefensePower(card, ownSide, oppSide) {
+  let power = card.power || 0;
+  const e = card.effect || '';
+
+  // 【相手のターン中】無条件パワー+N（OP10-011チョッパー等）
+  const oppTurnSimpleM = e.match(/【相手のターン中】このキャラのパワー[＋+](\d+)/);
+  if (oppTurnSimpleM) power += parseInt(oppTurnSimpleM[1]);
+
+  // 【相手のターン中】レストの場合パワー+N（OP14-026光月おでん等）
+  const oppTurnRestM = e.match(/【相手のターン中】このキャラがレストの場合、このキャラのパワー[＋+](\d+)/);
+  if (oppTurnRestM && card.tapped) power += parseInt(oppTurnRestM[1]);
+
+  // 【相手のターン中】自分のリーダーが〇〇の場合パワー+N（OP12-053等）はリーダー情報が必要なためスキップ
+
+  // 共通条件バフ
+  power += getConditionalPowerBuff(card, ownSide, oppSide);
+  return power;
+}
+
+// ─── DON!!デッキ返却時効果の解析・適用 ───────────────────────────────
+// 返却効果のメタ情報を解析
+function parseDonReturnEffect(card) {
+  const e = card?.effect || '';
+  if (!e) return null;
+  // マッチパターン: 自分のターン中/相手のターン中 + ターン1回 + ドン!!デッキに戻された時
+  const m = e.match(
+    /(【自分のターン中】|【相手のターン中】|)((?:【ターン1回】)?)自分の場のドン[!!‼]{1,2}(?:が(\d+)枚以上)?(?:が)?(?:自分の効果によって)?ドン[!!‼]{1,2}デッキに戻された時、([^。\n]+(?:。[^。\n]+)?)/
+  );
+  if (!m) return null;
+  const turnCond = m[1]; // 「【自分のターン中】」「【相手のターン中】」または空
+  const onceCond = m[2]; // 「【ターン1回】」または空
+  const minCount = m[3] ? parseInt(m[3]) : 1; // 最低N枚以上（省略時=1）
+  const actionText = m[4].trim();
+
+  // アクション種別を解析（テキスト表記揺れに対応: 「を、」「を」両方）
+  let action = null;
+  const don = 'ドン[!!‼]{1,2}';
+  if (new RegExp(`${don}デッキから、?${don}1枚まで(?:を、?)?アクティブで追加し、さらに1枚まで(?:を、?)?レストで追加`).test(actionText)) {
+    action = 'don+active+rest'; // 2枚追加（アクティブ+レスト）
+  } else if (new RegExp(`${don}デッキから、?${don}1枚まで(?:を、?)?アクティブで追加`).test(actionText)) {
+    action = 'don+active';
+  } else if (new RegExp(`${don}デッキから、?${don}1枚まで(?:を、?)?レストで追加`).test(actionText)) {
+    action = 'don+rest';
+  } else if (/カード1枚を引き、手札1枚を捨てる/.test(actionText)) {
+    action = 'draw1discard1';
+  } else {
+    action = 'manual'; // 手動処理が必要
+  }
+
+  return { turnCond, once: !!onceCond, minCount, action, actionText };
+}
+
+// DON!!返却後に場のキャラの返却時効果を適用（純粋関数）
+// sideKey: 'player' or 'cpu', returnCount: 戻した枚数, isMyTurn: sideKeyのプレイヤーのターンか
+function applyDonReturnEffectsOnState(ns, sideKey, returnCount, isMyTurn) {
+  const side = ns[sideKey];
+  let updated = ns;
+
+  for (const card of side.field) {
+    const meta = parseDonReturnEffect(card);
+    if (!meta) continue;
+
+    // ターン条件チェック
+    if (meta.turnCond === '【自分のターン中】' && !isMyTurn) continue;
+    if (meta.turnCond === '【相手のターン中】' && isMyTurn) continue;
+
+    // 返却枚数条件チェック
+    if (returnCount < meta.minCount) continue;
+
+    // ターン1回制限チェック
+    if (meta.once && card._donReturnEffectUsed) continue;
+
+    const name = card.name;
+    const currentSide = updated[sideKey];
+
+    // ─ 効果適用 ────────────────────────────────────────────────
+    if (meta.action === 'don+active' || meta.action === 'don+rest' || meta.action === 'don+active+rest') {
+      const inZone = currentSide.donActive + currentSide.donTapped;
+      const canAdd = currentSide.donDeck > 0 && inZone < currentSide.donMax;
+      if (canAdd) {
+        if (meta.action === 'don+active') {
+          updated = addLog(`「${name}」効果: DON!!×1アクティブで追加`, {
+            ...updated,
+            [sideKey]: { ...currentSide, donDeck: currentSide.donDeck - 1, donActive: currentSide.donActive + 1 },
+          });
+        } else if (meta.action === 'don+rest') {
+          updated = addLog(`「${name}」効果: DON!!×1レストで追加`, {
+            ...updated,
+            [sideKey]: { ...currentSide, donDeck: currentSide.donDeck - 1, donTapped: currentSide.donTapped + 1 },
+          });
+        } else { // don+active+rest
+          const canAdd2 = currentSide.donDeck >= 2 && inZone + 1 < currentSide.donMax;
+          const addCount = canAdd2 ? 2 : 1;
+          const ns2 = canAdd2
+            ? { donDeck: currentSide.donDeck - 2, donActive: currentSide.donActive + 1, donTapped: currentSide.donTapped + 1 }
+            : { donDeck: currentSide.donDeck - 1, donActive: currentSide.donActive + 1 };
+          updated = addLog(`「${name}」効果: DON!!×${addCount}追加（アクティブ+${canAdd2 ? 'レスト' : ''}）`, {
+            ...updated,
+            [sideKey]: { ...currentSide, ...ns2 },
+          });
+        }
+      } else {
+        updated = addLog(`「${name}」効果: DON!!デッキに残りなし`, updated);
+      }
+    } else if (meta.action === 'draw1discard1') {
+      // ドロー実行。捨ては手動
+      const cs = updated[sideKey];
+      if (cs.deck.length > 0) {
+        updated = addLog(`「${name}」効果: 1枚ドロー（手札1枚捨ては手動で）`, {
+          ...updated,
+          [sideKey]: { ...cs, deck: cs.deck.slice(1), hand: [...cs.hand, cs.deck[0]] },
+        });
+      }
+    } else {
+      // 手動処理が必要な効果はログのみ
+      updated = addLog(`「${name}」効果発動可能: ${meta.actionText}（手動処理）`, updated);
+    }
+
+    // ターン1回フラグを立てる
+    if (meta.once) {
+      const cs2 = updated[sideKey];
+      updated = {
+        ...updated,
+        [sideKey]: {
+          ...cs2,
+          field: cs2.field.map(f => f._uid === card._uid ? { ...f, _donReturnEffectUsed: true } : f),
+        },
+      };
+    }
+  }
+  return updated;
+}
+
 function parseTriggerActions(card) {
   const eff = card?.effect || '';
   const actions = [];
@@ -50,6 +265,22 @@ function addLog(msg, prev) {
   };
 }
 
+// イベントカードの【カウンター】パワー値をテキストから解析
+function parseEventCounterValue(card) {
+  if (card?.card_type !== 'EVENT') return 0;
+  const e = card?.effect || '';
+  if (!e.includes('【カウンター】')) return 0;
+  const m = e.match(/パワー[+＋](\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+
+// キャラ・イベント問わずカウンター値を取得
+function getCardCounterValue(card) {
+  if (!card) return 0;
+  if ((card.counter || 0) > 0) return card.counter;
+  return parseEventCounterValue(card);
+}
+
 // CPU自動カウンター判断
 // ターゲットがリーダーで攻撃が通る場合のみカウンターを使う
 // ※ ONE PIECE TCG: アタック側が防御側「以上」なら攻撃成功 → 防御側は攻撃力を「超える」必要がある
@@ -60,13 +291,13 @@ function cpuAutoCounter(cpuSide, targetType, attackPower, defensePower) {
   // 防御力が攻撃力を「超える」必要がある（同値では防げない）
   const needed = attackPower - defensePower + 1000;
   const candidates = cpuSide.hand
-    .filter(c => c.card_type === 'CHARACTER' && (c.counter || 0) > 0)
-    .sort((a, b) => (b.counter || 0) - (a.counter || 0));
+    .filter(c => getCardCounterValue(c) > 0)
+    .sort((a, b) => getCardCounterValue(b) - getCardCounterValue(a));
   let bonus = 0;
   const used = [];
   for (const card of candidates) {
     if (bonus >= needed) break;
-    bonus += card.counter;
+    bonus += getCardCounterValue(card);
     used.push(card);
   }
   // カウンターしても防げない場合は使わない
@@ -82,6 +313,10 @@ function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackP
       const defSide = ns[defKey];
       const target = defSide.field.find(x => x._uid === targetUid);
       if (!target) return ns;
+      // バトルKO耐性チェック（ヴェルゴ等）
+      if (isBattleKoImmune(target)) {
+        return addLog(`「${target.name}」はバトルでKOされない！`, ns);
+      }
       const donBack = target.donAttached || 0;
       return addLog(`KO！「${target.name}」（DON!!×${donBack}返還）`, {
         ...ns,
@@ -176,8 +411,9 @@ function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackP
 }
 
 // CPU攻撃キューから次のアタックを開始する
-// リーダーへの攻撃 → ブロッカーステップ or カウンターステップ（プレイヤー操作）
-// キャラへの攻撃 → 自動ダメージ解決（ブロッカー/カウンター不可）
+// リーダーへの攻撃 → ブロッカーステップ → カウンターステップ → ダメージ解決（プレイヤー操作）
+// キャラへの攻撃  → ブロッカーステップ → カウンターステップ → ダメージ解決（プレイヤー操作）
+// ※ONE PIECE TCGルール: キャラへの攻撃でもカウンターステップは存在する
 function startCpuAttackOnState(ns, pendingAttacks) {
   let attacks = [...pendingAttacks];
   while (attacks.length > 0) {
@@ -212,9 +448,12 @@ function startCpuAttackOnState(ns, pendingAttacks) {
     }
 
     // CPUターン: CPUの攻撃側はDONパワー有効、プレイヤーの防御側はDONパワー無効
-    const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
+    const attackPower = computeAttackPower(attacker, c, p);
     // リーダーへの攻撃はleaderPowerBuff（相手アタック時効果）を防御力に加算
-    const defensePower = (target.power || 0) + (targetType === 'leader' ? (p.leaderPowerBuff || 0) : 0);
+    // キャラ防御時は【相手のターン中】バフを computeDefensePower で適用
+    const defensePower = (targetType === 'leader'
+      ? (target.power || 0) + (p.leaderPowerBuff || 0)
+      : computeDefensePower(target, p, c));
     const targetName = targetType === 'leader' ? 'プレイヤーリーダー' : `「${target.name}」`;
     const logMsg = `CPU「${attacker.name}」(${attackPower}) が${targetName}(${defensePower})にアタック！`;
 
@@ -238,11 +477,11 @@ function startCpuAttackOnState(ns, pendingAttacks) {
         },
       };
     } else {
-      // ─ キャラへの攻撃: ブロッカーステップ可（カウンターは不可）─
+      // ─ キャラへの攻撃: ブロッカーステップ→カウンターステップ（プレイヤー操作）─
       const newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
       const playerBlockers = p.field.filter(x => (/【ブロッカー】/.test(x.effect || '') || x._hasBlocker) && !x.tapped && x._uid !== finalTargetUid);
       if (playerBlockers.length > 0) {
-        // ブロッカーがいる場合: プレイヤーにブロッカー選択を求める（カウンターなし）
+        // ブロッカーがいる場合: ブロッカー選択 → その後カウンターステップへ
         return {
           ...newNs,
           attackState: {
@@ -254,18 +493,26 @@ function startCpuAttackOnState(ns, pendingAttacks) {
             attackPower,
             defensePower,
             counterBonus: 0,
-            step: 'blocker', // キャラ攻撃: ブロッカーのみ（カウンターなし）
-            noCounter: true, // カウンターステップなし
+            step: 'blocker',
+            // noCounter 廃止: キャラ攻撃でもカウンターステップあり
           },
         };
       }
-      // ブロッカーなし → 自動ダメージ解決
-      let resolvedNs = resolveDamageOnState(newNs, 'cpu', 'player', 'character', finalTargetUid, attackPower, defensePower, attacker);
-      if (resolvedNs.winner || resolvedNs.pendingTrigger) {
-        return resolvedNs; // 勝利またはトリガーで一旦停止
-      }
-      ns = resolvedNs; // 状態更新して次のアタックへ
-      // attacks はすでに remaining になっているのでループ継続
+      // ブロッカーなし → カウンターステップへ（ルール通り）
+      return {
+        ...newNs,
+        attackState: {
+          attackerUid: attack.attackerUid,
+          attackerType: attack.attackerType,
+          owner: 'cpu',
+          targetUid: finalTargetUid,
+          targetType: 'character',
+          attackPower,
+          defensePower,
+          counterBonus: 0,
+          step: 'counter',
+        },
+      };
     }
   }
 
@@ -382,7 +629,8 @@ export function useBattleState() {
         const donFromField = s.field.reduce((sum, c) => sum + (c.donAttached || 0), 0);
         const donFromLeader = s.leader.donAttached || 0;
         const restored = s.donTapped + donFromField + donFromLeader;
-        const newField = s.field.map(c => ({ ...c, tapped: false, donAttached: 0 }));
+        // リフレッシュ: タップ解除・DON!!回収・ターン1回フラグリセット（_donReturnEffectUsed含む）
+        const newField = s.field.map(c => ({ ...c, tapped: false, donAttached: 0, _donReturnEffectUsed: false }));
         const newLeader = { ...s.leader, tapped: false, donAttached: 0 };
         return addLog(`[${label}] リフレッシュ${restored > 0 ? `・DON!!×${restored}回収` : ''}`, {
           ...prev,
@@ -553,8 +801,8 @@ export function useBattleState() {
         if (!target.tapped) return addLog('アクティブ状態のキャラにはアタックできません', prev);
       }
 
-      // プレイヤーターン: プレイヤー攻撃側はDONパワー有効、CPU防御側はDONパワー無効
-      const attackPower = (attacker.power || 0) + (attacker.donAttached || 0) * 1000;
+      // プレイヤーターン: プレイヤー攻撃側はDONパワー有効+自ターン中バフ、CPU防御側はDONパワー無効+相手ターン中バフ
+      const attackPower = computeAttackPower(attacker, p, c);
 
       // アタッカーをタップ
       let newPlayer = p;
@@ -566,7 +814,9 @@ export function useBattleState() {
 
       let finalTargetUid = targetUid;
       let finalTargetType = targetType;
-      let finalDefensePower = (target.power || 0); // 防御側のDONパワーは無効（相手ターン）
+      // CPU防御: DONパワー無効・相手ターン中バフを計算（computeDefensePower = 【相手のターン中】はプレイヤーターン中なのでCPU側に適用なし）
+      // ※ CPUにとってプレイヤーのターンは「相手のターン」なので computeDefensePower を適用
+      let finalDefensePower = computeDefensePower(target, c, p);
       let ns = { ...prev, player: newPlayer };
 
       // ─ CPUブロッカーステップ（リーダーへの攻撃時のみ）───
@@ -580,7 +830,7 @@ export function useBattleState() {
             ns = { ...ns, cpu: c };
             finalTargetUid = blockerUid;
             finalTargetType = 'character';
-            finalDefensePower = (blocker.power || 0); // CPU防御側のDONパワーは無効（プレイヤーターン）
+            finalDefensePower = computeDefensePower(blocker, c, p);
             ns = addLog(`CPU ブロッカー「${blocker.name}」(${finalDefensePower})で受ける！`, ns);
           }
         }
@@ -724,9 +974,7 @@ export function useBattleState() {
       const newField = p.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x);
       const defensePower = (blocker.power || 0); // プレイヤー防御側のDONパワーは無効（CPUターン）
 
-      // キャラへの攻撃の場合はブロッカー後もカウンターなし → 直接カウンターor解決
-      const noCounter = prev.attackState.noCounter;
-      const nextStep = noCounter ? 'resolve-char' : 'counter';
+      // ブロッカー後は常にカウンターステップへ（キャラ攻撃でも同様）
       return addLog(`「${blocker.name}」でブロック！（防御力: ${defensePower}）`, {
         ...prev,
         player: { ...p, field: newField },
@@ -736,7 +984,7 @@ export function useBattleState() {
           targetType: 'character',
           defensePower,
           counterBonus: 0,
-          step: nextStep,
+          step: 'counter',
         },
       });
     });
@@ -746,15 +994,7 @@ export function useBattleState() {
   const playerPassBlock = useCallback(() => {
     setState(prev => {
       if (!prev?.attackState || prev.attackState.step !== 'blocker') return prev;
-      const noCounter = prev.attackState.noCounter;
-      if (noCounter) {
-        // キャラへの攻撃: カウンターなし → 直接ダメージ解決
-        const { targetUid, targetType, attackPower, defensePower } = prev.attackState;
-        let ns = { ...prev, attackState: null };
-        ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower);
-        if (ns.winner || ns.pendingTrigger) return ns;
-        return startCpuAttackOnState(ns, ns.cpuPendingAttacks || []);
-      }
+      // キャラ攻撃・リーダー攻撃問わず、ブロッカーなし → カウンターステップへ
       return addLog('ブロッカーなし', { ...prev, attackState: { ...prev.attackState, step: 'counter' } });
     });
   }, []);
@@ -767,7 +1007,8 @@ export function useBattleState() {
       const p = prev.player;
       const card = p.hand.find(c => c._uid === cardUid);
       if (!card) return prev;
-      const counterVal = card.counter || 0;
+      // キャラカードの counter フィールド、またはイベントカードの効果テキストからカウンター値を取得
+      const counterVal = getCardCounterValue(card);
       if (counterVal <= 0) return addLog('このカードにはカウンター値がありません', prev);
 
       const newHand = p.hand.filter(c => c._uid !== cardUid);
@@ -1183,6 +1424,7 @@ export function useBattleState() {
   }, []);
 
   // ── プレイヤー: DON!!優先返却（効果コスト用）────────────────────────
+  // ※ 返却後にフィールドの「DON!!がデッキに戻された時」効果を自動発動
   const playerReturnDonToDeckPriority = useCallback((count) => {
     setState(prev => {
       if (!prev) return prev;
@@ -1195,7 +1437,36 @@ export function useBattleState() {
         const fromActive = Math.min(remaining, p.donActive);
         p.donActive -= fromActive; p.donDeck += fromActive; remaining -= fromActive;
       }
-      return addLog(`DON!!×${count - remaining}枚をデッキに返却`, { ...prev, player: p });
+      const actualReturned = count - remaining;
+      let ns = addLog(`DON!!×${actualReturned}枚をデッキに返却`, { ...prev, player: p });
+      // DON!!返却時効果の自動発動（プレイヤーのターン中のみ）
+      if (actualReturned > 0 && ns.activePlayer === 'player' && ns.subPhase === 'main') {
+        // フィールドキャラの効果
+        ns = applyDonReturnEffectsOnState(ns, 'player', actualReturned, true);
+        // リーダー効果（OP09-061 ルフィ等: DON!!が2枚以上デッキに戻った時）
+        const leaderEff = ns.player.leaderEffect || {};
+        if (leaderEff.donReturnEffect && !ns.player.leaderAbilityUsed) {
+          const { minCount, action } = leaderEff.donReturnEffect;
+          if (actualReturned >= (minCount || 1)) {
+            const ps = ns.player;
+            const inZone = ps.donActive + ps.donTapped;
+            if (action === 'don+active+rest' && ps.donDeck > 0 && inZone < ps.donMax) {
+              const canAdd2 = ps.donDeck >= 2 && inZone + 1 < ps.donMax;
+              const ns2 = canAdd2
+                ? { donDeck: ps.donDeck - 2, donActive: ps.donActive + 1, donTapped: ps.donTapped + 1 }
+                : { donDeck: ps.donDeck - 1, donActive: ps.donActive + 1 };
+              ns = addLog(`リーダー効果: DON!!×${canAdd2 ? 2 : 1}追加`, {
+                ...ns, player: { ...ps, ...ns2, leaderAbilityUsed: true },
+              });
+            } else if (action === 'don+active' && ps.donDeck > 0 && inZone < ps.donMax) {
+              ns = addLog('リーダー効果: DON!!×1アクティブ追加', {
+                ...ns, player: { ...ps, donDeck: ps.donDeck - 1, donActive: ps.donActive + 1, leaderAbilityUsed: true },
+              });
+            }
+          }
+        }
+      }
+      return ns;
     });
   }, []);
 
@@ -1381,6 +1652,10 @@ export function useBattleState() {
       const c = prev.cpu;
       const target = c.field.find(x => x._uid === charUid);
       if (!target) return prev;
+      // 効果KO耐性チェック
+      if (isImmuneToEffectKo(target) || isImmuneToEffectLeave(target)) {
+        return addLog(`「${target.name}」は相手の効果でKO/場離れしない！`, prev);
+      }
       const donBack = target.donAttached || 0;
       return addLog(`効果:「${target.name}」をKO！`, {
         ...prev, cpu: {
@@ -1416,6 +1691,10 @@ export function useBattleState() {
       const c = prev.cpu;
       const target = c.field.find(x => x._uid === charUid);
       if (!target) return prev;
+      // 場離れ耐性チェック
+      if (isImmuneToEffectLeave(target)) {
+        return addLog(`「${target.name}」は相手の効果で場を離れない！`, prev);
+      }
       const donBack = target.donAttached || 0;
       return addLog(`効果:「${target.name}」をデッキ下へ！`, {
         ...prev, cpu: {

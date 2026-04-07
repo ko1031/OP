@@ -241,6 +241,7 @@ export const LEADER_EFFECTS = {
   // 紫黒ルフィ OP09-061
   'OP09-061': {
     note: '【ドン!!×1】自分のキャラすべてコスト+1 | 自分のターン中・ターン1回: 場のDON!!が2枚以上デッキに戻った時、DON!!デッキからDON!!1枚アクティブ+1枚レストで追加',
+    donReturnEffect: { minCount: 2, action: 'don+active+rest' },
   },
   // 紫黄ニコ・ロビン OP09-062 — バニッシュリーダー
   'OP09-062': {

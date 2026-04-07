@@ -1128,6 +1128,20 @@ function BlockerModal({ attackState, playerField, onBlock, onPass }) {
   );
 }
 
+// イベントカードの【カウンター】パワー値をテキストから解析
+function parseEventCounterValueUI(card) {
+  if (card?.card_type !== 'EVENT') return 0;
+  const e = card?.effect || '';
+  if (!e.includes('【カウンター】')) return 0;
+  const m = e.match(/パワー[+＋](\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+function getCardCounterValueUI(card) {
+  if (!card) return 0;
+  if ((card.counter || 0) > 0) return card.counter;
+  return parseEventCounterValueUI(card);
+}
+
 // ─── カウンターステップモーダル（CPU攻撃時）──────────────────────────
 function CounterModal({
   attackState, playerHand, onCounter, onConfirm,
@@ -1135,9 +1149,11 @@ function CounterModal({
 }) {
   const [selectingDiscard, setSelectingDiscard] = useState(false);
   if (!attackState || attackState.step !== 'counter' || attackState.owner !== 'cpu') return null;
-  const { attackPower, defensePower } = attackState;
+  const { attackPower, defensePower, targetType } = attackState;
   const willSurvive = defensePower > attackPower;
-  const counterCards = playerHand.filter(c => (c.counter || 0) > 0);
+  // キャラカード（counter フィールド）とイベントカード（【カウンター】効果）を両方含む
+  const counterCards = playerHand.filter(c => getCardCounterValueUI(c) > 0);
+  const targetLabel = targetType === 'leader' ? 'リーダー' : 'キャラ';
 
   // リーダー相手アタック時効果の表示条件
   const requiredDon = playerLeaderEffect?.opponentAttackRequiresDon ?? 1;
@@ -1158,13 +1174,16 @@ function CounterModal({
       <div className="bg-[#0a0f24] border border-purple-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
         <div className="text-center mb-3">
           <div className="text-purple-400 font-black text-lg mb-2">🛡️ カウンターステップ</div>
+          <div className="text-[10px] text-purple-300/60 mb-1">{targetLabel}への攻撃 — 手札からカウンターを発動できます</div>
           <div className="flex items-center justify-center gap-4 my-2">
             <div className="text-center"><div className="text-[10px] text-red-400/60 mb-0.5">攻撃力</div><div className="font-black text-2xl text-red-300">{attackPower.toLocaleString()}</div></div>
             <div className="text-xl font-black text-amber-600/70">VS</div>
             <div className="text-center"><div className="text-[10px] text-blue-400/60 mb-0.5">防御力</div><div className={`font-black text-2xl ${willSurvive ? 'text-green-300' : 'text-blue-300'}`}>{defensePower.toLocaleString()}</div></div>
           </div>
           <div className={`text-sm font-bold ${willSurvive ? 'text-green-400' : 'text-red-400'}`}>
-            {willSurvive ? '✓ ダメージ防御成功！' : `防御力が攻撃力を超える必要あり（残り+${(attackPower - defensePower + 1000).toLocaleString()}）`}
+            {willSurvive
+              ? (targetType === 'leader' ? '✓ ダメージ防御成功！' : '✓ KO回避成功！')
+              : `防御力が攻撃力を超える必要あり（残り+${(attackPower - defensePower + 1000).toLocaleString()}）`}
           </div>
         </div>
 
@@ -1216,30 +1235,41 @@ function CounterModal({
         {counterCards.length > 0 && !selectingDiscard && (
           <div className="mb-3">
             <div className="text-[10px] text-purple-400/60 font-bold text-center mb-2">
-              カウンターカード（クリックで発動）※キャラ・イベントカード共通
+              カウンターカード（クリックで発動）— キャラはトラッシュへ、イベントは効果発動
             </div>
             <div className="flex gap-2 flex-wrap justify-center max-h-36 overflow-y-auto">
-              {counterCards.map(card => (
-                <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => onCounter(card._uid)}>
-                  <div className={`rounded-xl overflow-hidden border-2 group-hover:scale-105 transition-all ${
-                    card.card_type === 'EVENT' ? 'border-blue-500/50 group-hover:border-blue-400' : 'border-purple-500/50 group-hover:border-purple-400'
-                  }`} style={{ width: 68, height: 95 }}>
-                    <CardImage card={card} className="w-full h-full object-cover" />
+              {counterCards.map(card => {
+                const cval = getCardCounterValueUI(card);
+                const isEvent = card.card_type === 'EVENT';
+                return (
+                  <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group" onClick={() => onCounter(card._uid)}>
+                    <div className={`rounded-xl overflow-hidden border-2 group-hover:scale-105 transition-all ${
+                      isEvent ? 'border-blue-500/50 group-hover:border-blue-400' : 'border-purple-500/50 group-hover:border-purple-400'
+                    }`} style={{ width: 68, height: 95 }}>
+                      <CardImage card={card} className="w-full h-full object-cover" />
+                    </div>
+                    <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
+                      isEvent
+                        ? 'text-blue-300 bg-blue-900/40 border-blue-700/50'
+                        : 'text-purple-300 bg-purple-900/40 border-purple-700/50'
+                    }`}>+{cval.toLocaleString()}</div>
+                    <div className="text-[8px] text-gray-500/60">{isEvent ? 'EVT' : 'CHR'}</div>
                   </div>
-                  <div className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border ${
-                    card.card_type === 'EVENT'
-                      ? 'text-blue-300 bg-blue-900/40 border-blue-700/50'
-                      : 'text-purple-300 bg-purple-900/40 border-purple-700/50'
-                  }`}>+{(card.counter || 0).toLocaleString()}</div>
-                  <div className="text-[8px] text-gray-500/60">{card.card_type === 'EVENT' ? 'EVT' : 'CHR'}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+          </div>
+        )}
+        {counterCards.length === 0 && !selectingDiscard && (
+          <div className="mb-3 text-center text-[10px] text-gray-600/60">
+            手札にカウンターカードなし
           </div>
         )}
         {!selectingDiscard && (
           <button onClick={onConfirm} className={`w-full py-2.5 rounded-xl text-sm font-black ${willSurvive ? P.btnGreen : P.btnGold}`}>
-            {willSurvive ? '防御確定！' : 'このまま受ける'}
+            {willSurvive
+              ? (targetType === 'leader' ? '防御確定！' : 'KO回避確定！')
+              : 'このまま受ける'}
           </button>
         )}
       </div>
