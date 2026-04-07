@@ -92,7 +92,28 @@ export default function DeckPanel({
   const [savedDecks, setSavedDecks] = useState({});
   const [activeTab, setActiveTab] = useState('deck'); // 'deck' | 'eval'
   const [modalCard, setModalCard] = useState(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const stats = deckStats(deck);
+
+  const handleDragOver = (e) => {
+    if (!e.dataTransfer.types.includes('application/op-card')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  };
+  const handleDragLeave = (e) => {
+    // パネル内の子要素への移動では消えないように
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragOver(false);
+  };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    try {
+      const card = JSON.parse(e.dataTransfer.getData('application/op-card'));
+      if (card) onAddCard(card);
+    } catch { /* ignore */ }
+  };
 
   const progress = Math.min((total / DECK_LIMIT) * 100, 100);
   const progressColor = total === DECK_LIMIT ? 'bg-green-500' : total > DECK_LIMIT ? 'bg-red-500' : 'bg-blue-500';
@@ -132,7 +153,21 @@ export default function DeckPanel({
   });
 
   return (
-    <div className="flex flex-col h-full bg-[#080c1e]/90">
+    <div
+      className={`flex flex-col h-full bg-[#080c1e]/90 relative transition-colors duration-150
+        ${isDragOver ? 'ring-2 ring-inset ring-blue-400/60 bg-blue-900/10' : ''}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* ドラッグオーバー時のオーバーレイ */}
+      {isDragOver && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <div className="bg-blue-500/20 border-2 border-dashed border-blue-400/70 rounded-2xl px-8 py-4 text-blue-300 font-bold text-sm backdrop-blur-sm">
+            ＋ デッキに追加
+          </div>
+        </div>
+      )}
       {/* ヘッダー */}
       <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-amber-900/30">
         <div className="flex items-center justify-between mb-2">

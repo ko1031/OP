@@ -12,6 +12,7 @@ const HAS_MOUSE = window.matchMedia('(hover: hover) and (pointer: fine)').matche
 function CardItem({ card, count, isSelected, onOpenModal }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
 
   const trigger    = hasTrigger(card);
   const hasCounter = card.counter || (card.card_type === 'EVENT' && card.effect?.includes('【カウンター】'));
@@ -28,12 +29,24 @@ function CardItem({ card, count, isSelected, onOpenModal }) {
     setShowTooltip(false);
   };
 
+  const handleDragStart = (e) => {
+    setShowTooltip(false);
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('application/op-card', JSON.stringify(card));
+  };
+  const handleDragEnd = () => setIsDragging(false);
+
   return (
     <>
       <div
         className={`relative rounded-lg overflow-hidden cursor-pointer group border-2 transition-all
           ${isSelected ? 'border-yellow-400 shadow-yellow-400/40 shadow-lg' : 'border-transparent'}
+          ${isDragging ? 'opacity-50 scale-95' : ''}
           card-hover`}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
         onClick={() => onOpenModal(card)}
