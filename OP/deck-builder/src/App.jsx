@@ -324,6 +324,7 @@ export default function App({ onNavigate }) {
               onDeleteSaved={deck.deleteSavedDeck}
               loadDecks={deck.loadDecks}
               onSelectLeader={handleSelectLeader}
+              onFindSynergy={handleFindSynergy}
             />
           </div>
         </div>

@@ -86,6 +86,7 @@ export default function DeckPanel({
   leader, deck, total, deckName, setDeckName,
   onAddCard, onRemoveCard, onRemoveAllCard, onReset,
   onSave, onLoad, onDeleteSaved, loadDecks, onSelectLeader,
+  onFindSynergy,
 }) {
   const [showSaved, setShowSaved] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -323,6 +324,7 @@ export default function DeckPanel({
           onRemove={onRemoveCard}
           onSelectLeader={onSelectLeader ?? (() => {})}
           onClose={() => setModalCard(null)}
+          onFindSynergy={onFindSynergy ? (card) => { setModalCard(null); onFindSynergy(card); } : undefined}
         />
       )}
     </div>
