@@ -700,6 +700,64 @@ function CpuCharTargetModal({ cpuField, action, onConfirm, onCancel }) {
   );
 }
 
+// ─── ロビン(OP15-109): 空島キャラ無料登場モーダル ────────────────────────
+function RobinSkypiéaModal({ playerHand, onConfirm, onSkip }) {
+  const targets = playerHand.filter(
+    c => c.card_type === 'CHARACTER' && (c.cost || 0) <= 5 && (c.traits || []).includes('空島')
+  );
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-green-600/40 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-green-400 font-black text-base mb-1">⚔ ロビン【登場時】空島キャラ登場</div>
+          <div className="text-amber-600/50 text-xs">手札からコスト5以下・特徴《空島》のキャラ1体を無料で登場できます</div>
+        </div>
+        {targets.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4 max-h-[40vh] overflow-y-auto">
+            {targets.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onConfirm(card._uid)}>
+                <div className="rounded-xl overflow-hidden border-2 border-green-500/50 group-hover:border-green-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-green-300/80 text-center max-w-[90px] truncate">{card.name}</div>
+                <div className="text-[8px] text-green-400/50">コスト{card.cost} / P{(card.power || 0).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-600/50 text-sm py-6">対象のキャラカードが手札にありません</div>
+        )}
+        <button onClick={onSkip} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>スキップ（登場させない）</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ロビン(EB03-055): KO時1ダメージ確認モーダル ─────────────────────────
+function RobinKoDamageModal({ onApply, onSkip }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-5 text-center">
+        <div className="text-amber-400 font-black text-base mb-2">🗡️ ロビン【KO時】効果</div>
+        <div className="text-amber-200/70 text-sm mb-4">
+          「ニコ・ロビン」がKOされました。<br/>
+          相手に<span className="text-red-400 font-bold">1ダメージ</span>を与えますか？
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onApply} className={`flex-1 py-2.5 rounded-xl text-sm font-black ${P.btnRed}`}>
+            1ダメージを与える
+          </button>
+          <button onClick={onSkip} className={`flex-1 py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>
+            スキップ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── ペローナ: アタック不可ターゲット選択モーダル ───────────────────────
 function PeronaTargetModal({ cpuField, onConfirm, onSkip }) {
   const targets = cpuField.filter(c => (c.cost || 0) <= 6);
@@ -1993,13 +2051,15 @@ export default function BattlePage({ onNavigate }) {
     if (!isCpuTurn) return;
     if (state.pendingTrigger) return;
     if (state.attackState) return;
+    if (state.pendingRobinSkypiea) return;  // ロビン空島選択待ち
+    if (state.pendingRobinKoDamage) return; // ロビンKO時ダメージ確認待ち
     if (['refresh','draw','don'].includes(subPhase)) { const t = setTimeout(() => game.advancePhase(), 800); return () => clearTimeout(t); }
     if (subPhase === 'end') { const t = setTimeout(() => game.advancePhase(), 600); return () => clearTimeout(t); }
     if (subPhase === 'main') {
       if ((state.cpuPendingAttacks?.length || 0) > 0) { const t = setTimeout(() => game.processCpuPendingAttack(), 600); return () => clearTimeout(t); }
       const t = setTimeout(() => game.runCpuMainPhase(), 1200); return () => clearTimeout(t);
     }
-  }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length]);
+  }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length, state?.pendingRobinSkypiea, state?.pendingRobinKoDamage]);
 
   useEffect(() => { if (isCpuTurn) { setAttackMode(null); setSelectedAttackerUid(null); } }, [isCpuTurn]);
 
@@ -2757,6 +2817,23 @@ export default function BattlePage({ onNavigate }) {
           cpuField={cs.field}
           onConfirm={(uid) => game.playerPeronaLockTarget(uid)}
           onSkip={() => game.playerPeronaLockTarget(null)}
+        />
+      )}
+
+      {/* ロビン(OP15-109): 空島キャラ無料登場選択 */}
+      {state.pendingRobinSkypiea?.owner === 'player' && (
+        <RobinSkypiéaModal
+          playerHand={ps.hand}
+          onConfirm={(uid) => game.playerResolveSkypiea(uid)}
+          onSkip={() => game.playerResolveSkypiea(null)}
+        />
+      )}
+
+      {/* ロビン(EB03-055): KO時1ダメージ確認 */}
+      {state.pendingRobinKoDamage && (
+        <RobinKoDamageModal
+          onApply={() => game.playerRobinKoDamage(true)}
+          onSkip={() => game.playerRobinKoDamage(false)}
         />
       )}
 

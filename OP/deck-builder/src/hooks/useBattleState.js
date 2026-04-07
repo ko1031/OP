@@ -337,10 +337,11 @@ function applyRobinEB03Effect(ns, sideKey) {
 }
 
 /**
- * ニコ・ロビン OP15-109 【登場時】
+ * ニコ・ロビン OP15-109 【登場時】（完全実装）
  * 条件: 自分ライフ>=1
- * 効果: ライフ上1枚→手札、AND リーダーが《麦わらの一味》ならデッキ上1枚→ライフ上
- * ※空島キャラ召喚は省略
+ * 効果①: ライフ上1枚→手札
+ * 効果②: リーダーが《麦わらの一味》ならデッキ上1枚→ライフ上
+ * 効果③: 手札からコスト5以下《空島》キャラ1枚を登場（CPU自動選択、プレイヤーは pendingRobinSkypiea でUI選択）
  */
 function applyRobinOP15Effect(ns, sideKey) {
   const s = ns[sideKey];
@@ -356,7 +357,7 @@ function applyRobinOP15Effect(ns, sideKey) {
   if (triggered && sideKey === 'player') {
     ns2 = { ...ns2, pendingTrigger: { card: lifeTop, owner: sideKey } };
   }
-  // 麦わらの一味リーダーならデッキ上1枚→ライフ上
+  // ② 麦わらの一味リーダーならデッキ上1枚→ライフ上
   const hasMugiwara = (ns2[sideKey].leader?.traits || []).includes('麦わらの一味');
   if (hasMugiwara && ns2[sideKey].deck.length > 0) {
     const s2 = ns2[sideKey];
@@ -366,9 +367,64 @@ function applyRobinOP15Effect(ns, sideKey) {
       { ...ns2, [sideKey]: { ...s2, life: [{ ...fromDeck, faceDown: true }, ...s2.life], deck: restDeck } }
     );
   }
+  // ③ 空島コスト5以下キャラを手札から登場
+  if (sideKey === 'cpu') {
+    // CPU: 自動選択（コスト高い順）
+    const s3 = ns2[sideKey];
+    const skypiea = [...s3.hand]
+      .filter(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= 5 && (c.traits || []).includes('空島'))
+      .sort((a, b) => (b.cost || 0) - (a.cost || 0));
+    if (skypiea.length > 0 && s3.field.length < 5) {
+      const summon = skypiea[0];
+      const hasRush = /【速攻】/.test(summon.effect || '');
+      ns2 = addLog(
+        `CPU【ロビン(OP15)空島効果】「${summon.name}」（コスト${summon.cost}）無料登場`,
+        {
+          ...ns2,
+          [sideKey]: {
+            ...s3,
+            hand: s3.hand.filter(c => c._uid !== summon._uid),
+            field: [...s3.field, { ...summon, tapped: false, donAttached: 0, _summonedTurn: ns2.turn, _hasRush: hasRush }],
+          },
+        }
+      );
+    }
+  } else {
+    // プレイヤー: UIで選択させる（pendingRobinSkypiea をセット）
+    const s3 = ns2[sideKey];
+    const hasSkypiea = s3.hand.some(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= 5 && (c.traits || []).includes('空島'));
+    if (hasSkypiea && s3.field.length < 5) {
+      ns2 = { ...ns2, pendingRobinSkypiea: { owner: 'player' } };
+    }
+  }
   return ns2;
 }
 // ─────────────────────────────────────────────────────────────────────
+
+/**
+ * 1ダメージを適用（ライフ上1枚→手札、トリガー確認あり）
+ * targetKey: ダメージを受ける側 ('player'|'cpu')
+ */
+function applyOneDamage(ns, targetKey, sourceLabel = '') {
+  const tgt = ns[targetKey];
+  const tgtLabel = targetKey === 'player' ? 'プレイヤー' : 'CPU';
+  if (tgt.life.length === 0) {
+    return addLog(
+      `${sourceLabel}1ダメージ: ${tgtLabel}のライフが0 → ${targetKey === 'player' ? 'CPU' : 'プレイヤー'}の勝利！`,
+      { ...ns, winner: targetKey === 'player' ? 'cpu' : 'player' }
+    );
+  }
+  const [lifeTop, ...restLife] = tgt.life;
+  const triggered = hasTrigger(lifeTop);
+  let ns2 = addLog(
+    `${sourceLabel}${tgtLabel}に1ダメージ: 「${lifeTop.name}」${triggered ? '【トリガー】！' : ''}→手札`,
+    { ...ns, [targetKey]: { ...tgt, life: restLife, hand: [...tgt.hand, { ...lifeTop, faceDown: false }] } }
+  );
+  if (triggered) {
+    ns2 = { ...ns2, pendingTrigger: { card: lifeTop, owner: targetKey } };
+  }
+  return ns2;
+}
 
 // イベントカードの【カウンター】パワー値をテキストから解析
 function parseEventCounterValue(card) {
@@ -535,6 +591,17 @@ function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackP
       // ペローナ【KO時】: KOされた側(defKey)のペローナが場を離れたとき、atkKey側のキャラを自動選択でアタック不可
       if (target.card_number === PERONA_CARD_NUMBER) {
         koNs = autoApplyPeronaEffect(koNs, defKey);
+      }
+      // EB03-055 ロビン【相手のターン中・KO時】相手に1ダメージ
+      // atkKey が現在のターンプレイヤー（= defKey の「相手」）なのでこれはバトルKOのみ対象
+      if (target.card_number === ROBIN_EB03_NUMBER) {
+        if (defKey === 'cpu') {
+          // CPUのロビンがKO → CPUが1ダメージを与える（自動適用: 常に有利）
+          koNs = applyOneDamage(koNs, atkKey, 'CPU【ロビンKO時】');
+        } else {
+          // プレイヤーのロビンがKO → プレイヤーが選択（pendingRobinKoDamage をセット）
+          koNs = { ...koNs, pendingRobinKoDamage: { targetKey: atkKey } };
+        }
       }
       return koNs;
     } else {
@@ -2512,6 +2579,50 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: ロビン(OP15-109)空島キャラ手札から無料登場 ─────────────
+  const playerResolveSkypiea = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev?.pendingRobinSkypiea) return prev;
+      const ns0 = { ...prev, pendingRobinSkypiea: null };
+      if (!cardUid) return addLog('ロビン効果: 空島キャラ登場スキップ', ns0);
+      const p = ns0.player;
+      const idx = p.hand.findIndex(c => c._uid === cardUid);
+      if (idx < 0) return ns0;
+      const card = p.hand[idx];
+      // バリデーション: CHARACTER・コスト5以下・空島
+      if (
+        !card ||
+        card.card_type !== 'CHARACTER' ||
+        (card.cost || 0) > 5 ||
+        !(card.traits || []).includes('空島')
+      ) return addLog('対象が無効です（コスト5以下の空島キャラを選択）', ns0);
+      if (p.field.length >= 5) return addLog('フィールドが満員（スキップ）', ns0);
+      const hasRush = /【速攻】/.test(card.effect || '');
+      return addLog(
+        `ロビン効果:「${card.name}」（コスト${card.cost}・空島）無料登場`,
+        {
+          ...ns0,
+          player: {
+            ...p,
+            hand: p.hand.filter((_, i) => i !== idx),
+            field: [...p.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }],
+          },
+        }
+      );
+    });
+  }, []);
+
+  // ── プレイヤー: ロビン(EB03-055) KO時1ダメージ確認 ──────────────────
+  const playerRobinKoDamage = useCallback((apply) => {
+    setState(prev => {
+      if (!prev?.pendingRobinKoDamage) return prev;
+      const { targetKey } = prev.pendingRobinKoDamage;
+      const ns0 = { ...prev, pendingRobinKoDamage: null };
+      if (!apply) return addLog('ロビン【KO時】: 1ダメージスキップ', ns0);
+      return applyOneDamage(ns0, targetKey, 'ロビン【KO時】');
+    });
+  }, []);
+
   // ── プレイヤー: ペローナ効果ターゲット選択（CPUキャラをアタック不可に）────
   const playerPeronaLockTarget = useCallback((targetUid) => {
     setState(prev => {
@@ -2734,6 +2845,8 @@ export function useBattleState() {
     playerRestCpuChar,
     playerDeckBottomCpuChar,
     playerPeronaLockTarget,
+    playerResolveSkypiea,
+    playerRobinKoDamage,
     playerDiscardHandCard,
     playerGiveCharBlocker,
     playerUseLeaderDefenseAbility,
