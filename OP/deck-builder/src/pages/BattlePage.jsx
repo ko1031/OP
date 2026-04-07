@@ -1069,13 +1069,16 @@ function SearchModal({ revealed, onResolve, onCancel }) {
 }
 
 // ─── トラッシュモーダル ─────────────────────────────────────────────
-function TrashModal({ trash, onAction, onClose }) {
+function TrashModal({ trash, onAction, onClose, readOnly = false, title = 'トラッシュ' }) {
   const [sel, setSel] = useState(null);
+  const borderColor = readOnly ? 'border-blue-700/50' : 'border-amber-700/50';
+  const headerColor = readOnly ? 'text-blue-400' : 'text-amber-400';
+  const selBorderColor = readOnly ? 'border-blue-400' : 'border-amber-500';
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
-      <div className="bg-[#0a0f24] border border-amber-700/50 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className={`bg-[#0a0f24] border ${borderColor} rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col`}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-amber-900/30">
-          <div className="text-amber-400 font-black text-base">🗑 トラッシュ ({trash.length}枚)</div>
+          <div className={`${headerColor} font-black text-base`}>🗑 {title} ({trash.length}枚)</div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-amber-900/30 flex items-center justify-center text-amber-500"><X size={15}/></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">
@@ -1086,7 +1089,7 @@ function TrashModal({ trash, onAction, onClose }) {
               {[...trash].reverse().map(card => (
                 <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer"
                   onClick={() => setSel(sel?._uid === card._uid ? null : card)}>
-                  <div className={`rounded-xl overflow-hidden border-2 transition-all ${sel?._uid===card._uid ? 'border-amber-500 scale-105' : 'border-amber-900/30'}`}
+                  <div className={`rounded-xl overflow-hidden border-2 transition-all ${sel?._uid===card._uid ? `${selBorderColor} scale-105` : 'border-amber-900/30'}`}
                     style={{ width: 80, height: 112 }}>
                     <CardImage card={card} style={{ width:80, height:112 }}/>
                   </div>
@@ -1099,8 +1102,14 @@ function TrashModal({ trash, onAction, onClose }) {
         {sel && (
           <div className="border-t border-amber-900/30 px-5 py-3 flex items-center gap-3 bg-[#080c20]/60">
             <div className="text-amber-300 text-sm font-bold flex-1 truncate">{sel.name}</div>
-            <button onClick={() => { onAction('trash-to-hand', sel._uid); setSel(null); }} className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnGold}`}>✋ 手札へ</button>
-            <button onClick={() => { onAction('trash-to-deck-top', sel._uid); setSel(null); }} className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnBlue}`}>⬆ デッキトップへ</button>
+            {readOnly ? (
+              <div className="text-[10px] text-blue-400/60">（閲覧のみ）</div>
+            ) : (
+              <>
+                <button onClick={() => { onAction('trash-to-hand', sel._uid); setSel(null); }} className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnGold}`}>✋ 手札へ</button>
+                <button onClick={() => { onAction('trash-to-deck-top', sel._uid); setSel(null); }} className={`text-xs px-3 py-1.5 rounded-lg font-bold ${P.btnBlue}`}>⬆ デッキトップへ</button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1873,6 +1882,7 @@ export default function BattlePage({ onNavigate }) {
   const [actionMenu, setActionMenu] = useState(null); // { card, context }
   const [showLog, setShowLog] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
+  const [showCpuTrash, setShowCpuTrash] = useState(false);
   const [pendingEntryEffect, setPendingEntryEffect] = useState(null);
   const [pendingAttackEffect, setPendingAttackEffect] = useState(null);
   const [pendingEventEffect, setPendingEventEffect] = useState(null);
@@ -2176,6 +2186,9 @@ export default function BattlePage({ onNavigate }) {
           <StatChip icon="💛" value={`${cs.donActive}/${cs.donActive+cs.donTapped}`} label="DON!!"/>
           <StatChip icon="📚" value={cs.deck.length} label="CPUデッキ"/>
           <StatChip icon="✋" value={cs.hand.length} label="CPU手札"/>
+          <button onClick={() => setShowCpuTrash(true)} title="CPUトラッシュを確認">
+            <StatChip icon="🗑" value={cs.trash.length} label="CPU墓地"/>
+          </button>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <button onClick={() => game.playerDraw(1)} className={`text-xs px-2.5 py-1 rounded-lg border ${P.btnBlue}`}>+ドロー</button>
@@ -2227,6 +2240,38 @@ export default function BattlePage({ onNavigate }) {
                   </div>
                 );
               })}
+            </div>
+            {/* CPUステージカード */}
+            {cs.stage && (
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="text-[8px] text-purple-400/60 font-bold">STAGE</div>
+                <div className={`rounded overflow-hidden border border-purple-600/50 cursor-pointer hover:border-purple-400 transition-all ${cs.stage.tapped ? 'opacity-60' : ''}`}
+                  style={{ width: CC.W, height: CC.H, transform: cs.stage.tapped ? 'rotate(90deg)' : 'none' }}
+                  onClick={() => setDetailCard(cs.stage)}>
+                  <CardImage card={cs.stage} className="w-full h-full object-cover"/>
+                </div>
+                <div className="text-[7px] text-purple-400/60 text-center max-w-[64px] truncate">{cs.stage.name}</div>
+              </div>
+            )}
+            {/* CPUトラッシュ */}
+            <div className="flex flex-col items-center gap-0.5">
+              <div className="text-[8px] text-gray-400/60 font-bold">TRASH</div>
+              <button
+                className="rounded overflow-hidden border border-gray-700/40 hover:border-gray-500 transition-all flex items-center justify-center bg-[#0d1530]/60 cursor-pointer"
+                style={{ width: CC.W, height: CC.H }}
+                onClick={() => setShowCpuTrash(true)}>
+                {cs.trash.length > 0 ? (
+                  <div className="relative w-full h-full">
+                    <CardImage card={cs.trash[cs.trash.length - 1]} className="w-full h-full object-cover opacity-70"/>
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <span className="text-white font-black text-xs">{cs.trash.length}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-gray-600/50 text-[9px]">空</span>
+                )}
+              </button>
+              <div className="text-[7px] text-gray-500/50">{cs.trash.length}枚</div>
             </div>
             {/* CPU手札（裏向き） */}
             <div className="flex gap-0.5 flex-wrap max-w-[120px]">
@@ -2737,6 +2782,15 @@ export default function BattlePage({ onNavigate }) {
 
       {/* トラッシュモーダル */}
       {showTrash && <TrashModal trash={ps.trash} onAction={handleTrashAction} onClose={() => setShowTrash(false)}/>}
+      {/* CPUトラッシュモーダル（閲覧のみ） */}
+      {showCpuTrash && (
+        <TrashModal
+          trash={cs.trash}
+          readOnly
+          title="CPU トラッシュ"
+          onClose={() => setShowCpuTrash(false)}
+        />
+      )}
 
       {/* アクションメニュー */}
       {actionMenu && <ActionMenu card={actionMenu.card} context={actionMenu.context} onAction={handleAction} onClose={() => setActionMenu(null)}/>}

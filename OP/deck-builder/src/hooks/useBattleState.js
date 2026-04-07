@@ -713,10 +713,11 @@ export function useBattleState() {
       const cLeaderEff = LEADER_EFFECTS[ns.cpu.leader?.card_number] || {};
       if (cLeaderEff.setupStageCard) {
         const sName = cLeaderEff.setupStageName || '聖地マリージョア';
-        const idx = ns.cpu.deck.findIndex(c => c.card_type === 'STAGE' && c.name?.includes(sName));
-        if (idx >= 0) {
-          const stageCard = ns.cpu.deck[idx];
-          const newCpuDeck = ns.cpu.deck.filter((_, i) => i !== idx);
+        const cpuCandidates = ns.cpu.deck.filter(c => c.card_type === 'STAGE' && c.name?.includes(sName));
+        if (cpuCandidates.length > 0) {
+          // コスト最大のカードを自動選択（CPUは常に自動）
+          const stageCard = cpuCandidates.reduce((a, b) => (b.cost || 0) > (a.cost || 0) ? b : a);
+          const newCpuDeck = ns.cpu.deck.filter(c => c._uid !== stageCard._uid);
           ns = addLog(`CPU【${ns.cpu.leader.name}効果】デッキから「${stageCard.name}」を場に登場！`, {
             ...ns, cpu: { ...ns.cpu, deck: newCpuDeck, stage: { ...stageCard, tapped: false } },
           });
