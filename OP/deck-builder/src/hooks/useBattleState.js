@@ -24,6 +24,12 @@ function autoTapDon(side, cost) {
 function hasTrigger(card) {
   return /【トリガー】/.test(card?.effect || '');
 }
+function hasDoubleAttack(card) {
+  return /【ダブルアタック】/.test(card?.effect || '');
+}
+function hasBanish(card) {
+  return /【バニッシュ】/.test(card?.effect || '');
+}
 
 function parseTriggerActions(card) {
   const eff = card?.effect || '';
@@ -69,7 +75,8 @@ function cpuAutoCounter(cpuSide, targetType, attackPower, defensePower) {
 }
 
 // ダメージステップの解決（プレイヤー/CPU共通）
-function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackPower, defensePower) {
+// attackerCard: アタッカーカード（ダブルアタック・バニッシュ判定用）
+function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackPower, defensePower, attackerCard = null) {
   if (attackPower >= defensePower) {
     if (targetType === 'character') {
       const defSide = ns[defKey];
@@ -88,20 +95,80 @@ function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackP
     } else {
       // リーダーへダメージ
       const defSide = ns[defKey];
-      if (defSide.life.length > 0) {
-        const [lifeCard, ...restLife] = defSide.life;
-        const triggered = hasTrigger(lifeCard);
-        const newNs = addLog(
-          `${defKey === 'cpu' ? 'CPU' : 'プレイヤー'}ライフ ${defSide.life.length} → ${restLife.length}枚。「${lifeCard.name}」${triggered ? '【トリガー】！' : ''}`,
-          { ...ns, [defKey]: { ...defSide, life: restLife, hand: [...defSide.hand, { ...lifeCard, faceDown: false }] } }
-        );
-        if (triggered) {
-          return { ...newNs, pendingTrigger: { card: lifeCard, owner: defKey } };
-        }
-        return newNs;
-      } else {
+      const defLabel = defKey === 'cpu' ? 'CPU' : 'プレイヤー';
+      const isDouble = hasDoubleAttack(attackerCard);
+      const isBanish = hasBanish(attackerCard);
+
+      if (defSide.life.length === 0) {
+        // ライフ0 → 即座に勝敗決定
         return addLog(`${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！（ライフ0でリーダーにダメージ）`, { ...ns, winner: atkKey });
       }
+
+      // ── バニッシュ（ライフ → トラッシュ、トリガーなし）────────────
+      if (isBanish && !isDouble) {
+        const [lifeCard, ...restLife] = defSide.life;
+        return addLog(
+          `【バニッシュ】${defLabel}ライフ ${defSide.life.length} → ${restLife.length}枚（トラッシュへ）`,
+          { ...ns, [defKey]: { ...defSide, life: restLife, trash: [...defSide.trash, { ...lifeCard, faceDown: false }] } }
+        );
+      }
+
+      // ── ダブルアタック（2ライフダメージ）────────────────────────
+      if (isDouble) {
+        if (defSide.life.length >= 2) {
+          // 2枚同時に処理
+          const [life1, life2, ...restLife] = defSide.life;
+          const t1 = !isBanish && hasTrigger(life1);
+          const t2 = !isBanish && hasTrigger(life2);
+          let newHand = [...defSide.hand];
+          let newTrash = [...defSide.trash];
+          if (isBanish) {
+            newTrash = [...newTrash, { ...life1, faceDown: false }, { ...life2, faceDown: false }];
+          } else {
+            newHand = [...newHand, { ...life1, faceDown: false }, { ...life2, faceDown: false }];
+          }
+          const newNs = addLog(
+            `【ダブルアタック${isBanish ? '+バニッシュ' : ''}】${defLabel}ライフ ${defSide.life.length} → ${restLife.length}枚。「${life1.name}」${t1 ? '【トリガー】！' : ''}「${life2.name}」${t2 ? '【トリガー】！' : ''}`,
+            { ...ns, [defKey]: { ...defSide, life: restLife, hand: newHand, trash: newTrash } }
+          );
+          if (t1) return { ...newNs, pendingTrigger: { card: life1, owner: defKey } };
+          if (t2) return { ...newNs, pendingTrigger: { card: life2, owner: defKey } };
+          return newNs;
+        } else {
+          // ライフ1枚: 1枚消費 → 2枚目ダメージで勝利（またはトリガー後勝利）
+          const [lifeCard] = defSide.life;
+          const triggered = !isBanish && hasTrigger(lifeCard);
+          if (isBanish) {
+            const ns1 = addLog(
+              `【ダブルアタック+バニッシュ】${defLabel}ライフ1→0（トラッシュ）`,
+              { ...ns, [defKey]: { ...defSide, life: [], trash: [...defSide.trash, { ...lifeCard, faceDown: false }] } }
+            );
+            return addLog(`【ダブルアタック】追加ダメージ → ${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns1, winner: atkKey });
+          }
+          const ns1 = addLog(
+            `【ダブルアタック】${defLabel}ライフ1→0。「${lifeCard.name}」${triggered ? '【トリガー】！' : ''}`,
+            { ...ns, [defKey]: { ...defSide, life: [], hand: [...defSide.hand, { ...lifeCard, faceDown: false }] } }
+          );
+          if (triggered) {
+            // トリガー後に2枚目ダメージ（= 勝利）を適用するための保留フラグ
+            return { ...ns1, pendingTrigger: { card: lifeCard, owner: defKey }, pendingSecondDamage: { atkKey } };
+          }
+          // トリガーなし: 2枚目ダメージで即座に勝利
+          return addLog(`【ダブルアタック】追加ダメージ → ${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...ns1, winner: atkKey });
+        }
+      }
+
+      // ── 通常ダメージ（1ライフ → 手札）────────────────────────────
+      const [lifeCard, ...restLife] = defSide.life;
+      const triggered = hasTrigger(lifeCard);
+      const newNs = addLog(
+        `${defLabel}ライフ ${defSide.life.length} → ${restLife.length}枚。「${lifeCard.name}」${triggered ? '【トリガー】！' : ''}`,
+        { ...ns, [defKey]: { ...defSide, life: restLife, hand: [...defSide.hand, { ...lifeCard, faceDown: false }] } }
+      );
+      if (triggered) {
+        return { ...newNs, pendingTrigger: { card: lifeCard, owner: defKey } };
+      }
+      return newNs;
     }
   } else {
     return addLog(`アタック失敗（${attackPower} < ${defensePower}）`, ns);
@@ -153,7 +220,7 @@ function startCpuAttackOnState(ns, pendingAttacks) {
     if (targetType === 'leader') {
       // ─ リーダーへの攻撃: ブロッカー/カウンターステップ（プレイヤー操作必要）─
       const newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
-      const playerBlockers = p.field.filter(x => /【ブロッカー】/.test(x.effect || '') && !x.tapped);
+      const playerBlockers = p.field.filter(x => (/【ブロッカー】/.test(x.effect || '') || x._hasBlocker) && !x.tapped);
       const step = playerBlockers.length > 0 ? 'blocker' : 'counter';
       return {
         ...newNs,
@@ -172,7 +239,7 @@ function startCpuAttackOnState(ns, pendingAttacks) {
     } else {
       // ─ キャラへの攻撃: ブロッカーステップ可（カウンターは不可）─
       const newNs = addLog(logMsg, { ...ns, cpu: newCpu, cpuPendingAttacks: remaining });
-      const playerBlockers = p.field.filter(x => /【ブロッカー】/.test(x.effect || '') && !x.tapped && x._uid !== finalTargetUid);
+      const playerBlockers = p.field.filter(x => (/【ブロッカー】/.test(x.effect || '') || x._hasBlocker) && !x.tapped && x._uid !== finalTargetUid);
       if (playerBlockers.length > 0) {
         // ブロッカーがいる場合: プレイヤーにブロッカー選択を求める（カウンターなし）
         return {
@@ -192,7 +259,7 @@ function startCpuAttackOnState(ns, pendingAttacks) {
         };
       }
       // ブロッカーなし → 自動ダメージ解決
-      let resolvedNs = resolveDamageOnState(newNs, 'cpu', 'player', 'character', finalTargetUid, attackPower, defensePower);
+      let resolvedNs = resolveDamageOnState(newNs, 'cpu', 'player', 'character', finalTargetUid, attackPower, defensePower, attacker);
       if (resolvedNs.winner || resolvedNs.pendingTrigger) {
         return resolvedNs; // 勝利またはトリガーで一旦停止
       }
@@ -264,6 +331,7 @@ export function useBattleState() {
       cpu: cSide,
       attackState: null,
       pendingTrigger: null,
+      pendingSecondDamage: null,
       cpuPendingAttacks: [],
       cpuThinking: false,
       battleLog: [{ msg: `対戦開始！ ${playerLeader?.name} vs CPU(${cpuLeader?.name})`, ts: Date.now() }],
@@ -495,7 +563,7 @@ export function useBattleState() {
 
       // ─ CPUブロッカーステップ（リーダーへの攻撃時のみ）───
       if (targetType === 'leader') {
-        const blockers = c.field.filter(x => /【ブロッカー】/.test(x.effect || '') && !x.tapped);
+        const blockers = c.field.filter(x => (/【ブロッカー】/.test(x.effect || '') || x._hasBlocker) && !x.tapped);
         if (blockers.length > 0) {
           const blockerUid = cpuDecideBlocker(blockers, attackPower, c.life.length);
           if (blockerUid) {
@@ -543,8 +611,10 @@ export function useBattleState() {
       if (!prev || !prev.attackState || prev.attackState.step !== 'resolving') return prev;
       if (prev.attackState.owner !== 'player') return prev;
       const { attackerUid, attackerType, targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      const p = prev.player;
+      const attackerCard = attackerType === 'leader' ? p.leader : p.field.find(x => x._uid === attackerUid);
       const ns = { ...prev, attackState: null };
-      return resolveDamageOnState(ns, 'player', 'cpu', targetType, targetUid, attackPower, defensePower);
+      return resolveDamageOnState(ns, 'player', 'cpu', targetType, targetUid, attackPower, defensePower, attackerCard);
     });
   }, []);
 
@@ -555,9 +625,31 @@ export function useBattleState() {
       const { card, owner } = prev.pendingTrigger;
       const ns = { ...prev, pendingTrigger: null };
 
+      // ダブルアタック2枚目ダメージ保留処理のヘルパー
+      const applySecondDamage = (state) => {
+        if (!prev.pendingSecondDamage) return state;
+        let result = { ...state, pendingSecondDamage: null };
+        const { atkKey } = prev.pendingSecondDamage;
+        const defKey = atkKey === 'player' ? 'cpu' : 'player';
+        const defSide = result[defKey];
+        if (defSide.life.length === 0) {
+          // ライフ0 → 勝利
+          return addLog(`【ダブルアタック】2枚目ダメージ → ${atkKey === 'player' ? 'プレイヤー' : 'CPU'}の勝利！`, { ...result, winner: atkKey });
+        } else {
+          // トリガーで何らかの理由でライフが増えた場合: 追加ダメージ
+          const [life2, ...restLife2] = defSide.life;
+          const t2 = hasTrigger(life2);
+          result = addLog(`【ダブルアタック】2枚目ダメージ「${life2.name}」${t2 ? '【トリガー】！' : ''}`, {
+            ...result, [defKey]: { ...defSide, life: restLife2, hand: [...defSide.hand, { ...life2, faceDown: false }] }
+          });
+          if (t2) result = { ...result, pendingTrigger: { card: life2, owner: defKey } };
+          return result;
+        }
+      };
+
       if (!activate) {
         // 発動しない → カードは手札にそのまま（すでにresolveAttack/runCpuMainPhaseで手札に追加済み）
-        return addLog(`トリガー「${card.name}」スキップ（手札へ）`, ns);
+        return applySecondDamage(addLog(`トリガー「${card.name}」スキップ（手札へ）`, ns));
       }
 
       // 発動する → カードを手札からトラッシュへ移動
@@ -588,7 +680,7 @@ export function useBattleState() {
           });
         }
       }
-      return addLog(`トリガー「${card.name}」発動（トラッシュへ）`, applied);
+      return applySecondDamage(addLog(`トリガー「${card.name}」発動（トラッシュへ）`, applied));
     });
   }, []);
 
@@ -618,7 +710,7 @@ export function useBattleState() {
       if (prev.attackState.owner !== 'cpu') return prev;
       const p = prev.player;
       const blocker = p.field.find(x => x._uid === blockerUid);
-      if (!blocker || !/【ブロッカー】/.test(blocker.effect || '')) return addLog('このキャラはブロッカーではありません', prev);
+      if (!blocker || (!/【ブロッカー】/.test(blocker.effect || '') && !blocker._hasBlocker)) return addLog('このキャラはブロッカーではありません', prev);
       if (blocker.tapped) return addLog('このキャラはすでにタップ済みです', prev);
 
       const newField = p.field.map(x => x._uid === blockerUid ? { ...x, tapped: true } : x);
@@ -691,9 +783,11 @@ export function useBattleState() {
   const playerResolveCharAttack = useCallback(() => {
     setState(prev => {
       if (!prev?.attackState || prev.attackState.step !== 'resolve-char') return prev;
-      const { targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      const { attackerUid, attackerType, targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      const c = prev.cpu;
+      const attackerCard = attackerType === 'leader' ? c.leader : c.field.find(x => x._uid === attackerUid);
       let ns = { ...prev, attackState: null };
-      ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower);
+      ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower, attackerCard);
       if (ns.winner || ns.pendingTrigger) return ns;
       return startCpuAttackOnState(ns, ns.cpuPendingAttacks || []);
     });
@@ -703,10 +797,12 @@ export function useBattleState() {
     setState(prev => {
       if (!prev?.attackState || prev.attackState.step !== 'counter') return prev;
       if (prev.attackState.owner !== 'cpu') return prev;
-      const { targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      const { attackerUid, attackerType, targetUid, targetType, attackPower, defensePower } = prev.attackState;
+      const c = prev.cpu;
+      const attackerCard = attackerType === 'leader' ? c.leader : c.field.find(x => x._uid === attackerUid);
 
       let ns = { ...prev, attackState: null };
-      ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower);
+      ns = resolveDamageOnState(ns, 'cpu', 'player', targetType, targetUid, attackPower, defensePower, attackerCard);
 
       // トリガーや勝利があれば一旦停止
       if (ns.winner || ns.pendingTrigger) {
@@ -1270,6 +1366,89 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: 効果でCPUキャラをKO ─────────────────────────────────
+  const playerKoCpuChar = useCallback((charUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const c = prev.cpu;
+      const target = c.field.find(x => x._uid === charUid);
+      if (!target) return prev;
+      const donBack = target.donAttached || 0;
+      return addLog(`効果:「${target.name}」をKO！`, {
+        ...prev, cpu: {
+          ...c,
+          field: c.field.filter(x => x._uid !== charUid),
+          trash: [...c.trash, target],
+          donActive: c.donActive + donBack,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 効果でCPUキャラをレスト ────────────────────────────
+  const playerRestCpuChar = useCallback((charUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const c = prev.cpu;
+      const target = c.field.find(x => x._uid === charUid);
+      if (!target) return prev;
+      return addLog(`効果:「${target.name}」をレストにする！`, {
+        ...prev, cpu: {
+          ...c,
+          field: c.field.map(x => x._uid === charUid ? { ...x, tapped: true } : x),
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 効果でCPUキャラをデッキ下へ ─────────────────────────
+  const playerDeckBottomCpuChar = useCallback((charUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const c = prev.cpu;
+      const target = c.field.find(x => x._uid === charUid);
+      if (!target) return prev;
+      const donBack = target.donAttached || 0;
+      return addLog(`効果:「${target.name}」をデッキ下へ！`, {
+        ...prev, cpu: {
+          ...c,
+          field: c.field.filter(x => x._uid !== charUid),
+          deck: [...c.deck, target],
+          donActive: c.donActive + donBack,
+        },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: 手札1枚をトラッシュ（効果コスト）────────────────────
+  const playerDiscardHandCard = useCallback((cardUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const card = p.hand.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      return addLog(`効果コスト:「${card.name}」を手札から捨てる`, {
+        ...prev, player: { ...p, hand: p.hand.filter(c => c._uid !== cardUid), trash: [...p.trash, card] },
+      });
+    });
+  }, []);
+
+  // ── プレイヤー: キャラに【ブロッカー】を付与（効果）────────────────
+  const playerGiveCharBlocker = useCallback((charUid) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const target = p.field.find(c => c._uid === charUid);
+      if (!target) return prev;
+      return addLog(`効果:「${target.name}」に【ブロッカー】を付与`, {
+        ...prev, player: {
+          ...p,
+          field: p.field.map(c => c._uid === charUid ? { ...c, _hasBlocker: true } : c),
+        },
+      });
+    });
+  }, []);
+
   const resetBattle = useCallback(() => setState(null), []);
 
   return {
@@ -1323,6 +1502,11 @@ export function useBattleState() {
     playerPlayFromHandFree,
     playerPlayFromTrashFree,
     playerAddLife,
+    playerKoCpuChar,
+    playerRestCpuChar,
+    playerDeckBottomCpuChar,
+    playerDiscardHandCard,
+    playerGiveCharBlocker,
     resetBattle,
   };
 }

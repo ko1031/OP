@@ -421,15 +421,20 @@ function parseEntryEffect(effectText) {
     autoActions.push({ id:'playFromTrash', limit, icon:'💀', label:`トラッシュから${limitLabel}キャラを登場（選択）`, color:'text-pink-300' });
   }
 
-  // レストにする
-  const restM = entryText.match(/レストにする/);
+  // 相手キャラをレストにする
+  const restM = entryText.match(/相手.*?レストにする|レストにする.*?相手/);
   if (restM)
-    autoActions.push({ id:'info', icon:'💤', label:'相手キャラをレストにする（手動操作）', color:'text-gray-400' });
+    autoActions.push({ id:'restOpponent', icon:'💤', label:'相手キャラをレスト（選択）', color:'text-orange-400' });
 
-  // KOする
-  const koM = entryText.match(/KOする/);
+  // 相手キャラをKO
+  const koM = entryText.match(/相手.*?KOする|KOする.*?相手|コスト\d+以下.*?KOする/);
   if (koM)
-    autoActions.push({ id:'info', icon:'💀', label:'KO効果（手動操作）', color:'text-red-400' });
+    autoActions.push({ id:'koOpponent', icon:'💀', label:'相手キャラをKO（選択）', color:'text-red-400' });
+
+  // 相手キャラをデッキ下へ
+  const deckBotEntryM = entryText.match(/相手.*?デッキの下|デッキの下.*?相手/);
+  if (deckBotEntryM)
+    autoActions.push({ id:'deckBottomOpponent', icon:'⬇️', label:'相手キャラをデッキ下へ（選択）', color:'text-purple-400' });
 
   // ライフに加える
   const lifeAddM = entryText.match(/ライフの上に加える/);
@@ -460,6 +465,26 @@ function parseAttackEffect(card) {
   const searchM = body.match(/デッキの上から(\d+)枚/);
   if (searchM)
     autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  // 相手キャラをKO
+  const koM = body.match(/相手.*?KOする|KOする.*?相手|コスト\d+以下.*?KOする/);
+  if (koM)
+    autoActions.push({ id:'koOpponent', icon:'💀', label:'相手キャラをKO（選択）', color:'text-red-400' });
+  // 相手キャラをレスト
+  const restM = body.match(/相手.*?レストにする|レストにする.*?相手/);
+  if (restM)
+    autoActions.push({ id:'restOpponent', icon:'💤', label:'相手キャラをレスト（選択）', color:'text-orange-400' });
+  // 相手キャラをデッキ下へ
+  const deckBotM = body.match(/相手.*?デッキの下|デッキの下.*?相手/);
+  if (deckBotM)
+    autoActions.push({ id:'deckBottomOpponent', icon:'⬇️', label:'相手キャラをデッキ下へ（選択）', color:'text-purple-400' });
+  // パワー変更（一時的）→ 手動
+  const powerM = body.match(/パワー[をが]?[ー−\-+＋]?\d+|パワー\d+(?:上げ|下げ|アップ|ダウン)/);
+  if (powerM)
+    autoActions.push({ id:'info', icon:'⚡', label:'パワー変更（ゲームボードで手動操作）', color:'text-gray-400' });
+  // レストDON!!付与 → 手動
+  const restDonM = body.match(/ドン!!.*?レスト.*?付与|レスト.*?ドン!!.*?付与/);
+  if (restDonM)
+    autoActions.push({ id:'info', icon:'💛', label:'レストDON!!付与（ゲームボードで手動操作）', color:'text-gray-400' });
   return { attackText, autoActions };
 }
 
@@ -475,6 +500,18 @@ function parseEventEffect(card) {
   const searchM = effectText.match(/デッキの上から(\d+)枚/);
   if (searchM)
     autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ（自動）`, color:'text-purple-300' });
+  // 相手キャラをKO
+  const koM = effectText.match(/相手.*?KOする|KOする.*?相手|コスト\d+以下.*?KOする/);
+  if (koM)
+    autoActions.push({ id:'koOpponent', icon:'💀', label:'相手キャラをKO（選択）', color:'text-red-400' });
+  // 相手キャラをレスト
+  const restM = effectText.match(/相手.*?レストにする|レストにする.*?相手/);
+  if (restM)
+    autoActions.push({ id:'restOpponent', icon:'💤', label:'相手キャラをレスト（選択）', color:'text-orange-400' });
+  // 相手キャラをデッキ下へ
+  const deckBotM = effectText.match(/相手.*?デッキの下|デッキの下.*?相手/);
+  if (deckBotM)
+    autoActions.push({ id:'deckBottomOpponent', icon:'⬇️', label:'相手キャラをデッキ下へ（選択）', color:'text-purple-400' });
   return { effectText, autoActions };
 }
 
@@ -494,6 +531,26 @@ function parseActiveAbility(card) {
   const searchM = body.match(/デッキの上から(\d+)枚/);
   if (searchM)
     autoActions.push({ id:'search', count: parseInt(searchM[1]), icon:'🔍', label:`デッキトップ${searchM[1]}枚サーチ`, color:'text-purple-300' });
+  // ブロッカーを得る（このキャラに付与）
+  const blockerM = body.match(/【ブロッカー】を与える|ブロッカー.*?を得る|このキャラに.*?ブロッカー/);
+  if (blockerM)
+    autoActions.push({ id:'giveBlocker', icon:'🛡', label:'このキャラに【ブロッカー】を付与（自動）', color:'text-cyan-300' });
+  // 手札を1枚捨てる
+  const discardM = body.match(/手札.*?1枚.*?捨てる|あなたは手札.*?捨てる/);
+  if (discardM)
+    autoActions.push({ id:'discardHand', icon:'🗑️', label:'手札1枚を捨てる（選択）', color:'text-gray-300' });
+  // 相手キャラをKO
+  const koM = body.match(/相手.*?KOする|KOする.*?相手|コスト\d+以下.*?KOする/);
+  if (koM)
+    autoActions.push({ id:'koOpponent', icon:'💀', label:'相手キャラをKO（選択）', color:'text-red-400' });
+  // 相手キャラをレスト
+  const restM = body.match(/相手.*?レストにする|レストにする.*?相手/);
+  if (restM)
+    autoActions.push({ id:'restOpponent', icon:'💤', label:'相手キャラをレスト（選択）', color:'text-orange-400' });
+  // 相手キャラをデッキ下へ
+  const deckBotM = body.match(/相手.*?デッキの下|デッキの下.*?相手/);
+  if (deckBotM)
+    autoActions.push({ id:'deckBottomOpponent', icon:'⬇️', label:'相手キャラをデッキ下へ（選択）', color:'text-purple-400' });
   return { abilityText, autoActions };
 }
 
@@ -546,6 +603,77 @@ function PlayFromModal({ source, cards, limit, game, onDone }) {
   );
 }
 
+// ─── 効果で相手キャラを対象選択するモーダル ───────────────────────────
+function CpuCharTargetModal({ cpuField, action, onConfirm, onCancel }) {
+  const actionLabel = action === 'koOpponent' ? 'KO' : action === 'restOpponent' ? 'レスト' : 'デッキ下へ送る';
+  const borderColor = action === 'koOpponent' ? 'border-red-600/40' : action === 'restOpponent' ? 'border-orange-600/40' : 'border-purple-600/40';
+  const titleColor = action === 'koOpponent' ? 'text-red-400' : action === 'restOpponent' ? 'text-orange-400' : 'text-purple-400';
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className={`bg-[#0a0f24] border ${borderColor} rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5`}>
+        <div className="text-center mb-3">
+          <div className={`${titleColor} font-black text-base mb-1`}>
+            💀 相手キャラを選択 → {actionLabel}
+          </div>
+          <div className="text-amber-600/50 text-xs">対象となるCPUキャラクターをクリックしてください</div>
+        </div>
+        {cpuField.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4 max-h-[40vh] overflow-y-auto">
+            {cpuField.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onConfirm(card._uid)}>
+                <div className={`rounded-xl overflow-hidden border-2 border-red-500/50 group-hover:border-red-400 group-hover:scale-105 transition-all`}
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-red-300/80 text-center max-w-[90px] truncate">{card.name}</div>
+                <div className="text-[8px] text-red-400/50">{card.power ? `P${card.power.toLocaleString()}` : ''}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-600/50 text-sm py-6">相手フィールドにキャラクターがいません</div>
+        )}
+        <button onClick={onCancel} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>キャンセル（効果不発）</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── 手札1枚捨てるモーダル（効果コスト）──────────────────────────────
+function DiscardHandModal({ hand, onDiscard, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-gray-600/40 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-gray-300 font-black text-base mb-1">🗑️ 手札を1枚捨てる</div>
+          <div className="text-gray-400/60 text-xs">捨てるカードを選んでください（効果コスト）</div>
+        </div>
+        {hand.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4 max-h-[40vh] overflow-y-auto">
+            {hand.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onDiscard(card._uid)}>
+                <div className="rounded-xl overflow-hidden border-2 border-gray-500/50 group-hover:border-red-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-gray-300/80 text-center max-w-[90px] truncate">{card.name}</div>
+                <div className="text-[8px] text-gray-500/50">
+                  {card.card_type === 'CHARACTER' ? `C${card.cost ?? ''}` : card.card_type === 'EVENT' ? 'EVT' : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-600/50 text-sm py-6">手札にカードがありません</div>
+        )}
+        <button onClick={onCancel} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>スキップ</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── 効果モーダル（登場時）──────────────────────────────────────────
 function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const { entryText, autoActions } = parseEntryEffect(card?.effect || '');
@@ -557,8 +685,11 @@ function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
       if (a.id === 'search') game.playerBeginSearch(a.count);
       if (a.id === 'addLife') game.playerAddLife();
     });
-    // 連鎖効果（手札/トラッシュから登場）があれば、サーチ解決後にモーダルを出す
-    const chainPlay = autoActions.find(a => a.id === 'playFromHand' || a.id === 'playFromTrash');
+    // 連鎖効果（手札/トラッシュから登場 または 相手キャラ対象効果）
+    const chainPlay = autoActions.find(a =>
+      a.id === 'playFromHand' || a.id === 'playFromTrash' ||
+      a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent'
+    );
     if (chainPlay && onChainPlay) {
       onChainPlay(chainPlay);
     }
@@ -600,7 +731,7 @@ function EntryEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
 }
 
 // ─── 効果モーダル（アタック時）─────────────────────────────────────
-function AttackEffectModal({ card, onActivate, onSkip, game }) {
+function AttackEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const { attackText, autoActions } = parseAttackEffect(card);
   if (!attackText) return null;
   const handleActivate = () => {
@@ -609,6 +740,11 @@ function AttackEffectModal({ card, onActivate, onSkip, game }) {
       if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
       if (a.id === 'search') game.playerBeginSearch(a.count);
     });
+    // 相手キャラ対象効果があれば連鎖
+    const targetAction = autoActions.find(a =>
+      a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent'
+    );
+    if (targetAction && onChainPlay) onChainPlay(targetAction);
     onActivate();
   };
   return (
@@ -640,7 +776,7 @@ function AttackEffectModal({ card, onActivate, onSkip, game }) {
 }
 
 // ─── 効果モーダル（イベント）───────────────────────────────────────
-function EventEffectModal({ card, onActivate, onSkip, game }) {
+function EventEffectModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const { effectText, autoActions } = parseEventEffect(card);
   const handleActivate = () => {
     autoActions.forEach(a => {
@@ -648,6 +784,11 @@ function EventEffectModal({ card, onActivate, onSkip, game }) {
       if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
       if (a.id === 'search') game.playerBeginSearch(a.count);
     });
+    // 相手キャラ対象効果があれば連鎖
+    const targetAction = autoActions.find(a =>
+      a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent'
+    );
+    if (targetAction && onChainPlay) onChainPlay(targetAction);
     onActivate();
   };
   return (
@@ -756,15 +897,21 @@ function LeaderAbilityModal({ leaderEffect, leaderName, onConfirm, onCancel }) {
 }
 
 // ─── CharActiveModal（キャラ起動メイン効果）─────────────────────────
-function CharActiveModal({ card, onActivate, onSkip, game }) {
+function CharActiveModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const { abilityText, autoActions } = parseActiveAbility(card);
   if (!abilityText) return null;
   const handleActivate = () => {
     autoActions.forEach(a => {
-      if (a.id === 'draw')      game.playerDraw(a.count);
-      if (a.id === 'donReturn') game.playerReturnDonToDeckPriority(a.count);
-      if (a.id === 'search')    game.playerBeginSearch(a.count);
+      if (a.id === 'draw')        game.playerDraw(a.count);
+      if (a.id === 'donReturn')   game.playerReturnDonToDeckPriority(a.count);
+      if (a.id === 'search')      game.playerBeginSearch(a.count);
+      if (a.id === 'giveBlocker') game.playerGiveCharBlocker(card._uid); // このキャラに付与
     });
+    // 連鎖: 手札を捨てる or 相手キャラ対象効果
+    const discardAction = autoActions.find(a => a.id === 'discardHand');
+    const targetAction  = autoActions.find(a => a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent');
+    if (discardAction && onChainPlay) onChainPlay(discardAction);
+    else if (targetAction && onChainPlay) onChainPlay(targetAction);
     onActivate();
   };
   return (
@@ -948,7 +1095,7 @@ function TrashModal({ trash, onAction, onClose }) {
 // ─── ブロッカーステップモーダル（CPU攻撃時）─────────────────────────
 function BlockerModal({ attackState, playerField, onBlock, onPass }) {
   if (!attackState || attackState.step !== 'blocker' || attackState.owner !== 'cpu') return null;
-  const blockers = playerField.filter(c => /【ブロッカー】/.test(c.effect || '') && !c.tapped);
+  const blockers = playerField.filter(c => (/【ブロッカー】/.test(c.effect || '') || c._hasBlocker) && !c.tapped);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
@@ -1030,16 +1177,23 @@ function CounterModal({ attackState, playerHand, onCounter, onConfirm }) {
 }
 
 // ─── アタック解決モーダル（プレイヤー攻撃確認）──────────────────────
-function AttackResolveModal({ attackState, onResolve, onCancel }) {
+function AttackResolveModal({ attackState, cpuField, cpuLeader, onResolve, onCancel }) {
   if (!attackState || attackState.step !== 'resolving') return null;
   const atkPow = attackState.attackPower || 0;
   const defPow = attackState.defensePower || 0;
   const wins = atkPow >= defPow;
+  const isBlocker = attackState.targetType === 'character';
+  const targetLabel = isBlocker
+    ? `ブロッカー「${cpuField?.find(x => x._uid === attackState.targetUid)?.name || '?'}」`
+    : `CPUリーダー「${cpuLeader?.name || ''}」`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
       <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-xs w-full mx-4 p-5">
         <div className="text-center mb-4">
           <div className="text-amber-400 font-black text-base mb-1">アタック解決</div>
+          <div className={`text-xs mb-2 px-2 py-1 rounded-lg ${isBlocker ? 'bg-orange-900/30 text-orange-300' : 'bg-blue-900/30 text-blue-300'}`}>
+            {isBlocker ? '🛡 ' : '👑 '}{targetLabel}
+          </div>
           <div className="flex items-center justify-center gap-3 my-3">
             <div className="text-center"><div className="text-xs text-amber-400/60 mb-1">攻撃</div><div className="font-black text-xl text-amber-300">{atkPow.toLocaleString()}</div></div>
             <div className="text-2xl">⚔️</div>
@@ -1250,6 +1404,8 @@ export default function BattlePage({ onNavigate }) {
   const [dragInfo, setDragInfo] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [pendingChainPlay, setPendingChainPlay] = useState(null); // { id:'playFromHand'|'playFromTrash', limit }
+  const [pendingTargetEffect, setPendingTargetEffect] = useState(null); // { id:'koOpponent'|'restOpponent'|'deckBottomOpponent' }
+  const [pendingDiscardHand, setPendingDiscardHand] = useState(false);
 
   const isCpuTurn = state?.activePlayer === 'cpu';
   const isMyTurn  = state?.activePlayer === 'player';
@@ -1942,18 +2098,34 @@ export default function BattlePage({ onNavigate }) {
 
       {/* アタック解決（プレイヤー攻撃） */}
       {state.attackState?.step === 'resolving' && state.attackState?.owner === 'player' && (
-        <AttackResolveModal attackState={state.attackState} onResolve={handleResolveAttack} onCancel={handleCancelAttack}/>
+        <AttackResolveModal attackState={state.attackState} cpuField={cs.field} cpuLeader={cs.leader} onResolve={handleResolveAttack} onCancel={handleCancelAttack}/>
       )}
 
       {/* 登場時効果 */}
       {pendingEntryEffect && <EntryEffectModal card={pendingEntryEffect} game={game}
         onActivate={() => setPendingEntryEffect(null)}
         onSkip={() => setPendingEntryEffect(null)}
-        onChainPlay={(chainAction) => setPendingChainPlay(chainAction)}/>}
+        onChainPlay={(action) => {
+          if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
+          else setPendingChainPlay(action);
+        }}/>}
       {/* アタック時効果 */}
-      {pendingAttackEffect && <AttackEffectModal card={pendingAttackEffect} game={game} onActivate={() => setPendingAttackEffect(null)} onSkip={() => setPendingAttackEffect(null)}/>}
+      {pendingAttackEffect && <AttackEffectModal card={pendingAttackEffect} game={game}
+        onActivate={() => setPendingAttackEffect(null)}
+        onSkip={() => setPendingAttackEffect(null)}
+        onChainPlay={(action) => {
+          if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
+          else setPendingChainPlay(action);
+        }}/>}
       {/* イベント効果 */}
-      {pendingEventEffect && <EventEffectModal card={pendingEventEffect} game={game} onActivate={() => setPendingEventEffect(null)} onSkip={() => setPendingEventEffect(null)}/>}
+      {pendingEventEffect && <EventEffectModal card={pendingEventEffect} game={game}
+        onActivate={() => setPendingEventEffect(null)}
+        onSkip={() => setPendingEventEffect(null)}
+        onChainPlay={(action) => {
+          if (action.id === 'discardHand') setPendingDiscardHand(true);
+          else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
+          else setPendingChainPlay(action);
+        }}/>}
 
       {/* 効果連鎖: 手札/トラッシュからキャラ登場 */}
       {pendingChainPlay && (ps.searchReveal?.length || 0) === 0 && (
@@ -1965,6 +2137,28 @@ export default function BattlePage({ onNavigate }) {
           onDone={() => setPendingChainPlay(null)}/>
       )}
 
+      {/* 効果: 相手キャラ対象選択（KO/レスト/デッキ下） */}
+      {pendingTargetEffect && (
+        <CpuCharTargetModal
+          cpuField={cs.field}
+          action={pendingTargetEffect.id}
+          onConfirm={(charUid) => {
+            if (pendingTargetEffect.id === 'koOpponent') game.playerKoCpuChar(charUid);
+            else if (pendingTargetEffect.id === 'restOpponent') game.playerRestCpuChar(charUid);
+            else if (pendingTargetEffect.id === 'deckBottomOpponent') game.playerDeckBottomCpuChar(charUid);
+            setPendingTargetEffect(null);
+          }}
+          onCancel={() => setPendingTargetEffect(null)}/>
+      )}
+
+      {/* 効果コスト: 手札1枚捨てる */}
+      {pendingDiscardHand && (
+        <DiscardHandModal
+          hand={ps.hand}
+          onDiscard={(cardUid) => { game.playerDiscardHandCard(cardUid); setPendingDiscardHand(false); }}
+          onCancel={() => setPendingDiscardHand(false)}/>
+      )}
+
       {/* リーダー起動メイン効果 */}
       {showLeaderAbilityModal && ps.leaderEffect && (
         <LeaderAbilityModal leaderEffect={ps.leaderEffect} leaderName={ps.leader?.name} onConfirm={handleLeaderAbilityConfirm} onCancel={() => setShowLeaderAbilityModal(false)}/>
@@ -1974,7 +2168,14 @@ export default function BattlePage({ onNavigate }) {
       {charSelectInfo && <CharacterSelectModal field={ps.field} info={charSelectInfo} onConfirm={handleCharSelectConfirm} onCancel={() => setCharSelectInfo(null)}/>}
 
       {/* キャラ起動メイン効果 */}
-      {pendingCharAbility && <CharActiveModal card={pendingCharAbility} game={game} onActivate={() => setPendingCharAbility(null)} onSkip={() => setPendingCharAbility(null)}/>}
+      {pendingCharAbility && <CharActiveModal card={pendingCharAbility} game={game}
+        onActivate={() => setPendingCharAbility(null)}
+        onSkip={() => setPendingCharAbility(null)}
+        onChainPlay={(action) => {
+          if (action.id === 'discardHand') setPendingDiscardHand(true);
+          else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
+          else setPendingChainPlay(action);
+        }}/>}
 
       {/* サーチモーダル */}
       {(ps.searchReveal?.length || 0) > 0 && (
