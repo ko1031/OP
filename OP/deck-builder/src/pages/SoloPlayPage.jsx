@@ -1454,6 +1454,11 @@ export default function SoloPlayPage({ onNavigate }) {
   useEffect(() => {
     if (!state) return;
     const cur = state.hand.length;
+    // マリガン中・ゲーム開始前（初期手札配布・マリガン引き直し）はトリガー検知しない
+    if (state.phase !== 'game') {
+      setPrevHandLen(cur);
+      return;
+    }
     if (cur > prevHandLen) {
       // 増えた枚数分のカードをチェック（末尾から）
       const newCards = state.hand.slice(state.hand.length - (cur - prevHandLen));
@@ -1465,7 +1470,7 @@ export default function SoloPlayPage({ onNavigate }) {
     }
     setPrevHandLen(cur);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.hand?.length]);
+  }, [state?.hand?.length, state?.phase]);
 
   const handleCardClick = (card, context, uid) => {
     if (selectedCard?.uid === uid) { setSelectedCard(null); return; }
