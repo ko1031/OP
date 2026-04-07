@@ -37,6 +37,12 @@ const P = {
   btnGreen:'bg-gradient-to-b from-green-700 to-green-900 hover:from-green-600 hover:to-green-800 text-green-100 font-bold border border-green-600/50 transition-all',
 };
 
+// useBattleState.js側で自動処理するため EntryEffectModal を表示しないカード番号
+const AUTO_HANDLED_ENTRY_CARDS = new Set(['OP14-111', 'EB03-055', 'OP15-109']);
+/** 登場時効果モーダルを表示すべきかどうか */
+const shouldShowEntryModal = (card) =>
+  card && /【登場時】/.test(card.effect || '') && !AUTO_HANDLED_ENTRY_CARDS.has(card.card_number);
+
 const PHASES = [
   { id: 'refresh', label: 'リフレッシュ', icon: '🔄' },
   { id: 'draw',    label: 'ドロー',       icon: '📚' },
@@ -689,6 +695,39 @@ function CpuCharTargetModal({ cpuField, action, onConfirm, onCancel }) {
           <div className="text-center text-amber-600/50 text-sm py-6">相手フィールドにキャラクターがいません</div>
         )}
         <button onClick={onCancel} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>キャンセル（効果不発）</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ペローナ: アタック不可ターゲット選択モーダル ───────────────────────
+function PeronaTargetModal({ cpuField, onConfirm, onSkip }) {
+  const targets = cpuField.filter(c => (c.cost || 0) <= 6);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-blue-600/40 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-blue-400 font-black text-base mb-1">🚫 ペローナ【登場時】</div>
+          <div className="text-amber-600/50 text-xs">相手のコスト6以下のキャラ1体を選択 → 次のターンアタック不可</div>
+        </div>
+        {targets.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4 max-h-[40vh] overflow-y-auto">
+            {targets.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onConfirm(card._uid)}>
+                <div className="rounded-xl overflow-hidden border-2 border-blue-500/50 group-hover:border-blue-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-blue-300/80 text-center max-w-[90px] truncate">{card.name}</div>
+                <div className="text-[8px] text-blue-400/50">コスト{card.cost} / P{(card.power || 0).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-600/50 text-sm py-6">対象のキャラクターがいません</div>
+        )}
+        <button onClick={onSkip} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>スキップ（対象なし）</button>
       </div>
     </div>
   );
@@ -2017,10 +2056,10 @@ export default function BattlePage({ onNavigate }) {
     if (context === 'hand') {
       if (zone === 'field' && card.card_type === 'CHARACTER') {
         game.playerPlayCard(card._uid);
-        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+        if (shouldShowEntryModal(card)) setPendingEntryEffect(card);
       } else if (zone === 'stage' && card.card_type === 'STAGE') {
         game.playerPlayStage(card._uid);
-        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+        if (shouldShowEntryModal(card)) setPendingEntryEffect(card);
       } else if (zone === 'event' && card.card_type === 'EVENT') {
         game.playerPlayEvent(card._uid);
         if (card.effect) setPendingEventEffect(card);
@@ -2126,12 +2165,12 @@ export default function BattlePage({ onNavigate }) {
     switch (actionId) {
       case 'play': {
         game.playerPlayCard(card._uid);
-        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+        if (shouldShowEntryModal(card)) setPendingEntryEffect(card);
         break;
       }
       case 'stage': {
         game.playerPlayStage(card._uid);
-        if (/【登場時】/.test(card.effect || '')) setPendingEntryEffect(card);
+        if (shouldShowEntryModal(card)) setPendingEntryEffect(card);
         break;
       }
       case 'event': {
@@ -2710,6 +2749,15 @@ export default function BattlePage({ onNavigate }) {
       {/* アタック解決（プレイヤー攻撃） */}
       {state.attackState?.step === 'resolving' && state.attackState?.owner === 'player' && (
         <AttackResolveModal attackState={state.attackState} cpuField={cs.field} cpuLeader={cs.leader} onResolve={handleResolveAttack} onCancel={handleCancelAttack}/>
+      )}
+
+      {/* ペローナ登場時: アタック不可ターゲット選択 */}
+      {state.pendingPeronaTarget?.owner === 'player' && (
+        <PeronaTargetModal
+          cpuField={cs.field}
+          onConfirm={(uid) => game.playerPeronaLockTarget(uid)}
+          onSkip={() => game.playerPeronaLockTarget(null)}
+        />
       )}
 
       {/* 登場時効果 */}

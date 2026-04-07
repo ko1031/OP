@@ -6,6 +6,10 @@ import { LEADER_EFFECTS } from './useGameState';
 import {
   cpuDecide, cpuDecideBlocker, cpuDecideTrigger,
   IM_LEADER_ID, GOROUSEI_CARD_NUMBERS, GOROUSEI_FINISHER_NUMBER, KYO_NO_GYOKUZA_NUMBER,
+  ENEL_LEADER_ID, ENEL_6COST_CHARS,
+  NAMI_LEADER_ID,
+  LUCY_LEADER_ID,
+  PERONA_CARD_NUMBER, ROBIN_EB03_NUMBER, ROBIN_OP15_NUMBER,
 } from './cpuDecide';
 
 // ─── ユーティリティ ───────────────────────────────────────────────────
@@ -284,6 +288,88 @@ function addLog(msg, prev) {
   };
 }
 
+// ─── 登場時効果ヘルパー ───────────────────────────────────────────────
+/**
+ * ペローナ【登場時/KO時】: 相手コスト6以下のキャラ1体にcantAttack付与
+ * peronaOwnerKey='player' → cpu.field から自動選択
+ * peronaOwnerKey='cpu'    → player.field から自動選択
+ * （プレイヤーが登場させた場合はこの関数ではなく pendingPeronaTarget 経由で選択させる）
+ */
+function autoApplyPeronaEffect(ns, peronaOwnerKey) {
+  const oppKey = peronaOwnerKey === 'player' ? 'cpu' : 'player';
+  const oppSide = ns[oppKey];
+  const candidates = oppSide.field.filter(c => (c.cost || 0) <= 6);
+  if (candidates.length === 0) return ns;
+  const target = [...candidates].sort((a, b) => (b.power || 0) - (a.power || 0))[0];
+  const label = peronaOwnerKey === 'player' ? 'プレイヤー' : 'CPU';
+  return addLog(
+    `${label}【ペローナ効果】「${target.name}」は次のターンアタック不可`,
+    {
+      ...ns,
+      [oppKey]: {
+        ...oppSide,
+        field: oppSide.field.map(c => c._uid === target._uid ? { ...c, cantAttack: true } : c),
+      },
+    }
+  );
+}
+
+/**
+ * ニコ・ロビン EB03-055 【登場時】
+ * 条件: 自分ライフ>=1 AND リーダーが《麦わらの一味》
+ * 効果: ライフ上1枚→トラッシュ、デッキ上2枚→ライフ上
+ */
+function applyRobinEB03Effect(ns, sideKey) {
+  const s = ns[sideKey];
+  const hasMugiwara = (s.leader?.traits || []).includes('麦わらの一味');
+  if (!hasMugiwara || s.life.length === 0) return ns;
+  const [lifeTop, ...restLife] = s.life;
+  const newTrash = [...s.trash, { ...lifeTop, faceDown: false }];
+  const addCount = Math.min(2, s.deck.length);
+  const fromDeck = s.deck.slice(0, addCount).map(c => ({ ...c, faceDown: true }));
+  const newDeck = s.deck.slice(addCount);
+  const newLife = [...fromDeck, ...restLife];
+  const label = sideKey === 'player' ? 'プレイヤー' : 'CPU';
+  return addLog(
+    `${label}【ロビン登場時】ライフ1枚→トラッシュ＋デッキ上${addCount}枚→ライフ`,
+    { ...ns, [sideKey]: { ...s, life: newLife, trash: newTrash, deck: newDeck } }
+  );
+}
+
+/**
+ * ニコ・ロビン OP15-109 【登場時】
+ * 条件: 自分ライフ>=1
+ * 効果: ライフ上1枚→手札、AND リーダーが《麦わらの一味》ならデッキ上1枚→ライフ上
+ * ※空島キャラ召喚は省略
+ */
+function applyRobinOP15Effect(ns, sideKey) {
+  const s = ns[sideKey];
+  if (s.life.length === 0) return ns;
+  const [lifeTop, ...restLife] = s.life;
+  const triggered = hasTrigger(lifeTop);
+  const newHand = [...s.hand, { ...lifeTop, faceDown: false }];
+  const label = sideKey === 'player' ? 'プレイヤー' : 'CPU';
+  let ns2 = addLog(
+    `${label}【ロビン(OP15)登場時】ライフ上1枚→手札${triggered ? '【トリガー】！' : ''}`,
+    { ...ns, [sideKey]: { ...s, life: restLife, hand: newHand } }
+  );
+  if (triggered && sideKey === 'player') {
+    ns2 = { ...ns2, pendingTrigger: { card: lifeTop, owner: sideKey } };
+  }
+  // 麦わらの一味リーダーならデッキ上1枚→ライフ上
+  const hasMugiwara = (ns2[sideKey].leader?.traits || []).includes('麦わらの一味');
+  if (hasMugiwara && ns2[sideKey].deck.length > 0) {
+    const s2 = ns2[sideKey];
+    const [fromDeck, ...restDeck] = s2.deck;
+    ns2 = addLog(
+      `${label}【ロビン(OP15)】デッキ上1枚→ライフ上`,
+      { ...ns2, [sideKey]: { ...s2, life: [{ ...fromDeck, faceDown: true }, ...s2.life], deck: restDeck } }
+    );
+  }
+  return ns2;
+}
+// ─────────────────────────────────────────────────────────────────────
+
 // イベントカードの【カウンター】パワー値をテキストから解析
 function parseEventCounterValue(card) {
   if (card?.card_type !== 'EVENT') return 0;
@@ -437,7 +523,7 @@ function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackP
         return addLog(`「${target.name}」はバトルでKOされない！`, ns);
       }
       const donBack = target.donAttached || 0;
-      return addLog(`KO！「${target.name}」（DON!!×${donBack}返還）`, {
+      let koNs = addLog(`KO！「${target.name}」（DON!!×${donBack}返還）`, {
         ...ns,
         [defKey]: {
           ...defSide,
@@ -446,6 +532,11 @@ function resolveDamageOnState(ns, atkKey, defKey, targetType, targetUid, attackP
           donActive: defSide.donActive + donBack,
         },
       });
+      // ペローナ【KO時】: KOされた側(defKey)のペローナが場を離れたとき、atkKey側のキャラを自動選択でアタック不可
+      if (target.card_number === PERONA_CARD_NUMBER) {
+        koNs = autoApplyPeronaEffect(koNs, defKey);
+      }
+      return koNs;
     } else {
       // リーダーへダメージ
       const defSide = ns[defKey];
@@ -799,7 +890,7 @@ export function useBattleState() {
         const donFromLeader = s.leader.donAttached || 0;
         const restored = s.donTapped + donFromField + donFromLeader;
         // リフレッシュ: タップ解除・DON!!回収・ターン1回フラグリセット（_donReturnEffectUsed含む）
-        const newField = s.field.map(c => ({ ...c, tapped: false, donAttached: 0, _donReturnEffectUsed: false }));
+        const newField = s.field.map(c => ({ ...c, tapped: false, donAttached: 0, _donReturnEffectUsed: false, cantAttack: false }));
         const newLeader = { ...s.leader, tapped: false, donAttached: 0 };
         return addLog(`[${label}] リフレッシュ${restored > 0 ? `・DON!!×${restored}回収` : ''}`, {
           ...prev,
@@ -900,9 +991,23 @@ export function useBattleState() {
       const hasRush = /【速攻】/.test(card.effect || '');
       const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }];
       const newHand = afterDon.hand.filter((_, i) => i !== idx);
-      return addLog(`「${card.name}」（コスト${cost}${costNote}）登場${hasRush ? '【速攻】' : ''}`, {
+      let ns = addLog(`「${card.name}」（コスト${cost}${costNote}）登場${hasRush ? '【速攻】' : ''}`, {
         ...prev, player: { ...afterDon, hand: newHand, field: newField },
       });
+      // ── 登場時効果（特定カード）────────────────────────────────────
+      // ペローナ: pendingPeronaTarget をセット（UIでターゲット選択モーダルを表示）
+      if (card.card_number === PERONA_CARD_NUMBER && ns.cpu.field.some(c => (c.cost || 0) <= 6)) {
+        ns = { ...ns, pendingPeronaTarget: { owner: 'player' } };
+      }
+      // ロビン EB03-055: ライフ1枚トラッシュ＋デッキ2枚ライフへ（自動）
+      if (card.card_number === ROBIN_EB03_NUMBER) {
+        ns = applyRobinEB03Effect(ns, 'player');
+      }
+      // ロビン OP15-109: ライフ1枚→手札＋デッキ1枚→ライフへ（自動）
+      if (card.card_number === ROBIN_OP15_NUMBER) {
+        ns = applyRobinOP15Effect(ns, 'player');
+      }
+      return ns;
     });
   }, []);
 
@@ -948,6 +1053,9 @@ export function useBattleState() {
         // 登場ターンは速攻がなければアタック不可
         if (attacker._summonedTurn === prev.turn && !attacker._hasRush)
           return addLog('登場したばかりのキャラはアタックできません（速攻なし）', prev);
+        // ペローナ効果でアタック不可
+        if (attacker.cantAttack)
+          return addLog(`「${attacker.name}」はペローナ効果でこのターンアタックできません`, prev);
         attackerType = 'character';
       }
       return addLog(`「${attacker.name}」アタック宣言`, {
@@ -1009,6 +1117,60 @@ export function useBattleState() {
             finalTargetType = 'character';
             finalDefensePower = computeDefensePower(blocker, c, p);
             ns = addLog(`CPU ブロッカー「${blocker.name}」(${finalDefensePower})で受ける！`, ns);
+          }
+        }
+      }
+
+      // ─ CPUリーダー相手アタック時効果（ナミ/ルーシー等）──────────
+      if (finalTargetType === 'leader' && !ns.cpu.leaderAbilityUsed) {
+        const cpuLeaderEff = ns.cpu.leaderEffect || {};
+
+        // 青黄ナミ (OP11-041): DON×1付きなら手札を1枚捨てて+2000
+        if (
+          ns.cpu.leader?.card_number === NAMI_LEADER_ID &&
+          cpuLeaderEff.hasOpponentAttackAbility &&
+          (ns.cpu.leader.donAttached || 0) >= (cpuLeaderEff.opponentAttackRequiresDon ?? 1) &&
+          ns.cpu.hand.length > 0 &&
+          attackPower >= finalDefensePower
+        ) {
+          // 最もカウンター価値が低いカードを捨てる
+          const discardCard = [...ns.cpu.hand]
+            .sort((a, b) => getCardCounterValue(a) - getCardCounterValue(b))[0];
+          const newCpuHand  = ns.cpu.hand.filter(x => x._uid !== discardCard._uid);
+          const newCpuTrash = [...ns.cpu.trash, { ...discardCard, faceDown: false }];
+          finalDefensePower += 2000;
+          ns = addLog(
+            `CPU【ナミ効果】「${discardCard.name}」捨て → CPUリーダーパワー+2000（${finalDefensePower}）`,
+            { ...ns, cpu: { ...ns.cpu, hand: newCpuHand, trash: newCpuTrash, leaderAbilityUsed: true } }
+          );
+        }
+
+        // 赤青ルーシー (OP15-002): 手札のイベント/ステージを捨てて+1000×枚数
+        else if (
+          ns.cpu.leader?.card_number === LUCY_LEADER_ID &&
+          cpuLeaderEff.hasOpponentAttackAbility &&
+          attackPower >= finalDefensePower
+        ) {
+          const eventsInHand = ns.cpu.hand.filter(
+            x => x.card_type === 'EVENT' || x.card_type === 'STAGE'
+          );
+          if (eventsInHand.length > 0) {
+            const needed = attackPower - finalDefensePower + 1000;
+            const numToDiscard = Math.min(
+              eventsInHand.length,
+              Math.ceil(needed / 1000)
+            );
+            const toDiscard = [...eventsInHand]
+              .sort((a, b) => getCardCounterValue(a) - getCardCounterValue(b))
+              .slice(0, numToDiscard);
+            const discardUids = new Set(toDiscard.map(x => x._uid));
+            const newCpuHand  = ns.cpu.hand.filter(x => !discardUids.has(x._uid));
+            const newCpuTrash = [...ns.cpu.trash, ...toDiscard.map(x => ({ ...x, faceDown: false }))];
+            finalDefensePower += numToDiscard * 1000;
+            ns = addLog(
+              `CPU【ルーシー効果】イベント/ステージ${numToDiscard}枚捨て → CPUリーダーパワー+${numToDiscard * 1000}（${finalDefensePower}）`,
+              { ...ns, cpu: { ...ns.cpu, hand: newCpuHand, trash: newCpuTrash, leaderAbilityUsed: true } }
+            );
           }
         }
       }
@@ -1519,6 +1681,105 @@ export function useBattleState() {
       }
       // ─────────────────────────────────────────────────────────────
 
+      // ── 紫エネルリーダー専用: 起動メイン（DON!!デッキから追加）──────
+      // 発動条件: turn>=2, leaderAbilityUsed=false, donDeck残りあり, donActive>=1
+      // コスト: DON!!×1レスト
+      // 効果 : DON!!デッキから1枚アクティブ＋最大4枚レストを追加
+      //         → レストDON!!は最優先キャラ(ENEL_6COST_CHARS)にアタッチ
+      if (
+        ns.cpu.leader?.card_number === ENEL_LEADER_ID &&
+        ns.turn >= 2 &&
+        !ns.cpu.leaderAbilityUsed &&
+        ns.cpu.donDeck > 0 &&
+        ns.cpu.donActive >= 1
+      ) {
+        const c = ns.cpu;
+        // コスト支払い: DON!!×1レスト
+        const costActive = c.donActive - 1;
+        const costTapped = c.donTapped + 1;
+        // 効果: デッキから1枚アクティブ追加
+        const addActive = Math.min(1, c.donDeck);
+        const deckAfterActive = c.donDeck - addActive;
+        // 効果: デッキから最大4枚レスト追加
+        const addRested = Math.min(4, deckAfterActive);
+        const deckFinal = deckAfterActive - addRested;
+        // レストDON!!をキャラにアタッチ（ENEL_6COST_CHARS優先、次にコスト高い順）
+        const fieldSorted = [...c.field].sort((a, b) => {
+          const aIs6 = ENEL_6COST_CHARS.includes(a.card_number);
+          const bIs6 = ENEL_6COST_CHARS.includes(b.card_number);
+          if (aIs6 && !bIs6) return -1;
+          if (bIs6 && !aIs6) return 1;
+          return (b.cost || 0) - (a.cost || 0);
+        });
+        let restBudget = addRested;
+        const attachMap = {};
+        for (const fcard of fieldSorted) {
+          if (restBudget <= 0) break;
+          attachMap[fcard._uid] = restBudget; // 1体に集中してパワーを最大化
+          restBudget = 0;
+        }
+        const newEnelField = c.field.map(fcard =>
+          attachMap[fcard._uid] != null
+            ? { ...fcard, donAttached: (fcard.donAttached || 0) + attachMap[fcard._uid] }
+            : fcard
+        );
+        const topTarget = fieldSorted[0]?.name;
+        ns = addLog(
+          `CPU【エネル起動メイン】DON!!×1レスト → デッキからアクティブ×${addActive}＋レスト×${addRested}追加` +
+          (topTarget && addRested > 0 ? `→「${topTarget}」にDON!!×${addRested}アタッチ` : ''),
+          {
+            ...ns,
+            cpu: {
+              ...c,
+              donActive: costActive + addActive,
+              donTapped: costTapped,
+              donDeck: deckFinal,
+              field: newEnelField,
+              leaderAbilityUsed: true,
+            },
+          }
+        );
+      }
+
+      // ── 赤青ルーシーリーダー専用: コスト3以上イベントプレイ→1ドロー ─
+      // 発動条件: leaderAbilityUsed=false, 手札にコスト3以上かつ払えるイベントあり
+      // 効果 : イベントをプレイしてトラッシュへ → リーダー能力で1ドロー
+      if (ns.cpu.leader?.card_number === LUCY_LEADER_ID && !ns.cpu.leaderAbilityUsed) {
+        const c = ns.cpu;
+        const playableEvents = c.hand
+          .filter(card =>
+            card.card_type === 'EVENT' &&
+            (card.cost || 0) >= 3 &&
+            (card.cost || 0) <= c.donActive
+          )
+          .sort((a, b) => (b.cost || 0) - (a.cost || 0));
+        const eventCard = playableEvents[0];
+        if (eventCard) {
+          const idx = c.hand.findIndex(x => x._uid === eventCard._uid);
+          const handAfterPlay = c.hand.filter((_, i) => i !== idx);
+          const trashAfterPlay = [...c.trash, { ...eventCard, faceDown: false }];
+          // DONコスト支払い
+          const sideForDon = { ...c, hand: handAfterPlay, trash: trashAfterPlay };
+          const afterDon = autoTapDon(sideForDon, eventCard.cost || 0);
+          // ルーシーリーダー効果: コスト3以上イベントプレイで1ドロー
+          const drawCount = Math.min(1, afterDon.deck.length);
+          const drawnCards = afterDon.deck.slice(0, drawCount);
+          ns = addLog(
+            `CPU【ルーシー起動メイン】「${eventCard.name}」（コスト${eventCard.cost}）プレイ → 1ドロー`,
+            {
+              ...ns,
+              cpu: {
+                ...afterDon,
+                hand: [...afterDon.hand, ...drawnCards],
+                deck: afterDon.deck.slice(drawCount),
+                leaderAbilityUsed: true,
+              },
+            }
+          );
+        }
+      }
+      // ─────────────────────────────────────────────────────────────
+
       const decisions = cpuDecide(ns.cpu, ns.player, ns.turn);
 
       // 1. カードプレイ
@@ -1533,6 +1794,17 @@ export function useBattleState() {
         const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: ns.turn, _hasRush: hasRush }];
         const newHand = afterDon.hand.filter((_, i) => i !== idx);
         ns = addLog(`CPU「${card.name}」登場`, { ...ns, cpu: { ...afterDon, hand: newHand, field: newField } });
+        // CPU登場時効果
+        if (card.card_number === PERONA_CARD_NUMBER) {
+          // ペローナ: プレイヤーコスト6以下キャラを自動選択してアタック不可
+          ns = autoApplyPeronaEffect(ns, 'cpu');
+        }
+        if (card.card_number === ROBIN_EB03_NUMBER) {
+          ns = applyRobinEB03Effect(ns, 'cpu');
+        }
+        if (card.card_number === ROBIN_OP15_NUMBER) {
+          ns = applyRobinOP15Effect(ns, 'cpu');
+        }
       }
 
       // 2. DON!!アタッチ
@@ -2240,6 +2512,31 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── プレイヤー: ペローナ効果ターゲット選択（CPUキャラをアタック不可に）────
+  const playerPeronaLockTarget = useCallback((targetUid) => {
+    setState(prev => {
+      if (!prev?.pendingPeronaTarget) return prev;
+      // null = スキップ（対象なし）
+      if (!targetUid) {
+        return addLog('ペローナ効果: 対象なし（スキップ）', { ...prev, pendingPeronaTarget: null });
+      }
+      const cpu = prev.cpu;
+      const target = cpu.field.find(c => c._uid === targetUid && (c.cost || 0) <= 6);
+      if (!target) return addLog('無効な対象です（コスト6以下のキャラを選択）', prev);
+      return addLog(
+        `ペローナ【登場時】「${target.name}」は次のターンアタック不可`,
+        {
+          ...prev,
+          pendingPeronaTarget: null,
+          cpu: {
+            ...cpu,
+            field: cpu.field.map(c => c._uid === targetUid ? { ...c, cantAttack: true } : c),
+          },
+        }
+      );
+    });
+  }, []);
+
   // ── プレイヤー: 効果でCPUキャラをレスト ────────────────────────────
   const playerRestCpuChar = useCallback((charUid) => {
     setState(prev => {
@@ -2436,6 +2733,7 @@ export function useBattleState() {
     playerKoCpuChar,
     playerRestCpuChar,
     playerDeckBottomCpuChar,
+    playerPeronaLockTarget,
     playerDiscardHandCard,
     playerGiveCharBlocker,
     playerUseLeaderDefenseAbility,

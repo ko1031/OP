@@ -12,11 +12,24 @@
 //   ⑩ リーダーパワーを scoreBoardState に組み込んでDON配分精度を向上
 // ─────────────────────────────────────────────────────────────────────
 
-// ─── イムリーダー固有の定数（useBattleState.jsでも参照）────────────
-export const IM_LEADER_ID           = 'OP13-079';
-export const GOROUSEI_CARD_NUMBERS  = ['OP13-083', 'OP13-089', 'OP13-080', 'OP13-091', 'OP13-084'];
+// ─── リーダー固有の定数（useBattleState.jsでも参照）──────────────
+// 黒イム OP13-079
+export const IM_LEADER_ID             = 'OP13-079';
+export const GOROUSEI_CARD_NUMBERS    = ['OP13-083', 'OP13-089', 'OP13-080', 'OP13-091', 'OP13-084'];
 export const GOROUSEI_FINISHER_NUMBER = 'OP13-082';
-export const KYO_NO_GYOKUZA_NUMBER  = 'OP13-099';
+export const KYO_NO_GYOKUZA_NUMBER    = 'OP13-099';
+// 紫エネル OP15-058
+export const ENEL_LEADER_ID          = 'OP15-058';
+export const ENEL_6COST_CHARS        = ['OP15-060', 'OP15-118'];
+export const ENEL_1COST_DRAW_CHARS   = ['OP15-061', 'OP15-063', 'OP15-066', 'OP15-067'];
+// 青黄ナミ OP11-041
+export const NAMI_LEADER_ID          = 'OP11-041';
+// 赤青ルーシー OP15-002
+export const LUCY_LEADER_ID          = 'OP15-002';
+// 共通登場時効果カード
+export const PERONA_CARD_NUMBER      = 'OP14-111'; // 黄ペローナ: 登場時/KO時 相手コスト6以下キャラアタック不可
+export const ROBIN_EB03_NUMBER       = 'EB03-055'; // 黄ロビン7コスト: 登場時 ライフ→トラッシュ＋デッキ2枚→ライフ
+export const ROBIN_OP15_NUMBER       = 'OP15-109'; // 黄ロビン7コスト(OP15): 登場時 ライフ→手札＋デッキ1枚→ライフ
 
 // ─── ユーティリティ ────────────────────────────────────────────────
 /** キャラの実効パワー（DON ボーナス込み、ターン所有者視点） */
@@ -101,6 +114,139 @@ function decideImCardPlays(cpuSide, _playerSide, _turn) {
     if (bFin && !aFin) return 1;
     if (a.isGorousei && !b.isGorousei) return -1;
     if (b.isGorousei && !a.isGorousei) return 1;
+    return b.cost - a.cost;
+  });
+
+  for (const { card, cost } of candidates) {
+    if (field.length + playDecisions.length >= maxField) break;
+    if (cost > remainingDon) continue;
+    playDecisions.push({ type: 'play', uid: card._uid, cost });
+    remainingDon -= cost;
+  }
+
+  return { playDecisions, remainingDon };
+}
+
+// ─── 紫エネル専用カードプレイ ─────────────────────────────────────
+/**
+ * エネル専用: コスト1ドロー系キャラを優先してから6コストエネルを展開
+ * DON!!デッキが6枚のため、高コストより低コスト展開を先行させる
+ */
+function decideEnelCardPlays(cpuSide, _playerSide, _turn) {
+  const { hand, field, donActive } = cpuSide;
+  const playDecisions = [];
+  let remainingDon = donActive;
+  const maxField = 5;
+
+  const candidates = hand
+    .filter(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= remainingDon)
+    .map(c => {
+      const is6Enel   = ENEL_6COST_CHARS.includes(c.card_number);
+      const is1Draw   = ENEL_1COST_DRAW_CHARS.includes(c.card_number);
+      const isOP15Pur = c.card_number?.startsWith('OP15') && (c.colors || []).includes('紫');
+      return { card: c, is6Enel, is1Draw, isOP15Pur, cost: c.cost || 0 };
+    });
+
+  if (candidates.length === 0) return { playDecisions, remainingDon };
+
+  // 優先度: コスト1ドロー系 > 6コストエネル > OP15紫 > その他（コスト高順）
+  candidates.sort((a, b) => {
+    if (a.is1Draw  && !b.is1Draw)  return -1;
+    if (b.is1Draw  && !a.is1Draw)  return  1;
+    if (a.is6Enel  && !b.is6Enel)  return -1;
+    if (b.is6Enel  && !a.is6Enel)  return  1;
+    if (a.isOP15Pur && !b.isOP15Pur) return -1;
+    if (b.isOP15Pur && !a.isOP15Pur) return  1;
+    return b.cost - a.cost;
+  });
+
+  for (const { card, cost } of candidates) {
+    if (field.length + playDecisions.length >= maxField) break;
+    if (cost > remainingDon) continue;
+    playDecisions.push({ type: 'play', uid: card._uid, cost });
+    remainingDon -= cost;
+  }
+
+  return { playDecisions, remainingDon };
+}
+
+// ─── 青黄ナミ専用カードプレイ ─────────────────────────────────────
+/**
+ * ナミ専用: バウンス効果を持つキャラを優先してコントロール展開
+ */
+function decideNamiCardPlays(cpuSide, _playerSide, turn) {
+  const { hand, field, donActive } = cpuSide;
+  const playDecisions = [];
+  let remainingDon = donActive;
+  const maxField = 5;
+  const phase = getGamePhase(turn);
+
+  const candidates = hand
+    .filter(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= remainingDon)
+    .map(c => ({
+      card: c,
+      hasBounce: /手札に戻す/.test(c.effect || ''),
+      hasRush:   /【速攻】/.test(c.effect || ''),
+      isBlocker: /【ブロッカー】/.test(c.effect || '') || c._hasBlocker,
+      cost:      c.cost || 0,
+      efficiency: costEfficiency(c),
+    }));
+
+  if (candidates.length === 0) return { playDecisions, remainingDon };
+
+  // 優先度: バウンス > 速攻 > ブロッカー > コスト高順
+  candidates.sort((a, b) => {
+    if (a.hasBounce && !b.hasBounce) return -1;
+    if (b.hasBounce && !a.hasBounce) return  1;
+    if (a.hasRush   && !b.hasRush)   return -1;
+    if (b.hasRush   && !a.hasRush)   return  1;
+    if (a.isBlocker && !b.isBlocker) return -1;
+    if (b.isBlocker && !a.isBlocker) return  1;
+    return b.cost - a.cost;
+  });
+
+  const effThreshold = phase === 'early' ? 600 : 1000;
+  for (const { card, cost, efficiency, hasBounce } of candidates) {
+    if (field.length + playDecisions.length >= maxField) break;
+    if (cost > remainingDon) continue;
+    // バウンス持ちは効率チェックを緩和
+    const isLowValue = !hasBounce && efficiency < effThreshold && remainingDon - cost < 2;
+    if (isLowValue && playDecisions.length > 0) continue;
+    playDecisions.push({ type: 'play', uid: card._uid, cost });
+    remainingDon -= cost;
+  }
+
+  return { playDecisions, remainingDon };
+}
+
+// ─── 赤青ルーシー専用カードプレイ ────────────────────────────────
+/**
+ * ルーシー専用: 速攻・ブロッカー優先でキャラ展開
+ * イベントプレイはuseBattleState.js側で別途処理する
+ */
+function decideLucyCardPlays(cpuSide, _playerSide, _turn) {
+  const { hand, field, donActive } = cpuSide;
+  const playDecisions = [];
+  let remainingDon = donActive;
+  const maxField = 5;
+
+  const candidates = hand
+    .filter(c => c.card_type === 'CHARACTER' && (c.cost || 0) <= remainingDon)
+    .map(c => ({
+      card: c,
+      hasRush:   /【速攻】/.test(c.effect || ''),
+      isBlocker: /【ブロッカー】/.test(c.effect || '') || c._hasBlocker,
+      cost:      c.cost || 0,
+    }));
+
+  if (candidates.length === 0) return { playDecisions, remainingDon };
+
+  // 優先度: 速攻 > ブロッカー > コスト高順
+  candidates.sort((a, b) => {
+    if (a.hasRush   && !b.hasRush)   return -1;
+    if (b.hasRush   && !a.hasRush)   return  1;
+    if (a.isBlocker && !b.isBlocker) return -1;
+    if (b.isBlocker && !a.isBlocker) return  1;
     return b.cost - a.cost;
   });
 
@@ -427,7 +573,7 @@ function decideAttacks(cpuSide, playerSide, turn) {
   const phase = getGamePhase(turn);
 
   const attackers = field.filter(
-    c => !c.tapped && (c._summonedTurn !== turn || c._hasRush || /【速攻】/.test(c.effect || ''))
+    c => !c.tapped && !c.cantAttack && (c._summonedTurn !== turn || c._hasRush || /【速攻】/.test(c.effect || ''))
   );
   const leaderCanAttack = !leader.tapped;
 
@@ -556,11 +702,16 @@ function decideAttacks(cpuSide, playerSide, turn) {
  */
 export function cpuDecide(cpuSide, playerSide, turn) {
   const { leaderEffect } = cpuSide;
+  const leaderCardNumber = cpuSide.leader?.card_number;
 
-  // ① カードプレイ（イムリーダーは専用ロジック）
-  const { playDecisions, remainingDon: donAfterPlay } = isImLeader(cpuSide)
-    ? decideImCardPlays(cpuSide, playerSide, turn)
-    : decideCardPlays(cpuSide, playerSide, turn);
+  // ① カードプレイ（リーダー固有ロジック）
+  let cardPlaysResult;
+  if      (leaderCardNumber === IM_LEADER_ID)   cardPlaysResult = decideImCardPlays(cpuSide, playerSide, turn);
+  else if (leaderCardNumber === ENEL_LEADER_ID)  cardPlaysResult = decideEnelCardPlays(cpuSide, playerSide, turn);
+  else if (leaderCardNumber === NAMI_LEADER_ID)  cardPlaysResult = decideNamiCardPlays(cpuSide, playerSide, turn);
+  else if (leaderCardNumber === LUCY_LEADER_ID)  cardPlaysResult = decideLucyCardPlays(cpuSide, playerSide, turn);
+  else                                            cardPlaysResult = decideCardPlays(cpuSide, playerSide, turn);
+  const { playDecisions, remainingDon: donAfterPlay } = cardPlaysResult;
 
   // ② DON!! 配分（グリーディーBest-First）
   const { donAttachments } =
