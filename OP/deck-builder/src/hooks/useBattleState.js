@@ -839,9 +839,14 @@ export function useBattleState() {
         const eff = s.leaderEffect?.onEndPhase;
         if (eff === 'lifeTopToHand' && s.life.length > 0) {
           const [top, ...rest] = s.life;
-          ns = addLog(`[${label}] リーダー効果: ライフ→手札`, {
+          const triggered = hasTrigger(top);
+          ns = addLog(`[${label}] リーダー効果: ライフ→手札「${top.name}」${triggered ? '【トリガー】！' : ''}`, {
             ...ns, [sideKey]: { ...ns[sideKey], life: rest, hand: [...ns[sideKey].hand, { ...top, faceDown: false }] },
           });
+          // ライフカードにトリガーがあれば pendingTrigger をセット
+          if (triggered) {
+            ns = { ...ns, pendingTrigger: { card: top, owner: sideKey } };
+          }
         }
         if (eff === 'activateDon2' && s.donTapped > 0) {
           const act = Math.min(2, s.donTapped);

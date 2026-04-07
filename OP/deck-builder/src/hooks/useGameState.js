@@ -14,6 +14,13 @@ function shuffle(arr) {
   return arr;
 }
 
+/** カードが【トリガー】効果を持つか判定 */
+function hasTrigger(card) {
+  if (!card) return false;
+  // trigger フィールド（スクレイパーが別途格納）または effect テキスト内の【トリガー】
+  return !!(card.trigger) || /【トリガー】/.test(card.effect || '');
+}
+
 export function expandDeck(entries) {
   const result = [];
   entries.forEach(({ card, count }) => {
@@ -563,6 +570,7 @@ function buildInitialState(leader, deckCards, playerOrder) {
     trash: [],
     searchReveal: [],   // サーチ効果で一時的に公開したカード
     mulliganCount: 0,
+    pendingLifeTrigger: null,   // ライフカードがトリガー付きで手札に来た時にセット
     log: [`ゲーム開始！（${leader?.name}）${leaderEff.note ? ' ⚠ ' + leaderEff.note : ''} マリガンしますか？`],
   };
 }
@@ -686,7 +694,11 @@ export function useGameState() {
         if (eff === 'lifeTopToHand' && ns.life.length > 0) {
           const [top, ...rest] = ns.life;
           ns = addLog(`【リーダー効果】ライフ上「${top.name}」を手札に加える`, {
-            ...ns, life: rest, hand: [...ns.hand, { ...top, faceDown: false }],
+            ...ns,
+            life: rest,
+            hand: [...ns.hand, { ...top, faceDown: false }],
+            // ライフカードにトリガーがあれば通知フラグをセット
+            pendingLifeTrigger: hasTrigger(top) ? top : ns.pendingLifeTrigger,
           });
         }
 
@@ -1262,11 +1274,21 @@ export function useGameState() {
     setState(prev => {
       if (!prev || prev.life.length === 0) return prev;
       const [top, ...rest] = prev.life;
-      return addLog(`ライフをめくる →「${top.name}」（残り${rest.length}枚）`, {
-        ...prev, life: rest, hand: [...prev.hand, { ...top, faceDown: false }],
+      const triggered = hasTrigger(top);
+      return addLog(`ライフをめくる →「${top.name}」（残り${rest.length}枚）${triggered ? ' 【トリガー】！' : ''}`, {
+        ...prev,
+        life: rest,
+        hand: [...prev.hand, { ...top, faceDown: false }],
+        // トリガー付きのライフカードが手札に来たことを通知
+        pendingLifeTrigger: triggered ? top : prev.pendingLifeTrigger,
       });
     });
   }, [addLog]);
+
+  /** トリガートースト表示後にフラグをクリア */
+  const clearLifeTrigger = useCallback(() => {
+    setState(prev => prev ? { ...prev, pendingLifeTrigger: null } : prev);
+  }, []);
 
   const resetGame = useCallback(() => setState(null), []);
 
@@ -1279,7 +1301,7 @@ export function useGameState() {
     detachDonFromLeader, detachDonFromField,
     returnHandToTop, returnHandToBottom,
     returnFieldToTop, returnFieldToBottom,
-    flipLife,
+    flipLife, clearLifeTrigger,
     beginSearch, resolveSearch, cancelSearch,
     shuffleDeck, tapAllDon, activateAllDon,
     returnTrashToDeckTop, returnTrashToHand, trashStage,

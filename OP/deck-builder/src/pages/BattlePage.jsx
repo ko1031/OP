@@ -220,16 +220,28 @@ function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragE
 // ─── DON!!カード ────────────────────────────────────────────────────
 function DonCard({ active, onClick, onDragStart, onDragEnd }) {
   const canDrag = active && !!onDragStart;
+  // レスト時: 90°横向き表示（TCG標準のレスト表現）
+  // 外枠はW×Hのまま保ち、内部画像を回転＋縮小してはみ出さないようにする
   return (
     <div onClick={active ? onClick : undefined}
       draggable={canDrag}
       onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
       onDragEnd={canDrag ? onDragEnd : undefined}
-      className={`flex-shrink-0 select-none transition-all duration-150 rounded overflow-hidden
-        ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : 'opacity-40 cursor-default grayscale brightness-75'}`}
+      className={`flex-shrink-0 select-none transition-all duration-200 rounded overflow-hidden flex items-center justify-center
+        ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : 'cursor-default opacity-60'}`}
       style={{ width: DON_CARD.W, height: DON_CARD.H, boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none' }}
       title={active ? 'DON!!（ドラッグでアタッチ / クリックでレスト）' : 'DON!!（レスト済み）'}>
-      <img src={DON_IMG_URL} alt="DON!!" style={{ width: DON_CARD.W, height: DON_CARD.H, objectFit: 'cover', display: 'block' }} draggable={false} />
+      <img
+        src={DON_IMG_URL} alt="DON!!"
+        style={{
+          width: DON_CARD.W, height: DON_CARD.H,
+          objectFit: 'cover', display: 'block',
+          // レスト時: 90°回転してカードをH/W比でスケール（はみ出し防止）
+          transform: active ? 'none' : `rotate(90deg) scale(${DON_CARD.W / DON_CARD.H})`,
+          transition: 'transform 0.2s ease',
+          filter: active ? 'none' : 'brightness(0.7) sepia(0.3)',
+        }}
+        draggable={false} />
     </div>
   );
 }
@@ -1986,7 +1998,7 @@ export default function BattlePage({ onNavigate }) {
       }
     } else if (context === 'don-active') {
       if (zone === 'leader') { game.playerAttachDon('leader'); }
-      else if (zone.startsWith('field-card-') && extraUid) { game.playerAttachDon(extraUid); }
+      else if (zone === 'field-card' && extraUid) { game.playerAttachDon(extraUid); }
     }
     setDragInfo(null); setDragOver(null);
   };

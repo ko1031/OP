@@ -207,16 +207,17 @@ const DON_IMG_URL = `${import.meta.env.BASE_URL}don-card.png`;
 
 function DonCard({ active, onClick, onDragStart, onDragEnd }) {
   const canDrag = active && !!onDragStart;
+  // レスト時: 90°横向き表示（TCG標準のレスト表現）
   return (
     <div
       draggable={canDrag}
       onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
       onDragEnd={canDrag ? onDragEnd : undefined}
       onClick={active ? onClick : undefined}
-      className={`flex-shrink-0 select-none transition-all duration-150 rounded overflow-hidden
+      className={`flex-shrink-0 select-none transition-all duration-200 rounded overflow-hidden flex items-center justify-center
         ${active
           ? `cursor-pointer hover:scale-105 hover:brightness-105 ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`
-          : 'opacity-40 cursor-default grayscale brightness-75'
+          : 'cursor-default opacity-60'
         }`}
       style={{
         width:  DON_CARD.W,
@@ -228,7 +229,14 @@ function DonCard({ active, onClick, onDragStart, onDragEnd }) {
       <img
         src={DON_IMG_URL}
         alt="DON!!"
-        style={{ width: DON_CARD.W, height: DON_CARD.H, objectFit: 'cover', display: 'block' }}
+        style={{
+          width: DON_CARD.W, height: DON_CARD.H,
+          objectFit: 'cover', display: 'block',
+          // レスト時: 90°回転してカードをH/W比でスケール（はみ出し防止）
+          transform: active ? 'none' : `rotate(90deg) scale(${DON_CARD.W / DON_CARD.H})`,
+          transition: 'transform 0.2s ease',
+          filter: active ? 'none' : 'brightness(0.7) sepia(0.3)',
+        }}
         draggable={false}
       />
     </div>
@@ -1414,7 +1422,6 @@ export default function SoloPlayPage({ onNavigate }) {
   const [showSearchStart, setShowSearchStart] = useState(false);
   const [showTrash, setShowTrash] = useState(false);            // トラッシュ一覧
   const [triggerToast, setTriggerToast] = useState(null);       // トリガー発動通知
-  const [prevHandLen, setPrevHandLen] = useState(0);            // ライフトリガー検出用
   const [pendingEntryEffect,  setPendingEntryEffect]  = useState(null); // 登場時効果待ち
   const [pendingAttackEffect, setPendingAttackEffect] = useState(null); // アタック時効果待ち
   const [pendingEventEffect,  setPendingEventEffect]  = useState(null); // イベント効果待ち
@@ -1451,26 +1458,18 @@ export default function SoloPlayPage({ onNavigate }) {
   }, [state, game]);
 
   // ─── ライフカードのトリガー検知 ───
+  // useGameState 側で pendingLifeTrigger フラグが立った時だけトーストを表示する。
+  // 手札枚数の増減では判断しないため、通常ドロー・サーチ結果等でも誤発動しない。
   useEffect(() => {
-    if (!state) return;
-    const cur = state.hand.length;
-    // マリガン中・ゲーム開始前（初期手札配布・マリガン引き直し）はトリガー検知しない
-    if (state.phase !== 'game') {
-      setPrevHandLen(cur);
-      return;
-    }
-    if (cur > prevHandLen) {
-      // 増えた枚数分のカードをチェック（末尾から）
-      const newCards = state.hand.slice(state.hand.length - (cur - prevHandLen));
-      const triggered = newCards.find(c => c.trigger || c.effect?.includes('[トリガー]') || c.effect?.includes('Trigger'));
-      if (triggered) {
-        setTriggerToast(triggered);
-        setTimeout(() => setTriggerToast(null), 4000);
-      }
-    }
-    setPrevHandLen(cur);
+    if (!state?.pendingLifeTrigger) return;
+    setTriggerToast(state.pendingLifeTrigger);
+    const t = setTimeout(() => {
+      setTriggerToast(null);
+      game.clearLifeTrigger();
+    }, 4000);
+    return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.hand?.length, state?.phase]);
+  }, [state?.pendingLifeTrigger]);
 
   const handleCardClick = (card, context, uid) => {
     if (selectedCard?.uid === uid) { setSelectedCard(null); return; }
