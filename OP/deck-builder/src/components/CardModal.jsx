@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, Plus, Minus, Crown, Zap, Shield } from 'lucide-react';
+import { X, Plus, Minus, Crown, Zap, Shield, Sparkles } from 'lucide-react';
 import CardImage from './CardImage';
 import ColorBadge from './ColorBadge';
 import { hasTrigger } from '../utils/deckRules';
@@ -35,6 +35,7 @@ export default function CardModal({
   onRemove,
   onSelectLeader,
   onClose,
+  onFindSynergy,
 }) {
   if (!card) return null;
 
@@ -201,6 +202,17 @@ export default function CardModal({
             {/* 4枚上限メッセージ */}
             {!isLeader && count >= 4 && (
               <p className="text-center text-[11px] text-yellow-500/80">上限（4枚）に達しています</p>
+            )}
+
+            {/* 相性が良いカード検索ボタン */}
+            {onFindSynergy && (
+              <button
+                onClick={() => onFindSynergy(card)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-xs bg-purple-900/40 hover:bg-purple-800/60 active:bg-purple-700/60 text-purple-300 border border-purple-700/50 hover:border-purple-500/70 transition-all active:scale-[0.97]"
+              >
+                <Sparkles size={13} />
+                相性が良いカードを探す
+              </button>
             )}
           </div>
         </div>

@@ -19,6 +19,38 @@ async function fetchCards() {
   return data;
 }
 
+/** 選択カードから相性の良いカードを絞り込むフィルターを生成 */
+function buildSynergyFilters(card) {
+  const allText = (card.effect || '') + ' ' + (card.trigger || '');
+
+  // Priority 1: 効果テキストにコスト制約付きキャラ登場効果がある場合
+  // 例: "コスト5以下のキャラ1枚を登場させる"
+  const costMaxMatch = allText.match(/コスト(\d+)以下[^。\n]*キャラ/);
+  const costMinMatch = allText.match(/コスト(\d+)以上[^。\n]*キャラ/);
+
+  if (costMaxMatch || costMinMatch) {
+    const f = { types: ['CHARACTER'] };
+    if (costMaxMatch) f.costMax = parseInt(costMaxMatch[1]);
+    if (costMinMatch) f.costMin = parseInt(costMinMatch[1]);
+    if (card.colors?.length > 0) f.colors = [...card.colors];
+    return f;
+  }
+
+  // Priority 2: 特徴（種族）ベース
+  if ((card.traits || []).length > 0) {
+    const f = { text: card.traits[0] };
+    if (card.colors?.length > 0) f.colors = [...card.colors];
+    return f;
+  }
+
+  // Priority 3: 同じ色
+  if ((card.colors || []).length > 0) {
+    return { colors: [...card.colors] };
+  }
+
+  return {};
+}
+
 function applyFilters(cards, filters) {
   return cards.filter(card => {
     if (filters.text) {
@@ -82,6 +114,11 @@ export default function App({ onNavigate }) {
   const handleSelectLeader = (card) => {
     deck.selectLeader(card);
     showToast(`リーダー「${card.name}」を選択しました`);
+  };
+
+  const handleFindSynergy = (card) => {
+    setFilters(buildSynergyFilters(card));
+    setMobileView('cards');
   };
 
   // サンプルデッキの丸ごと差し替え（リセットせず1回のstateで差し替え）
@@ -222,6 +259,7 @@ export default function App({ onNavigate }) {
                 onAddCard={handleAddCard}
                 onRemoveCard={deck.removeCard}
                 onSelectLeader={handleSelectLeader}
+                onFindSynergy={handleFindSynergy}
               />
             </div>
           </div>
