@@ -37,9 +37,20 @@ function getLeaderColors(leader) {
   return leader?.colors?.length > 0 ? [...leader.colors] : undefined;
 }
 
+// テキスト内の色名 → データ上の色コード対応表
+const COLOR_JP_MAP = {
+  '赤': 'RED', '青': 'BLUE', '緑': 'GREEN',
+  '紫': 'PURPLE', '黄': 'YELLOW', '黒': 'BLACK',
+};
+// テキスト内のカード種別 → データ上のカード種別対応表
+const TYPE_JP_MAP = {
+  'キャラ': 'CHARACTER', 'イベント': 'EVENT', 'ステージ': 'STAGE',
+};
+
 /**
  * ① カードテキストに合致するカードを検索
- * 効果テキスト内の「」〔〕に書かれた名称・種族を手がかりに検索
+ * 効果テキスト内の「」〔〕に書かれた名称・種族、
+ * またはコスト条件・色・カード種別を手がかりに検索
  */
 function buildTextSynergyFilter(card, allCards, leaderColors) {
   const allText = (card.effect || '') + ' ' + (card.trigger || '');
@@ -48,13 +59,37 @@ function buildTextSynergyFilter(card, allCards, leaderColors) {
   if (leaderColors) f.colors = leaderColors;
 
   if (allCards?.length > 0) {
-    // コスト制約付きキャラ登場効果
-    const costMaxMatch = allText.match(/コスト(\d+)以下[^。\n]*キャラ/);
-    const costMinMatch = allText.match(/コスト(\d+)以上[^。\n]*キャラ/);
-    if (costMaxMatch || costMinMatch) {
-      f.types = ['CHARACTER'];
-      if (costMaxMatch) f.costMax = parseInt(costMaxMatch[1]);
-      if (costMinMatch) f.costMin = parseInt(costMinMatch[1]);
+    // コスト制約付きカード検索パターン
+    // キャラ / イベント / ステージ すべてに対応し、色の記載も取得する
+    // 例: "コスト5以下の紫のイベント", "コスト3以下の赤のキャラ", "コスト4以下のステージ"
+    const costPattern = /コスト(\d+)(以下|以上)[^。\n]{0,15}?(赤|青|緑|紫|黄|黒)?[^。\n]{0,5}?(キャラ|イベント|ステージ)/;
+    const costMatch = allText.match(costPattern);
+    if (costMatch) {
+      const costNum  = parseInt(costMatch[1]);
+      const isMax    = costMatch[2] === '以下';
+      const colorJp  = costMatch[3]; // テキスト内の色（例: "紫"）
+      const typeJp   = costMatch[4]; // テキスト内のカード種別（例: "イベント"）
+
+      f.types = [TYPE_JP_MAP[typeJp]];
+      if (isMax) f.costMax = costNum; else f.costMin = costNum;
+      // テキストに色が明示されている場合はリーダー色より優先する
+      if (colorJp) f.colors = [COLOR_JP_MAP[colorJp]];
+      return f;
+    }
+
+    // パワー制約付きカード検索パターン
+    // 例: "パワー4000以下の紫のキャラカード", "パワー5000以下のキャラ"
+    const powerPattern = /パワー(\d+)(以下|以上)[^。\n]{0,15}?(赤|青|緑|紫|黄|黒)?[^。\n]{0,5}?(キャラ|イベント|ステージ)/;
+    const powerMatch = allText.match(powerPattern);
+    if (powerMatch) {
+      const powerNum = parseInt(powerMatch[1]);
+      const isMax    = powerMatch[2] === '以下';
+      const colorJp  = powerMatch[3];
+      const typeJp   = powerMatch[4];
+
+      f.types = [TYPE_JP_MAP[typeJp]];
+      if (isMax) f.powerMax = powerNum; else f.powerMin = powerNum;
+      if (colorJp) f.colors = [COLOR_JP_MAP[colorJp]];
       return f;
     }
 
@@ -130,6 +165,9 @@ function applyFilters(cards, filters) {
     const cost = card.cost ?? card.life ?? null;
     if (filters.costMin !== '' && filters.costMin != null && cost != null && cost < filters.costMin) return false;
     if (filters.costMax !== '' && filters.costMax != null && cost != null && cost > filters.costMax) return false;
+    const power = card.power ?? null;
+    if (filters.powerMin != null && power != null && power < filters.powerMin) return false;
+    if (filters.powerMax != null && power != null && power > filters.powerMax) return false;
     if (filters.triggerOnly) {
       if (!hasTrigger(card)) return false;
     }
