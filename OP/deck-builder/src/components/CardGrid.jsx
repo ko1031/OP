@@ -108,7 +108,7 @@ function CardItem({ card, count, isSelected, onOpenModal }) {
   );
 }
 
-export default function CardGrid({ cards, deck, leader, onAddCard, onRemoveCard, onSelectLeader, onFindSynergy }) {
+export default function CardGrid({ cards, deck, leader, onAddCard, onRemoveCard, onSelectLeader, onFindByText, onFindByTrait, onFindByName }) {
   const [sortBy,    setSortBy]    = useState('cost');
   const [modalCard, setModalCard] = useState(null);
 
@@ -176,7 +176,9 @@ export default function CardGrid({ cards, deck, leader, onAddCard, onRemoveCard,
           onRemove={onRemoveCard}
           onSelectLeader={onSelectLeader}
           onClose={() => setModalCard(null)}
-          onFindSynergy={onFindSynergy ? (card) => { onFindSynergy(card); setModalCard(null); } : null}
+          onFindByText={onFindByText   ? (card) => { onFindByText(card);   setModalCard(null); } : null}
+          onFindByTrait={onFindByTrait ? (card) => { onFindByTrait(card);  setModalCard(null); } : null}
+          onFindByName={onFindByName   ? (card) => { onFindByName(card);   setModalCard(null); } : null}
         />
       )}
     </div>

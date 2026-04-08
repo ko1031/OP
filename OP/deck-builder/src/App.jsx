@@ -30,66 +30,81 @@ function extractQuotedNames(text) {
   return names;
 }
 
-/** 選択カードから相性の良いカードを絞り込むフィルターを生成 */
-function buildSynergyFilters(card, allCards) {
-  const allText = (card.effect || '') + ' ' + (card.trigger || '');
-  const colors = card.colors?.length > 0 ? [...card.colors] : undefined;
+/**
+ * リーダーカードが設定されている場合はリーダーの色のみ、未設定なら色制限なし
+ */
+function getLeaderColors(leader) {
+  return leader?.colors?.length > 0 ? [...leader.colors] : undefined;
+}
 
-  // Priority 1: 効果テキストにコスト制約付きキャラ登場効果がある場合
-  // 例: "コスト5以下のキャラ1枚を登場させる"
-  const costMaxMatch = allText.match(/コスト(\d+)以下[^。\n]*キャラ/);
-  const costMinMatch = allText.match(/コスト(\d+)以上[^。\n]*キャラ/);
-  if (costMaxMatch || costMinMatch) {
-    const f = { types: ['CHARACTER'] };
-    if (costMaxMatch) f.costMax = parseInt(costMaxMatch[1]);
-    if (costMinMatch) f.costMin = parseInt(costMinMatch[1]);
-    if (colors) f.colors = colors;
-    return f;
-  }
+/**
+ * ① カードテキストに合致するカードを検索
+ * 効果テキスト内の「」〔〕に書かれた名称・種族を手がかりに検索
+ */
+function buildTextSynergyFilter(card, allCards, leaderColors) {
+  const allText = (card.effect || '') + ' ' + (card.trigger || '');
+  const quotedNames = extractQuotedNames(allText);
+  const f = {};
+  if (leaderColors) f.colors = leaderColors;
 
   if (allCards?.length > 0) {
-    // 効果テキスト内の「」〔〕から名称候補を抽出
-    const quotedNames = extractQuotedNames(allText);
-
-    // Priority 2: 効果テキストに特定の種族（特徴）の記載がある
-    // 例: 「麦わらの一味」を持つキャラ → 麦わらの一味 + 同じ色で検索
-    const allTraits = new Set(allCards.flatMap(c => c.traits || []));
-    const matchedTrait = quotedNames.find(n => allTraits.has(n));
-    if (matchedTrait) {
-      const f = { text: matchedTrait };
-      if (colors) f.colors = colors;
+    // コスト制約付きキャラ登場効果
+    const costMaxMatch = allText.match(/コスト(\d+)以下[^。\n]*キャラ/);
+    const costMinMatch = allText.match(/コスト(\d+)以上[^。\n]*キャラ/);
+    if (costMaxMatch || costMinMatch) {
+      f.types = ['CHARACTER'];
+      if (costMaxMatch) f.costMax = parseInt(costMaxMatch[1]);
+      if (costMinMatch) f.costMin = parseInt(costMinMatch[1]);
       return f;
     }
 
-    // Priority 3: 効果テキストに特定のカード名称の記載がある
-    // 例: 「ホーキンス」1枚をサーチ → ホーキンス + 同じ色で検索
+    // 効果内の特定種族（特徴）
+    const allTraits = new Set(allCards.flatMap(c => c.traits || []));
+    const matchedTrait = quotedNames.find(n => allTraits.has(n));
+    if (matchedTrait) { f.text = matchedTrait; return f; }
+
+    // 効果内の特定カード名
     const cardNameSet = new Set(
       allCards.filter(c => c.card_number !== card.card_number).map(c => c.name)
     );
     const matchedCardName = quotedNames.find(n => cardNameSet.has(n));
-    if (matchedCardName) {
-      const f = { text: matchedCardName };
-      if (colors) f.colors = colors;
-      return f;
-    }
+    if (matchedCardName) { f.text = matchedCardName; return f; }
 
-    // Priority 4: このカードの名前が他カードの効果テキストに登場する
-    // 例: ホーリーを選択 → 効果に「ホーリー」と書かれているオームなどを検索
+    // このカードの名前が他カードの効果テキストに登場する
     if (card.name) {
       const nameHits = allCards.filter(c =>
         c.card_number !== card.card_number &&
         ((c.effect || '').includes(card.name) || (c.trigger || '').includes(card.name))
       );
-      if (nameHits.length > 0) {
-        return { text: card.name };
-      }
+      if (nameHits.length > 0) { f.text = card.name; return f; }
     }
   }
 
-  // Priority 5 (フォールバック): 同じ色 + 同じ種族（特徴）を組み合わせて絞り込む
+  // フォールバック: テキスト検索なし（色だけ）
+  return f;
+}
+
+/**
+ * ② 種族が同じカードを検索
+ * 選択カードの特徴（traits）をテキスト検索キーワードに使用
+ */
+function buildTraitSynergyFilter(card, leaderColors) {
   const f = {};
-  if (colors) f.colors = colors;
-  if ((card.traits || []).length > 0) f.text = card.traits[0];
+  if (leaderColors) f.colors = leaderColors;
+  if ((card.traits || []).length > 0) {
+    f.text = card.traits[0]; // 最初の特徴で検索
+  }
+  return f;
+}
+
+/**
+ * ③ カード名が同じカードを検索
+ * 選択カードの名前で検索（同キャラの別バージョンを探す）
+ */
+function buildNameSynergyFilter(card, leaderColors) {
+  const f = {};
+  if (leaderColors) f.colors = leaderColors;
+  if (card.name) f.text = card.name;
   return f;
 }
 
@@ -158,8 +173,18 @@ export default function App({ onNavigate }) {
     showToast(`リーダー「${card.name}」を選択しました`);
   };
 
-  const handleFindSynergy = (card) => {
-    setFilters(buildSynergyFilters(card, allCards));
+  const handleFindByText = (card) => {
+    setFilters(buildTextSynergyFilter(card, allCards, getLeaderColors(deck.leader)));
+    setMobileView('cards');
+  };
+
+  const handleFindByTrait = (card) => {
+    setFilters(buildTraitSynergyFilter(card, getLeaderColors(deck.leader)));
+    setMobileView('cards');
+  };
+
+  const handleFindByName = (card) => {
+    setFilters(buildNameSynergyFilter(card, getLeaderColors(deck.leader)));
     setMobileView('cards');
   };
 
@@ -301,7 +326,9 @@ export default function App({ onNavigate }) {
                 onAddCard={handleAddCard}
                 onRemoveCard={deck.removeCard}
                 onSelectLeader={handleSelectLeader}
-                onFindSynergy={handleFindSynergy}
+                onFindByText={handleFindByText}
+                onFindByTrait={handleFindByTrait}
+                onFindByName={handleFindByName}
               />
             </div>
           </div>
@@ -324,7 +351,9 @@ export default function App({ onNavigate }) {
               onDeleteSaved={deck.deleteSavedDeck}
               loadDecks={deck.loadDecks}
               onSelectLeader={handleSelectLeader}
-              onFindSynergy={handleFindSynergy}
+              onFindByText={handleFindByText}
+              onFindByTrait={handleFindByTrait}
+              onFindByName={handleFindByName}
             />
           </div>
         </div>

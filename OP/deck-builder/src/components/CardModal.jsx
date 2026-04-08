@@ -35,7 +35,9 @@ export default function CardModal({
   onRemove,
   onSelectLeader,
   onClose,
-  onFindSynergy,
+  onFindByText,
+  onFindByTrait,
+  onFindByName,
 }) {
   if (!card) return null;
 
@@ -204,15 +206,43 @@ export default function CardModal({
               <p className="text-center text-[11px] text-yellow-500/80">上限（4枚）に達しています</p>
             )}
 
-            {/* 相性が良いカード検索ボタン */}
-            {onFindSynergy && (
-              <button
-                onClick={() => onFindSynergy(card)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-xs bg-purple-900/40 hover:bg-purple-800/60 active:bg-purple-700/60 text-purple-300 border border-purple-700/50 hover:border-purple-500/70 transition-all active:scale-[0.97]"
-              >
-                <Sparkles size={13} />
-                相性が良いカードを探す
-              </button>
+            {/* カード検索ボタン（3種） */}
+            {(onFindByText || onFindByTrait || onFindByName) && (
+              <div className="flex flex-col gap-1.5">
+                <div className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
+                  <Sparkles size={10} />
+                  関連カードを探す
+                </div>
+                <div className="flex gap-1.5">
+                  {onFindByText && (
+                    <button
+                      onClick={() => onFindByText(card)}
+                      title="このカードの効果テキストに関連するカードを検索します"
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg font-semibold text-[11px] bg-purple-900/40 hover:bg-purple-800/60 active:bg-purple-700/60 text-purple-300 border border-purple-700/50 hover:border-purple-500/70 transition-all active:scale-[0.97]"
+                    >
+                      📝 テキスト
+                    </button>
+                  )}
+                  {onFindByTrait && (card.traits || []).length > 0 && (
+                    <button
+                      onClick={() => onFindByTrait(card)}
+                      title={`特徴「${card.traits[0]}」を持つカードを検索します`}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg font-semibold text-[11px] bg-teal-900/40 hover:bg-teal-800/60 active:bg-teal-700/60 text-teal-300 border border-teal-700/50 hover:border-teal-500/70 transition-all active:scale-[0.97]"
+                    >
+                      🏴 種族
+                    </button>
+                  )}
+                  {onFindByName && card.name && (
+                    <button
+                      onClick={() => onFindByName(card)}
+                      title={`「${card.name}」と同名のカードを検索します`}
+                      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg font-semibold text-[11px] bg-amber-900/40 hover:bg-amber-800/60 active:bg-amber-700/60 text-amber-300 border border-amber-700/50 hover:border-amber-500/70 transition-all active:scale-[0.97]"
+                    >
+                      🔍 カード名
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
