@@ -38,7 +38,7 @@ const P = {
 };
 
 // useBattleState.js側で自動処理するため EntryEffectModal を表示しないカード番号
-const AUTO_HANDLED_ENTRY_CARDS = new Set(['OP14-111', 'EB03-055', 'OP15-109']);
+const AUTO_HANDLED_ENTRY_CARDS = new Set(['OP14-111', 'EB03-055', 'OP15-109', 'EB04-007']);
 /** 登場時効果モーダルを表示すべきかどうか */
 const shouldShowEntryModal = (card) =>
   card && /【登場時】/.test(card.effect || '') && !AUTO_HANDLED_ENTRY_CARDS.has(card.card_number);
@@ -190,12 +190,15 @@ function EmptySlot({ size = CARD }) {
 }
 
 // ─── 手札カード（一人回しHandCard準拠）──────────────────────────────
-function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragEnd }) {
+function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragEnd, onTouchStart, onTouchMove, onTouchEnd }) {
   return (
     <div
       draggable={!!onDragStart}
       onDragStart={onDragStart ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
       onDragEnd={onDragEnd}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       className={`relative flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all duration-150 hover:scale-110 hover:-translate-y-2
@@ -224,7 +227,7 @@ function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragE
 }
 
 // ─── DON!!カード ────────────────────────────────────────────────────
-function DonCard({ active, onClick, onDragStart, onDragEnd }) {
+function DonCard({ active, onClick, onDragStart, onDragEnd, onTouchStart, onTouchMove, onTouchEnd }) {
   const canDrag = active && !!onDragStart;
   // レスト時: 90°横向き表示（TCG標準のレスト表現）
   // 外枠はW×Hのまま保ち、内部画像を回転＋縮小してはみ出さないようにする
@@ -233,6 +236,9 @@ function DonCard({ active, onClick, onDragStart, onDragEnd }) {
       draggable={canDrag}
       onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
       onDragEnd={canDrag ? onDragEnd : undefined}
+      onTouchStart={active ? onTouchStart : undefined}
+      onTouchMove={active ? onTouchMove : undefined}
+      onTouchEnd={active ? onTouchEnd : undefined}
       className={`flex-shrink-0 select-none transition-all duration-200 rounded overflow-hidden flex items-center justify-center
         ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : 'cursor-default opacity-60'}`}
       style={{ width: DON_CARD.W, height: DON_CARD.H, boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none' }}
@@ -1505,21 +1511,24 @@ function StageActiveModal({ card, onActivate, onSkip, game, onChainPlay }) {
   const handleActivate = () => {
     // ステージをレスト
     game.playerUseStageAbility();
-    // 即時自動効果
+    const discardAction = autoActions.find(a => a.id === 'discardHand');
+    const searchAction  = autoActions.find(a => a.id === 'search');
+    // 即時自動効果（捨て手札コストがある場合、サーチはスキップ→後続処理へ）
     autoActions.forEach(a => {
       if (a.id === 'draw')           game.playerDraw(a.count);
-      if (a.id === 'search')         game.playerBeginSearch(a.count);
+      if (a.id === 'search' && !discardAction) game.playerBeginSearch(a.count);
       if (a.id === 'donAdd')         game.playerAddDonFromDeck();
       if (a.id === 'donActivate')    game.playerActivateTappedDon();
       if (a.id === 'restAllOpponent') game.playerRestAllCpuChars();
     });
-    // 連鎖効果（手札を捨てる → 先に実行 → その後ターゲット系）
-    const discardAction = autoActions.find(a => a.id === 'discardHand');
+    // 連鎖効果: 捨て手札（コスト）→ サーチ（効果）の順を保証
     const targetAction  = autoActions.find(a =>
       a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent'
     );
-    if (discardAction && onChainPlay) onChainPlay(discardAction);
-    else if (targetAction && onChainPlay) onChainPlay(targetAction);
+    if (discardAction && onChainPlay) {
+      // 捨て後に実行するサーチをpostActionとして渡す
+      onChainPlay({ ...discardAction, postAction: searchAction || null });
+    } else if (targetAction && onChainPlay) onChainPlay(targetAction);
     onActivate();
   };
   return (
@@ -2036,9 +2045,12 @@ export default function BattlePage({ onNavigate }) {
   const [phaseError, setPhaseError] = useState(null);
   const [dragInfo, setDragInfo] = useState(null);
   const [dragOver, setDragOver] = useState(null);
+  const touchDragRef = useRef(null); // タッチDnD用参照
+  const [touchOverlay, setTouchOverlay] = useState(null); // { x, y, card } ドラッグ中の浮遊カード
   const [pendingChainPlay, setPendingChainPlay] = useState(null); // { id:'playFromHand'|'playFromTrash', limit }
   const [pendingTargetEffect, setPendingTargetEffect] = useState(null); // { id:'koOpponent'|'restOpponent'|'deckBottomOpponent' }
   const [pendingDiscardHand, setPendingDiscardHand] = useState(false);
+  const [pendingPostDiscardAction, setPendingPostDiscardAction] = useState(null); // 捨て手札後に実行する効果
 
   const isCpuTurn = state?.activePlayer === 'cpu';
   const isMyTurn  = state?.activePlayer === 'player';
@@ -2062,6 +2074,15 @@ export default function BattlePage({ onNavigate }) {
   }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length, state?.pendingRobinSkypiea, state?.pendingRobinKoDamage]);
 
   useEffect(() => { if (isCpuTurn) { setAttackMode(null); setSelectedAttackerUid(null); } }, [isCpuTurn]);
+
+  // 召喚酔いなどでゲームが攻撃を拒否した場合、ローカルUI状態をリセット
+  // （handleAttackerSelect でeager setしても、attackState が null のままなら戻す）
+  useEffect(() => {
+    if (!state?.attackState && attackMode === 'select-target') {
+      setAttackMode(null);
+      setSelectedAttackerUid(null);
+    }
+  }, [state?.attackState, attackMode]);
 
   // ─── キーボードショートカット ─────────────────────────────────────
   useEffect(() => {
@@ -2135,6 +2156,42 @@ export default function BattlePage({ onNavigate }) {
     setDragInfo(null); setDragOver(null);
   };
   const handleDragEnd = () => { setDragInfo(null); setDragOver(null); };
+
+  // ─── タッチDnD（モバイル対応）───────────────────────────────────
+  const handleTouchDragStart = useCallback((e, info) => {
+    const touch = e.touches[0];
+    touchDragRef.current = { info, startX: touch.clientX, startY: touch.clientY, moved: false };
+    setDragInfo(info);
+    setTouchOverlay({ x: touch.clientX, y: touch.clientY, card: info.card });
+  }, []);
+
+  const handleTouchDragMove = useCallback((e) => {
+    if (!touchDragRef.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    touchDragRef.current.moved = true;
+    setTouchOverlay(prev => prev ? { ...prev, x: touch.clientX, y: touch.clientY } : null);
+    // ドロップゾーンのハイライト
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const zone = el?.closest('[data-droptarget]')?.dataset?.droptarget;
+    setDragOver(zone || null);
+  }, []);
+
+  const handleTouchDragEnd = useCallback((e) => {
+    if (!touchDragRef.current) return;
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const zone = el?.closest('[data-droptarget]')?.dataset?.droptarget;
+    const extraUid = el?.closest('[data-droptarget]')?.dataset?.dropuid;
+    if (zone && touchDragRef.current.moved) {
+      handleDrop(zone, extraUid || null);
+    }
+    touchDragRef.current = null;
+    setTouchOverlay(null);
+    setDragInfo(null);
+    setDragOver(null);
+  }, [handleDrop]);
 
   // ─── リーダー起動メイン効果ハンドラー ────────────────────────────
   const handleLeaderAbilityConfirm = useCallback(() => {
@@ -2345,10 +2402,10 @@ export default function BattlePage({ onNavigate }) {
       <div className="flex-1 flex flex-col overflow-hidden p-1.5 gap-1.5 min-h-0 relative z-[1]">
 
         {/* ── CPU ボード（コンパクト・flex:2）── */}
-        <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 relative`}
+        <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 relative overflow-x-auto`}
           style={{ borderColor: isCpuTurn ? 'rgba(60,130,255,0.35)' : 'rgba(60,130,255,0.15)' }}>
           {isCpuTurn && <div className="absolute top-1 right-2 text-blue-400/70 text-[10px] animate-pulse font-bold"><Bot size={12} className="inline mr-0.5"/>思考中...</div>}
-          <div className="flex items-end gap-3 flex-wrap justify-center">
+          <div className="flex items-end gap-3 flex-wrap justify-center min-w-max md:min-w-0">
             {/* CPUライフ */}
             <div className="flex flex-col items-center gap-0.5">
               <div className="text-[8px] text-red-400/60 font-bold uppercase tracking-widest">LIFE</div>
@@ -2437,7 +2494,7 @@ export default function BattlePage({ onNavigate }) {
         </div>
 
         {/* ── プレイヤーボード（一人回しグリッドレイアウト準拠）── */}
-        <div className="flex gap-1.5 min-h-0" style={{ flex: 8 }}>
+        <div className="flex gap-1.5 min-h-0 overflow-x-auto" style={{ flex: 8 }}>
 
           {/* ──── ライフ列（行1〜3の全高をカバー）──── */}
           <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center justify-center overflow-visible`}
@@ -2451,6 +2508,7 @@ export default function BattlePage({ onNavigate }) {
             {/* 行1: キャラクターゾーン */}
             <div className="min-h-0 overflow-visible" style={{ flex: 3 }}>
               <div className={`h-full ${P.panel} rounded-xl p-2 flex flex-col min-w-0 overflow-visible`}
+                data-droptarget="field"
                 style={{ borderColor: 'rgba(120,220,120,0.18)', ...dzStyle('field') }}
                 onDragOver={e => { if (isValidDrop('field')) { e.preventDefault(); setDragOver('field'); } }}
                 onDragLeave={() => setDragOver(null)}
@@ -2470,6 +2528,8 @@ export default function BattlePage({ onNavigate }) {
                     return (
                       <div key={card._uid} className="flex flex-col items-center gap-1 flex-shrink-0" style={{ paddingRight: donPad }}>
                         <div style={dzStyle(`field-card-${card._uid}`)} className="rounded-xl"
+                          data-droptarget="field-card"
+                          data-dropuid={card._uid}
                           onDragOver={e => { if (isValidDrop(`field-card-${card._uid}`)) { e.preventDefault(); e.stopPropagation(); setDragOver(`field-card-${card._uid}`); } }}
                           onDragLeave={e => { e.stopPropagation(); setDragOver(null); }}
                           onDrop={e => { e.preventDefault(); e.stopPropagation(); handleDrop('field-card', card._uid); }}>
@@ -2518,6 +2578,7 @@ export default function BattlePage({ onNavigate }) {
 
               {/* リーダー（flex中央配置） */}
               <div className={`flex-1 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-2 overflow-visible min-w-0`}
+                data-droptarget="leader"
                 style={{ borderColor: 'rgba(255,220,80,0.22)', ...dzStyle('leader') }}
                 onDragOver={e => { if (isValidDrop('leader')) { e.preventDefault(); setDragOver('leader'); } }}
                 onDragLeave={() => setDragOver(null)}
@@ -2552,6 +2613,7 @@ export default function BattlePage({ onNavigate }) {
 
               {/* ステージ（固定幅） */}
               <div className={`flex-shrink-0 ${P.panel} rounded-xl p-2 flex flex-col items-center gap-1`}
+                data-droptarget="stage"
                 style={{ width: LEFT_COL_W, borderColor: 'rgba(180,80,220,0.22)', ...dzStyle('stage') }}
                 onDragOver={e => { if (isValidDrop('stage')) { e.preventDefault(); setDragOver('stage'); } }}
                 onDragLeave={() => setDragOver(null)}
@@ -2636,13 +2698,19 @@ export default function BattlePage({ onNavigate }) {
                   {ps.donActive <= 8
                     ? Array.from({ length: ps.donActive }).map((_, i) => (
                         <DonCard key={`a-${i}`} active={true} onClick={() => game.playerTapDon(1)}
-                          onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}/>
+                          onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}
+                          onTouchStart={(e) => handleTouchDragStart(e, { context: 'don-active' })}
+                          onTouchMove={handleTouchDragMove}
+                          onTouchEnd={handleTouchDragEnd}/>
                       ))
                     : (
                       <div className="flex items-end gap-1.5">
                         {Array.from({ length: 3 }).map((_, i) => (
                           <DonCard key={i} active={true} onClick={() => game.playerTapDon(1)}
-                            onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}/>
+                            onDragStart={() => setDragInfo({ context: 'don-active' })} onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => handleTouchDragStart(e, { context: 'don-active' })}
+                            onTouchMove={handleTouchDragMove}
+                            onTouchEnd={handleTouchDragEnd}/>
                         ))}
                         <span className="text-yellow-300 font-black text-sm self-center pb-1">×{ps.donActive}</span>
                       </div>
@@ -2726,7 +2794,10 @@ export default function BattlePage({ onNavigate }) {
                   }}
                   onDoubleClick={() => setDetailCard(card)}
                   onDragStart={() => setDragInfo({ card, context: 'hand' })}
-                  onDragEnd={handleDragEnd}/>
+                  onDragEnd={handleDragEnd}
+                  onTouchStart={(e) => handleTouchDragStart(e, { card, context: 'hand' })}
+                  onTouchMove={handleTouchDragMove}
+                  onTouchEnd={handleTouchDragEnd}/>
               ))}
               {ps.hand.length === 0 && <span className="text-white/20 text-sm italic self-center px-2">手札なし</span>}
             </div>
@@ -2742,8 +2813,8 @@ export default function BattlePage({ onNavigate }) {
         </div>
       )}
 
-      {/* ─── キーボードショートカットヒント ─── */}
-      <div className="fixed bottom-2 right-2 z-20 pointer-events-none">
+      {/* ─── キーボードショートカットヒント（モバイルでは非表示）─── */}
+      <div className="fixed bottom-2 right-2 z-20 pointer-events-none hidden sm:block">
         <div className="flex flex-col gap-0.5 bg-[#080c1e]/70 border border-amber-900/25 rounded-lg px-2.5 py-1.5 backdrop-blur-sm">
           <div className="text-[9px] text-amber-700/70 font-bold uppercase tracking-wider mb-0.5">ショートカット</div>
           {[['Space', '次フェーズ'], ['D', 'ドロー'], ['S', 'シャッフル'], ['Esc', '選択解除']].map(([k, v]) => (
@@ -2754,6 +2825,24 @@ export default function BattlePage({ onNavigate }) {
           ))}
         </div>
       </div>
+
+      {/* タッチDnD: ドラッグ中のカードオーバーレイ */}
+      {touchOverlay && touchOverlay.card && (
+        <div className="fixed pointer-events-none z-[200]" style={{
+          left: touchOverlay.x - HAND_CARD.W / 2,
+          top: touchOverlay.y - HAND_CARD.H / 2,
+          width: HAND_CARD.W,
+          height: HAND_CARD.H,
+          opacity: 0.85,
+          transform: 'scale(1.1)',
+          transition: 'none',
+          borderRadius: 12,
+          overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+        }}>
+          <CardImage card={touchOverlay.card} className="w-full h-full object-cover"/>
+        </div>
+      )}
 
       {/* ═══ モーダル類 ═══ */}
 
@@ -2891,8 +2980,16 @@ export default function BattlePage({ onNavigate }) {
       {pendingDiscardHand && (
         <DiscardHandModal
           hand={ps.hand}
-          onDiscard={(cardUid) => { game.playerDiscardHandCard(cardUid); setPendingDiscardHand(false); }}
-          onCancel={() => setPendingDiscardHand(false)}/>
+          onDiscard={(cardUid) => {
+            game.playerDiscardHandCard(cardUid);
+            setPendingDiscardHand(false);
+            // 捨て手札後に実行する効果（例: 革命軍総本部のサーチ）
+            if (pendingPostDiscardAction) {
+              if (pendingPostDiscardAction.id === 'search') game.playerBeginSearch(pendingPostDiscardAction.count);
+              setPendingPostDiscardAction(null);
+            }
+          }}
+          onCancel={() => { setPendingDiscardHand(false); setPendingPostDiscardAction(null); }}/>
       )}
 
       {/* リーダー起動メイン効果 */}
@@ -2921,8 +3018,10 @@ export default function BattlePage({ onNavigate }) {
           onActivate={() => setPendingStageActive(null)}
           onSkip={() => setPendingStageActive(null)}
           onChainPlay={(action) => {
-            if (action.id === 'discardHand') setPendingDiscardHand(true);
-            else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
+            if (action.id === 'discardHand') {
+              if (action.postAction) setPendingPostDiscardAction(action.postAction);
+              setPendingDiscardHand(true);
+            } else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
             else setPendingChainPlay(action);
             setPendingStageActive(null);
           }}

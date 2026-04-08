@@ -959,11 +959,12 @@ export function useBattleState() {
         // リフレッシュ: タップ解除・DON!!回収・ターン1回フラグリセット（_donReturnEffectUsed含む）
         const newField = s.field.map(c => ({ ...c, tapped: false, donAttached: 0, _donReturnEffectUsed: false, cantAttack: false }));
         const newLeader = { ...s.leader, tapped: false, donAttached: 0 };
+        const newStage = s.stage ? { ...s.stage, tapped: false } : null;
         return addLog(`[${label}] リフレッシュ${restored > 0 ? `・DON!!×${restored}回収` : ''}`, {
           ...prev,
           subPhase: 'draw',
           [sideKey]: {
-            ...s, field: newField, leader: newLeader,
+            ...s, field: newField, leader: newLeader, stage: newStage,
             donActive: s.donActive + restored, donTapped: 0, donLeader: 0,
             leaderPowerBuff: 0, leaderAbilityUsed: false, lifeLeaveAbilityUsed: false,
           },
@@ -1074,6 +1075,12 @@ export function useBattleState() {
       if (card.card_number === ROBIN_OP15_NUMBER) {
         ns = applyRobinOP15Effect(ns, 'player');
       }
+      // ロロノア・ゾロ EB04-007: 登場時リーダーパワー+2000（次の相手エンドフェイズ終了時まで）
+      if (card.card_number === 'EB04-007') {
+        ns = addLog('「ロロノア・ゾロ」登場時効果: リーダーパワー+2000', {
+          ...ns, player: { ...ns.player, leaderPowerBuff: (ns.player.leaderPowerBuff || 0) + 2000 },
+        });
+      }
       return ns;
     });
   }, []);
@@ -1105,8 +1112,9 @@ export function useBattleState() {
   const playerSelectAttacker = useCallback((attackerUid) => {
     setState(prev => {
       if (!prev || prev.activePlayer !== 'player' || prev.subPhase !== 'main') return prev;
-      // ターン1は先攻・後攻ともアタック不可
-      if (prev.turn <= 1) return addLog('最初のターンはアタックできません', prev);
+      // ターン1でアタック不可なのは「先攻プレイヤーの最初のターン」のみ
+      // 後攻プレイヤーはターン1でもアタック可能
+      if (prev.turn <= 1 && prev.playerOrder === 'first') return addLog('最初のターン（先攻）はアタックできません', prev);
       const p = prev.player;
       let attacker, attackerType;
       if (attackerUid === 'p-leader') {
@@ -1154,7 +1162,7 @@ export function useBattleState() {
       }
 
       // プレイヤーターン: プレイヤー攻撃側はDONパワー有効+自ターン中バフ、CPU防御側はDONパワー無効+相手ターン中バフ
-      const attackPower = computeAttackPower(attacker, p, c);
+      const attackPower = computeAttackPower(attacker, p, c) + (attackerType === 'leader' ? (p.leaderPowerBuff || 0) : 0);
 
       // アタッカーをタップ
       let newPlayer = p;
@@ -1847,7 +1855,7 @@ export function useBattleState() {
       }
       // ─────────────────────────────────────────────────────────────
 
-      const decisions = cpuDecide(ns.cpu, ns.player, ns.turn);
+      const decisions = cpuDecide(ns.cpu, ns.player, ns.turn, ns.playerOrder);
 
       // 1. カードプレイ
       for (const play of decisions.playDecisions) {

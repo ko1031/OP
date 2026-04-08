@@ -565,9 +565,11 @@ function counterPressureThreshold(playerHandSize, playerLife) {
  *   - ゲームフェーズに応じたモード切り替え（early はブロッカー除去優先）
  *   - バニッシュ持ちは早期除去を強く優先
  */
-function decideAttacks(cpuSide, playerSide, turn) {
+function decideAttacks(cpuSide, playerSide, turn, playerOrder = 'first') {
   const attacks = [];
-  if (turn <= 1) return attacks;
+  // ターン1でアタック不可なのはCPUが先攻のとき（playerOrder === 'second'）のみ
+  // CPUが後攻（playerOrder === 'first'）のターン1はアタック可能
+  if (turn <= 1 && playerOrder === 'second') return attacks;
 
   const { field, leader } = cpuSide;
   const phase = getGamePhase(turn);
@@ -700,7 +702,7 @@ function decideAttacks(cpuSide, playerSide, turn) {
  * CPU のメインフェーズ全行動を決定する
  * @returns { playDecisions, donAttachments, attacks }
  */
-export function cpuDecide(cpuSide, playerSide, turn) {
+export function cpuDecide(cpuSide, playerSide, turn, playerOrder = 'first') {
   const { leaderEffect } = cpuSide;
   const leaderCardNumber = cpuSide.leader?.card_number;
 
@@ -718,7 +720,7 @@ export function cpuDecide(cpuSide, playerSide, turn) {
     decideDonAttachments(cpuSide, playerSide, donAfterPlay, playDecisions, turn);
 
   // ③ アタック（リーダー効果による禁止チェック含む）
-  let attacks = decideAttacks(cpuSide, playerSide, turn);
+  let attacks = decideAttacks(cpuSide, playerSide, turn, playerOrder);
   if (leaderEffect?.leaderCannotAttack) {
     attacks = attacks.filter(a => a.attackerType !== 'leader');
   }
