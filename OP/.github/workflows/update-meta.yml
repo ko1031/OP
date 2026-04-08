@@ -2,12 +2,14 @@ name: Update Tournament Meta Data
 
 on:
   schedule:
-    # 毎日 午前3時（JST） = 前日 18:00 UTC
-    - cron: '0 18 * * *'
+    # 毎日 午前2時（JST） = 前日 17:00 UTC
+    # ※ deploy.yml が 18:00 UTC に走るので、データ更新を先行させる
+    - cron: '0 17 * * *'
   workflow_dispatch: # 手動実行も可能
 
 permissions:
   contents: write
+  actions: write   # deploy.yml をトリガーするために必要
 
 jobs:
   update-meta:
@@ -29,13 +31,29 @@ jobs:
         run: python deck-builder/scripts/fetch_tournament_data.py
 
       - name: Commit and push if changed
+        id: commit
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add deck-builder/public/tournament_stats.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore: update tournament stats $(date '+%Y-%m-%d')"
             git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Trigger deploy workflow (if data changed)
+        if: steps.commit.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref:   'main',
+            });
+            console.log('deploy.yml をトリガーしました');

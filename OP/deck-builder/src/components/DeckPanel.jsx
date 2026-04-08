@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Trash2, Save, FolderOpen, RotateCcw, ChevronDown, ChevronUp, Minus, Plus, BarChart2, List } from 'lucide-react';
+import { Trash2, Save, FolderOpen, RotateCcw, ChevronDown, ChevronUp, Minus, Plus, BarChart2, List, Crown } from 'lucide-react';
 import CardImage from './CardImage';
 import ColorBadge from './ColorBadge';
 import DeckEvaluator from './DeckEvaluator';
 import CardModal from './CardModal';
+import LeaderSelectModal from './LeaderSelectModal';
 import { DECK_LIMIT, deckStats } from '../utils/deckRules';
 
 function CostBar({ distribution }) {
@@ -87,6 +88,7 @@ export default function DeckPanel({
   onAddCard, onRemoveCard, onRemoveAllCard, onReset,
   onSave, onLoad, onDeleteSaved, loadDecks, onSelectLeader,
   onFindByText, onFindByTrait, onFindByName,
+  allCards,
 }) {
   const [showSaved, setShowSaved] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -94,6 +96,7 @@ export default function DeckPanel({
   const [activeTab, setActiveTab] = useState('deck'); // 'deck' | 'eval'
   const [modalCard, setModalCard] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [showLeaderModal, setShowLeaderModal] = useState(false);
   const stats = deckStats(deck);
 
   const handleDragOver = (e) => {
@@ -191,10 +194,24 @@ export default function DeckPanel({
 
       {/* リーダー */}
       <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30">
-        <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-wider mb-1.5">リーダー</div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-wider">リーダー</div>
+          <button
+            onClick={() => setShowLeaderModal(true)}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-700/50 bg-amber-900/20 text-amber-300 hover:bg-amber-800/40 hover:border-amber-500/70 transition-colors"
+          >
+            <Crown size={9} />
+            {leader ? '変更' : '選択'}
+          </button>
+        </div>
         {leader ? (
           <div className="flex items-center gap-2">
-            <CardImage card={leader} className="w-12 rounded" />
+            <button
+              onClick={() => setShowLeaderModal(true)}
+              className="flex-shrink-0 rounded overflow-hidden hover:ring-2 hover:ring-amber-400/60 transition-all"
+            >
+              <CardImage card={leader} className="w-12 rounded" />
+            </button>
             <div>
               <div className="text-sm font-bold text-white">{leader.name}</div>
               <div className="flex gap-1 mt-0.5">
@@ -204,7 +221,13 @@ export default function DeckPanel({
             </div>
           </div>
         ) : (
-          <div className="text-xs text-amber-800/50 italic">リーダーカードをクリックして選択</div>
+          <button
+            onClick={() => setShowLeaderModal(true)}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-amber-800/40 hover:border-amber-600/60 text-amber-800/50 hover:text-amber-400/80 text-xs transition-colors"
+          >
+            <Crown size={12} />
+            リーダーカードを選択
+          </button>
         )}
       </div>
 
@@ -313,6 +336,16 @@ export default function DeckPanel({
         </div>
 
       </div>
+
+      {/* リーダー選択モーダル */}
+      {showLeaderModal && (
+        <LeaderSelectModal
+          allCards={allCards || []}
+          currentLeader={leader}
+          onSelect={onSelectLeader ?? (() => {})}
+          onClose={() => setShowLeaderModal(false)}
+        />
+      )}
 
       {/* カード詳細モーダル */}
       {modalCard && (

@@ -392,6 +392,7 @@ export default function App({ onNavigate }) {
               onFindByText={handleFindByText}
               onFindByTrait={handleFindByTrait}
               onFindByName={handleFindByName}
+              allCards={allCards}
             />
           </div>
         </div>

@@ -3,6 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    # 毎日 午前3時（JST） = 前日 18:00 UTC — 最新大会データでサイトを再ビルド
+    - cron: '0 18 * * *'
   workflow_dispatch: # 手動実行も可能
 
 permissions:
@@ -60,6 +63,9 @@ jobs:
       - name: Download card images
         if: steps.cache-images.outputs.cache-hit != 'true'
         run: python scraper/download_images.py
+
+      - name: Fetch latest tournament data
+        run: python deck-builder/scripts/fetch_tournament_data.py
 
       - name: Install dependencies
         run: npm ci
