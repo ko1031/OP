@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Layers, AlertCircle, Search, Trophy, BarChart2 } from 'lucide-react';
 import FilterPanel from './components/FilterPanel';
 import CardGrid from './components/CardGrid';
@@ -187,6 +187,41 @@ export default function App({ onNavigate }) {
   const [showTournament, setShowTournament] = useState(false);
   const deck = useDeck();
 
+  // ── リサイズ可能パネル ──
+  const [deckWidth, setDeckWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem('deckPanelWidth');
+      return saved ? Math.max(300, Math.min(900, parseInt(saved, 10))) : 520;
+    } catch { return 520; }
+  });
+  const deckWidthRef = useRef(deckWidth);
+  const containerRef = useRef(null);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const handleDividerMouseDown = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    const onMouseMove = (ev) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newW = Math.max(300, Math.min(rect.width - 280, rect.right - ev.clientX));
+      deckWidthRef.current = newW;
+      setDeckWidth(newW);
+    };
+    const onMouseUp = () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      setIsResizing(false);
+      try { localStorage.setItem('deckPanelWidth', String(deckWidthRef.current)); } catch {}
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
   useEffect(() => {
     fetchCards()
       .then(data => { setAllCards(data.cards||[]); setSeriesList(data.series||[]); setLoading(false); })
@@ -351,9 +386,9 @@ export default function App({ onNavigate }) {
 
       {/* メインコンテンツ */}
       {!loading && !error && (
-        <div className="flex flex-1 overflow-hidden relative z-10">
+        <div ref={containerRef} className="flex flex-1 overflow-hidden relative z-10">
           {/* 左: カード検索エリア — モバイルは 'cards' ビューのみ表示 */}
-          <div className={`flex-col flex-1 overflow-hidden border-r border-amber-900/30
+          <div className={`flex-col flex-1 overflow-hidden
             ${mobileView === 'cards' ? 'flex' : 'hidden'} md:flex`}>
             <FilterPanel filters={filters} onChange={setFilters} seriesList={seriesList} />
             <div className="flex-1 overflow-hidden">
@@ -371,9 +406,24 @@ export default function App({ onNavigate }) {
             </div>
           </div>
 
+          {/* ドラッグリサイザー（PCのみ表示） */}
+          <div
+            onMouseDown={handleDividerMouseDown}
+            className={`hidden md:flex flex-shrink-0 w-1.5 cursor-col-resize items-center justify-center
+              border-l border-amber-900/30 transition-colors group
+              ${isResizing ? 'bg-amber-500/30' : 'bg-transparent hover:bg-amber-800/30'}`}
+            title="ドラッグしてパネル幅を調整"
+          >
+            <div className={`w-0.5 h-10 rounded-full transition-colors
+              ${isResizing ? 'bg-amber-400/80' : 'bg-amber-800/40 group-hover:bg-amber-500/70'}`} />
+          </div>
+
           {/* 右: デッキパネル — モバイルは 'deck' ビューのみ表示 */}
-          <div className={`flex-col overflow-hidden md:w-[680px] lg:w-[740px] md:flex-shrink-0
-            ${mobileView === 'deck' ? 'flex w-full' : 'hidden'} md:flex`}>
+          <div
+            className={`flex-col overflow-hidden flex-shrink-0
+              ${mobileView === 'deck' ? 'flex w-full' : 'hidden'} md:flex`}
+            style={{ width: deckWidth }}
+          >
             <DeckPanel
               leader={deck.leader}
               deck={deck.deck}
