@@ -22,6 +22,8 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
     filters.series ? 1 : 0,
     (filters.costMin != null && filters.costMin !== '') ? 1 : 0,
     (filters.costMax != null && filters.costMax !== '') ? 1 : 0,
+    (filters.powerMin != null && filters.powerMin !== '') ? 1 : 0,
+    (filters.powerMax != null && filters.powerMax !== '') ? 1 : 0,
     filters.triggerOnly ? 1 : 0,
     (filters.regulations?.length || 0),
   ].reduce((s, n) => s + n, 0);
@@ -74,12 +76,10 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
       {/* ── フィルターパネル（展開時） ── */}
       {filterOpen && (
         <div className="px-2 pb-2 border-t border-amber-900/25">
+          <div className="mt-2 flex flex-col gap-2">
 
-          {/* モバイル: コンパクトグリッド / デスクトップ: 横並び */}
-          <div className="mt-2 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-
-            {/* 色 + 種類（モバイルは横2列） */}
-            <div className="grid grid-cols-2 gap-2 sm:contents">
+            {/* 行1: 色 + 種類 */}
+            <div className="grid grid-cols-2 gap-2">
 
               {/* 色フィルター */}
               <div className="min-w-0">
@@ -88,13 +88,10 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                   {COLORS.map(c => {
                     const active = (filters.colors || []).includes(c);
                     return (
-                      <button
-                        key={c}
-                        onClick={() => toggle('colors', c)}
+                      <button key={c} onClick={() => toggle('colors', c)}
                         className={`w-7 h-7 rounded-full text-xs font-bold border-2 transition-all flex-shrink-0
                           ${COLOR_BG[c]} ${COLOR_TXT[c] || 'text-white'}
-                          ${active ? 'border-white scale-110 shadow-md' : 'border-transparent opacity-40'}`}
-                      >
+                          ${active ? 'border-white scale-110 shadow-md' : 'border-transparent opacity-40'}`}>
                         {c}
                       </button>
                     );
@@ -109,16 +106,12 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                   {TYPES.map(t => {
                     const active = (filters.types || []).includes(t);
                     return (
-                      <button
-                        key={t}
-                        onClick={() => toggle('types', t)}
-                        title={TYPE_LABELS_FULL[t]}
+                      <button key={t} onClick={() => toggle('types', t)} title={TYPE_LABELS_FULL[t]}
                         className={`px-2 py-1 rounded text-xs font-bold border transition-all
                           ${active
                             ? 'bg-amber-700 border-amber-500 text-amber-100'
                             : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
-                          }`}
-                      >
+                          }`}>
                         <span className="sm:hidden">{TYPE_LABELS[t]}</span>
                         <span className="hidden sm:inline">{TYPE_LABELS_FULL[t]}</span>
                       </button>
@@ -128,30 +121,28 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
               </div>
             </div>
 
-            {/* 特殊フィルター + コスト + パック + クリア（モバイルは1行ずつ） */}
-            <div className="grid grid-cols-2 gap-2 sm:contents">
+            {/* 行2: 特殊 + ブロックアイコン */}
+            <div className="grid grid-cols-2 gap-2">
 
               {/* 特殊フィルター */}
               <div className="min-w-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">特殊</div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
-                    className={`flex-1 py-1 rounded text-xs font-medium border transition-all text-center
-                      ${filters.triggerOnly
-                        ? 'bg-yellow-500 border-yellow-300 text-gray-900'
-                        : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
-                      }`}
-                  >
-                    ⚡ TRG
-                  </button>
-                </div>
+                <button
+                  onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
+                  className={`w-full py-1 rounded text-xs font-medium border transition-all text-center
+                    ${filters.triggerOnly
+                      ? 'bg-yellow-500 border-yellow-300 text-gray-900'
+                      : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
+                    }`}
+                >
+                  ⚡ TRG
+                </button>
               </div>
 
-              {/* ブロックアイコンフィルター */}
+              {/* ブロックアイコン */}
               <div className="min-w-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">ブロックアイコン</div>
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex gap-1">
                   {['1','2','3','4','5'].map(r => {
                     const active = (filters.regulations || []).includes(r);
                     return (
@@ -167,6 +158,10 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* 行3: コスト + パワー */}
+            <div className="grid grid-cols-2 gap-2">
 
               {/* コスト範囲 */}
               <div className="min-w-0">
@@ -178,7 +173,7 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                     onChange={e => onChange({ ...filters, costMin: e.target.value === '' ? '' : +e.target.value })}
                     className="w-0 flex-1 bg-[#0d1530]/80 border border-amber-900/40 rounded text-sm text-amber-100 px-1.5 py-1 focus:outline-none focus:border-amber-600/60 text-center"
                   />
-                  <span className="text-amber-800/50 text-xs flex-shrink-0">〜</span>
+                  <span className="text-amber-500/80 text-xs flex-shrink-0">〜</span>
                   <input
                     type="number" min="0" max="10" placeholder="10"
                     value={filters.costMax ?? ''}
@@ -187,16 +182,36 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                   />
                 </div>
               </div>
+
+              {/* パワー範囲 */}
+              <div className="min-w-0">
+                <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">パワー</div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number" min="0" step="1000" placeholder="0"
+                    value={filters.powerMin ?? ''}
+                    onChange={e => onChange({ ...filters, powerMin: e.target.value === '' ? '' : +e.target.value })}
+                    className="w-0 flex-1 bg-[#0d1530]/80 border border-amber-900/40 rounded text-sm text-amber-100 px-1.5 py-1 focus:outline-none focus:border-amber-600/60 text-center"
+                  />
+                  <span className="text-amber-500/80 text-xs flex-shrink-0">〜</span>
+                  <input
+                    type="number" min="0" step="1000" placeholder="max"
+                    value={filters.powerMax ?? ''}
+                    onChange={e => onChange({ ...filters, powerMax: e.target.value === '' ? '' : +e.target.value })}
+                    className="w-0 flex-1 bg-[#0d1530]/80 border border-amber-900/40 rounded text-sm text-amber-100 px-1.5 py-1 focus:outline-none focus:border-amber-600/60 text-center"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* 収録パック + クリア */}
-            <div className="flex gap-2 items-end w-full sm:w-auto sm:flex-1">
-              <div className="flex-1 min-w-0">
+            {/* 行4: 収録パック（短め） + クリア */}
+            <div className="flex gap-2 items-end">
+              <div className="min-w-0 w-48 flex-shrink-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">収録パック</div>
                 <select
                   value={filters.series || ''}
                   onChange={e => onChange({ ...filters, series: e.target.value })}
-                  className="w-full bg-[#0d1530]/80 border border-amber-900/40 rounded text-sm text-amber-200/80 px-2 py-1 focus:outline-none focus:border-amber-600/60"
+                  className="w-full bg-[#0d1530]/80 border border-amber-900/40 rounded text-xs text-amber-200/80 px-2 py-1 focus:outline-none focus:border-amber-600/60"
                 >
                   <option value="">すべて</option>
                   {seriesList.map(s => (
