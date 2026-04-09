@@ -166,8 +166,12 @@ function applyFilters(cards, filters) {
     if (filters.costMin !== '' && filters.costMin != null && cost != null && cost < filters.costMin) return false;
     if (filters.costMax !== '' && filters.costMax != null && cost != null && cost > filters.costMax) return false;
     const power = card.power ?? null;
-    if (filters.powerMin != null && power != null && power < filters.powerMin) return false;
-    if (filters.powerMax != null && power != null && power > filters.powerMax) return false;
+    const hasPowerMin = filters.powerMin !== '' && filters.powerMin != null;
+    const hasPowerMax = filters.powerMax !== '' && filters.powerMax != null;
+    // パワーフィルターが有効な場合、powerが不明なカードは除外
+    if ((hasPowerMin || hasPowerMax) && power == null) return false;
+    if (hasPowerMin && power < filters.powerMin) return false;
+    if (hasPowerMax && power > filters.powerMax) return false;
     if (filters.triggerOnly) {
       if (!hasTrigger(card)) return false;
     }
