@@ -78,11 +78,11 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
         <div className="px-2 pb-2 border-t border-amber-900/25">
           <div className="mt-2 flex flex-col gap-2">
 
-            {/* 行1: 色 | ブロックアイコン */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* 行1: 色 | ブロックアイコン | 種類 | トリガー */}
+            <div className="flex gap-3">
 
               {/* 色フィルター */}
-              <div className="min-w-0">
+              <div className="flex-1 min-w-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">色</div>
                 <div className="flex gap-1 flex-wrap">
                   {COLORS.map(c => {
@@ -100,7 +100,7 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
               </div>
 
               {/* ブロックアイコン */}
-              <div className="min-w-0">
+              <div className="flex-shrink-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">ブロックアイコン</div>
                 <div className="flex gap-1">
                   {['1','2','3','4','5'].map(r => {
@@ -118,13 +118,9 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* 行2: 種類 | トリガー */}
-            <div className="grid grid-cols-2 gap-2">
 
               {/* 種類フィルター */}
-              <div className="min-w-0">
+              <div className="flex-1 min-w-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">種類</div>
                 <div className="flex gap-1 flex-wrap">
                   {TYPES.map(t => {
@@ -136,8 +132,7 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                             ? 'bg-amber-700 border-amber-500 text-amber-100'
                             : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
                           }`}>
-                        <span className="sm:hidden">{TYPE_LABELS[t]}</span>
-                        <span className="hidden sm:inline">{TYPE_LABELS_FULL[t]}</span>
+                        {TYPE_LABELS_FULL[t]}
                       </button>
                     );
                   })}
@@ -145,17 +140,17 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
               </div>
 
               {/* トリガー */}
-              <div className="min-w-0">
+              <div className="flex-shrink-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">特殊</div>
                 <button
                   onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
-                  className={`px-3 py-1 rounded text-xs font-medium border transition-all
+                  className={`px-3 py-1 rounded text-xs font-medium border transition-all whitespace-nowrap
                     ${filters.triggerOnly
                       ? 'bg-yellow-500 border-yellow-300 text-gray-900'
                       : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
                     }`}
                 >
-                  ⚡ トリガーのみ
+                  ⚡ トリガー
                 </button>
               </div>
             </div>
