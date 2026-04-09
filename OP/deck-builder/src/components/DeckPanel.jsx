@@ -17,7 +17,7 @@ function CostBar({ distribution }) {
         const h = Math.round((cnt / max) * 100);
         return (
           <div key={c} className="flex-1 flex flex-col items-center gap-0.5">
-            {cnt > 0 && <span className="text-amber-700/60 text-[9px] leading-none">{cnt}</span>}
+            {cnt > 0 && <span className="text-amber-400/80 text-[9px] leading-none">{cnt}</span>}
             <div className="w-full bg-blue-600 rounded-sm" style={{ height: `${h}%`, minHeight: cnt > 0 ? 2 : 0 }} />
           </div>
         );
@@ -40,8 +40,8 @@ function DeckEntry({ entry, onAdd, onRemove, onRemoveAll, onOpenModal }) {
           <div className="text-xs font-medium text-white truncate">{card.name}</div>
           <div className="flex gap-1 mt-0.5">
             {(card.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
-            {card.cost != null && <span className="text-amber-700/60 text-xs">C{card.cost}</span>}
-            {card.power != null && <span className="text-amber-700/60 text-xs">{card.power?.toLocaleString()}</span>}
+            {card.cost != null && <span className="text-amber-400/80 text-xs">C{card.cost}</span>}
+            {card.power != null && <span className="text-amber-400/80 text-xs">{card.power?.toLocaleString()}</span>}
           </div>
         </div>
       </button>
@@ -56,7 +56,7 @@ function DeckEntry({ entry, onAdd, onRemove, onRemoveAll, onOpenModal }) {
           <Plus size={10} />
         </button>
         <button onClick={() => onRemoveAll(card.card_number)}
-          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-red-900 text-amber-700/60 hover:text-red-400 transition-all">
+          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-red-900 text-amber-400/80 hover:text-red-400 transition-all">
           <Trash2 size={10} />
         </button>
       </div>
@@ -69,7 +69,7 @@ function SavedDeckItem({ saved, onLoad, onDelete }) {
     <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-[#0d1530]/80 group">
       <div className="flex-1 min-w-0">
         <div className="text-xs text-white font-medium truncate">{saved.name}</div>
-        <div className="text-xs text-amber-700/60">
+        <div className="text-xs text-amber-400/80">
           {saved.leader?.name} · {saved.deck.reduce((s, e) => s + e.count, 0)}枚
         </div>
       </div>
@@ -97,6 +97,7 @@ export default function DeckPanel({
   const [modalCard, setModalCard] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showLeaderModal, setShowLeaderModal] = useState(false);
+  const [leaderDetailCard, setLeaderDetailCard] = useState(null);
   const stats = deckStats(deck);
 
   const handleDragOver = (e) => {
@@ -194,38 +195,42 @@ export default function DeckPanel({
 
       {/* リーダー */}
       <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-wider">リーダー</div>
-          <button
-            onClick={() => setShowLeaderModal(true)}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border border-amber-700/50 bg-amber-900/20 text-amber-300 hover:bg-amber-800/40 hover:border-amber-500/70 transition-colors"
-          >
-            <Crown size={9} />
-            {leader ? '変更' : '選択'}
-          </button>
-        </div>
+        <div className="text-[10px] text-amber-500/80 font-bold uppercase tracking-wider mb-1.5">リーダー</div>
         {leader ? (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowLeaderModal(true)}
-              className="flex-shrink-0 rounded overflow-hidden hover:ring-2 hover:ring-amber-400/60 transition-all"
-            >
-              <CardImage card={leader} className="w-12 rounded" />
-            </button>
-            <div>
-              <div className="text-sm font-bold text-white">{leader.name}</div>
-              <div className="flex gap-1 mt-0.5">
-                {(leader.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
-                <span className="text-amber-500/70 text-xs">ライフ:{leader.life}</span>
+          <div className="flex flex-col gap-2">
+            {/* リーダー情報行 */}
+            <div className="flex items-center gap-2">
+              {/* 画像クリック → 詳細モーダル */}
+              <button
+                onClick={() => setLeaderDetailCard(leader)}
+                className="flex-shrink-0 rounded overflow-hidden hover:ring-2 hover:ring-amber-400/60 transition-all"
+                title="詳細を見る"
+              >
+                <CardImage card={leader} className="w-12 rounded" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-white truncate">{leader.name}</div>
+                <div className="flex gap-1 mt-0.5 flex-wrap">
+                  {(leader.colors || []).map(c => <ColorBadge key={c} color={c} small />)}
+                  <span className="text-amber-400/80 text-xs">ライフ:{leader.life}</span>
+                </div>
               </div>
             </div>
+            {/* リーダーを変更ボタン（フルwidth・大きめ） */}
+            <button
+              onClick={() => setShowLeaderModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-amber-700/50 bg-amber-900/20 text-amber-300 hover:bg-amber-800/40 hover:border-amber-500/70 text-sm font-bold transition-colors"
+            >
+              <Crown size={13} />
+              リーダーを変更
+            </button>
           </div>
         ) : (
           <button
             onClick={() => setShowLeaderModal(true)}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-amber-800/40 hover:border-amber-600/60 text-amber-800/50 hover:text-amber-400/80 text-xs transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-lg border border-dashed border-amber-800/40 hover:border-amber-600/60 text-amber-500/80 hover:text-amber-400/80 text-sm font-bold transition-colors"
           >
-            <Crown size={12} />
+            <Crown size={14} />
             リーダーカードを選択
           </button>
         )}
@@ -260,7 +265,7 @@ export default function DeckPanel({
         {showSaved && (
           <div className="bg-[#0d1530]/80 rounded p-1 space-y-0.5 max-h-40 overflow-y-auto">
             {Object.keys(savedDecks).length === 0 ? (
-              <div className="text-xs text-amber-700/60 text-center py-2">保存済みデッキなし</div>
+              <div className="text-xs text-amber-400/80 text-center py-2">保存済みデッキなし</div>
             ) : (
               Object.values(savedDecks).map(s => (
                 <SavedDeckItem key={s.id} saved={s} onLoad={handleLoad} onDelete={handleDelete} />
@@ -275,13 +280,13 @@ export default function DeckPanel({
         <button
           onClick={() => setActiveTab('deck')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
-            ${activeTab === 'deck' ? 'text-white border-b-2 border-blue-500 bg-[#0d1530]/80/50' : 'text-amber-700/60 hover:text-amber-200/80'}`}>
+            ${activeTab === 'deck' ? 'text-white border-b-2 border-blue-500 bg-[#0d1530]/80/50' : 'text-amber-400/80 hover:text-amber-200/80'}`}>
           <List size={12} /> デッキ内容
         </button>
         <button
           onClick={() => setActiveTab('eval')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors
-            ${activeTab === 'eval' ? 'text-white border-b-2 border-purple-500 bg-[#0d1530]/80/50' : 'text-amber-700/60 hover:text-amber-200/80'}`}>
+            ${activeTab === 'eval' ? 'text-white border-b-2 border-purple-500 bg-[#0d1530]/80/50' : 'text-amber-400/80 hover:text-amber-200/80'}`}>
           <BarChart2 size={12} /> デッキ評価
         </button>
       </div>
@@ -297,9 +302,9 @@ export default function DeckPanel({
           {/* コスト分布 */}
           {deck.length > 0 && (
             <div className="flex-shrink-0 px-3 py-2 border-b border-amber-900/30">
-              <div className="text-xs text-amber-700/60 mb-1">コスト分布</div>
+              <div className="text-xs text-amber-400/80 mb-1">コスト分布</div>
               <CostBar distribution={stats.costDistribution} />
-              <div className="flex justify-between text-amber-800/50 text-[9px] mt-0.5">
+              <div className="flex justify-between text-amber-500/80 text-[9px] mt-0.5">
                 {Array.from({length:11},(_,i)=>i).map(c=><span key={c}>{c}</span>)}
               </div>
             </div>
@@ -308,7 +313,7 @@ export default function DeckPanel({
           {/* カードリスト */}
           <div className="flex-1 overflow-y-auto">
             {deck.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-amber-800/50 text-sm">
+              <div className="flex items-center justify-center h-full text-amber-500/80 text-sm">
                 カードをクリックして追加
               </div>
             ) : (
@@ -336,6 +341,22 @@ export default function DeckPanel({
         </div>
 
       </div>
+
+      {/* リーダー詳細モーダル（シナジー検索ボタン付き） */}
+      {leaderDetailCard && (
+        <CardModal
+          card={leaderDetailCard}
+          count={0}
+          isSelectedLeader={true}
+          onAdd={() => {}}
+          onRemove={() => {}}
+          onSelectLeader={() => {}}
+          onClose={() => setLeaderDetailCard(null)}
+          onFindByText={onFindByText   ? (card) => { setLeaderDetailCard(null); onFindByText(card);  } : undefined}
+          onFindByTrait={onFindByTrait ? (card) => { setLeaderDetailCard(null); onFindByTrait(card); } : undefined}
+          onFindByName={onFindByName   ? (card) => { setLeaderDetailCard(null); onFindByName(card);  } : undefined}
+        />
+      )}
 
       {/* リーダー選択モーダル */}
       {showLeaderModal && (

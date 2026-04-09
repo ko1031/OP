@@ -23,6 +23,7 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
     (filters.costMin != null && filters.costMin !== '') ? 1 : 0,
     (filters.costMax != null && filters.costMax !== '') ? 1 : 0,
     filters.triggerOnly ? 1 : 0,
+    (filters.regulations?.length || 0),
   ].reduce((s, n) => s + n, 0);
 
   return (
@@ -144,6 +145,26 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                   >
                     ⚡ TRG
                   </button>
+                </div>
+              </div>
+
+              {/* ブロックアイコンフィルター */}
+              <div className="min-w-0">
+                <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">ブロックアイコン</div>
+                <div className="flex gap-1 flex-wrap">
+                  {['1','2','3','4','5'].map(r => {
+                    const active = (filters.regulations || []).includes(r);
+                    return (
+                      <button key={r} onClick={() => toggle('regulations', r)}
+                        className={`w-7 h-7 rounded-full text-xs font-black border-2 transition-all flex-shrink-0
+                          ${active
+                            ? 'bg-blue-600 border-blue-300 text-white scale-110 shadow-md'
+                            : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-400/80 opacity-60'
+                          }`}>
+                        {r}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
