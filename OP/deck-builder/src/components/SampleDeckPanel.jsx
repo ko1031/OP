@@ -273,7 +273,7 @@ export default function SampleDeckPanel({ allCards, onCopy, onClose }) {
     setLoading(true);
     setError(null);
 
-    fetch('/tournament_stats.json')
+    fetch(`${import.meta.env.BASE_URL}tournament_stats.json`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
