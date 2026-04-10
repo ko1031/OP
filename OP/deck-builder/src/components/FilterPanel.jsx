@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 
 const COLORS = ['赤', '緑', '青', '紫', '黒', '黄'];
+const KEYWORDS = [
+  { label: 'アタック時', kw: '【アタック時】' },
+  { label: '起動メイン', kw: '【起動メイン】' },
+  { label: '登場時',     kw: '【登場時】' },
+  { label: 'ブロッカー', kw: '【ブロッカー】' },
+  { label: '速攻',       kw: '【速攻】' },
+];
 const TYPES  = ['LEADER', 'CHARACTER', 'EVENT', 'STAGE'];
 const TYPE_LABELS = { LEADER: 'L', CHARACTER: 'C', EVENT: 'E', STAGE: 'S' };
 const TYPE_LABELS_FULL = { LEADER: 'リーダー', CHARACTER: 'キャラ', EVENT: 'イベント', STAGE: 'ステージ' };
@@ -26,6 +33,7 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
     (filters.powerMax != null && filters.powerMax !== '') ? 1 : 0,
     filters.triggerOnly ? 1 : 0,
     (filters.regulations?.length || 0),
+    (filters.keywords?.length || 0),
   ].reduce((s, n) => s + n, 0);
 
   return (
@@ -139,19 +147,34 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
                 </div>
               </div>
 
-              {/* トリガー */}
+              {/* 特殊キーワード */}
               <div className="flex-shrink-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">特殊</div>
-                <button
-                  onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
-                  className={`px-3 py-1 rounded text-xs font-medium border transition-all whitespace-nowrap
-                    ${filters.triggerOnly
-                      ? 'bg-yellow-500 border-yellow-300 text-gray-900'
-                      : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
-                    }`}
-                >
-                  ⚡ トリガー
-                </button>
+                <div className="flex gap-1 flex-wrap">
+                  <button
+                    onClick={() => onChange({ ...filters, triggerOnly: !filters.triggerOnly })}
+                    className={`px-2.5 py-1 rounded text-xs font-medium border transition-all whitespace-nowrap
+                      ${filters.triggerOnly
+                        ? 'bg-yellow-500 border-yellow-300 text-gray-900'
+                        : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
+                      }`}
+                  >
+                    ⚡ トリガー
+                  </button>
+                  {KEYWORDS.map(({ label, kw }) => {
+                    const active = (filters.keywords || []).includes(kw);
+                    return (
+                      <button key={kw} onClick={() => toggle('keywords', kw)}
+                        className={`px-2.5 py-1 rounded text-xs font-medium border transition-all whitespace-nowrap
+                          ${active
+                            ? 'bg-cyan-700 border-cyan-400 text-cyan-100'
+                            : 'bg-[#0d1530]/80 border-amber-900/40 text-amber-700/60'
+                          }`}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

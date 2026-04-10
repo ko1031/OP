@@ -183,6 +183,11 @@ function applyFilters(cards, filters) {
     if (filters.triggerOnly) {
       if (!hasTrigger(card)) return false;
     }
+    if (filters.keywords?.length > 0) {
+      const effectText = (card.effect || '') + ' ' + (card.trigger || '');
+      const allMatch = filters.keywords.every(kw => effectText.includes(kw));
+      if (!allMatch) return false;
+    }
     return true;
   });
 }
