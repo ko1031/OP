@@ -1,233 +1,428 @@
 {
-  "lastUpdated": "2026-04-10T14:31:35+09:00",
+  "lastUpdated": "2026-04-10T15:30:22+09:00",
   "fetchedDays": 14,
   "recentWinners": [
     {
-      "id": 1225,
+      "id": 1255,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1255",
+      "source": "cardrush"
+    },
+    {
+      "id": 1258,
       "leaderName": "紫エネル",
       "archetypeId": 94,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
-      "date": "2026/04/02",
-      "rawDate": "2026-04-02",
-      "eventName": "フラッグシップバトル",
+      "archetypeImg": "",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1225"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1258",
+      "source": "cardrush"
     },
     {
-      "id": 1229,
-      "leaderName": "青黄ナミ",
-      "archetypeId": 21,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
-      "date": "2026/04/02",
-      "rawDate": "2026-04-02",
-      "eventName": "あかなし杯",
-      "result": "準優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1229"
-    },
-    {
-      "id": 1228,
-      "leaderName": "青黄ナミ",
-      "archetypeId": 21,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
-      "date": "2026/04/02",
-      "rawDate": "2026-04-02",
-      "eventName": "あかなし杯",
+      "id": 1252,
+      "leaderName": "青黄ハンコック",
+      "archetypeId": 64,
+      "archetypeImg": "",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1228"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1252",
+      "source": "cardrush"
     },
     {
-      "id": 1227,
+      "id": 1257,
+      "leaderName": "黒イム",
+      "archetypeId": 45,
+      "archetypeImg": "",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1257",
+      "source": "cardrush"
+    },
+    {
+      "id": 1259,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1259",
+      "source": "cardrush"
+    },
+    {
+      "id": 1249,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1249",
+      "source": "cardrush"
+    },
+    {
+      "id": 1246,
+      "leaderName": "黒イム",
+      "archetypeId": 45,
+      "archetypeImg": "",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1246",
+      "source": "cardrush"
+    },
+    {
+      "id": 1250,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1250",
+      "source": "cardrush"
+    },
+    {
+      "id": 1247,
+      "leaderName": "青黄ハンコック",
+      "archetypeId": 64,
+      "archetypeImg": "",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1247",
+      "source": "cardrush"
+    },
+    {
+      "id": 1248,
       "leaderName": "赤青ルーシー",
       "archetypeId": 95,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/95.webp",
-      "date": "2026/04/02",
-      "rawDate": "2026-04-02",
-      "eventName": "フラッグシップバトル",
+      "archetypeImg": "",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1227"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1248",
+      "source": "cardrush"
+    },
+    {
+      "id": 1251,
+      "leaderName": "青黄ハンコック",
+      "archetypeId": 64,
+      "archetypeImg": "",
+      "date": "2026/04/07",
+      "rawDate": "2026-04-07",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1251",
+      "source": "cardrush"
+    },
+    {
+      "id": 1237,
+      "leaderName": "空島ルフィ",
+      "archetypeId": 98,
+      "archetypeImg": "",
+      "date": "2026/04/06",
+      "rawDate": "2026-04-06",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1237",
+      "source": "cardrush"
+    },
+    {
+      "id": 1236,
+      "leaderName": "空島ルフィ",
+      "archetypeId": 98,
+      "archetypeImg": "",
+      "date": "2026/04/06",
+      "rawDate": "2026-04-06",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1236",
+      "source": "cardrush"
+    },
+    {
+      "id": 1239,
+      "leaderName": "青黄ハンコック",
+      "archetypeId": 64,
+      "archetypeImg": "",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1239",
+      "source": "cardrush"
+    },
+    {
+      "id": 1240,
+      "leaderName": "緑ミホーク",
+      "archetypeId": 63,
+      "archetypeImg": "",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1240",
+      "source": "cardrush"
+    },
+    {
+      "id": 1241,
+      "leaderName": "黒クロコダイル",
+      "archetypeId": 65,
+      "archetypeImg": "",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1241",
+      "source": "cardrush"
+    },
+    {
+      "id": 1238,
+      "leaderName": "緑ミホーク",
+      "archetypeId": 63,
+      "archetypeImg": "",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1238",
+      "source": "cardrush"
+    },
+    {
+      "id": 1242,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1242",
+      "source": "cardrush"
     },
     {
       "id": 1226,
       "leaderName": "青黄ナミ",
       "archetypeId": 21,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "archetypeImg": "",
       "date": "2026/04/02",
       "rawDate": "2026-04-02",
-      "eventName": "フラッグシップバトル",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1226"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1226",
+      "source": "cardrush"
     },
     {
-      "id": 1222,
-      "leaderName": "緑ミホーク",
-      "archetypeId": 63,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
+      "id": 1227,
+      "leaderName": "赤青ルーシー",
+      "archetypeId": 95,
+      "archetypeImg": "",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1222"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1227",
+      "source": "cardrush"
     },
     {
-      "id": 1219,
-      "leaderName": "空島ルフィ",
-      "archetypeId": 98,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/98.webp",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "そだ杯",
+      "id": 1229,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1219"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1229",
+      "source": "cardrush"
+    },
+    {
+      "id": 1228,
+      "leaderName": "青黄ナミ",
+      "archetypeId": 21,
+      "archetypeImg": "",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1228",
+      "source": "cardrush"
+    },
+    {
+      "id": 1225,
+      "leaderName": "紫エネル",
+      "archetypeId": 94,
+      "archetypeImg": "",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1225",
+      "source": "cardrush"
     },
     {
       "id": 1221,
       "leaderName": "紫エネル",
       "archetypeId": 94,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "archetypeImg": "",
       "date": "2026/04/01",
       "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1221"
-    },
-    {
-      "id": 1223,
-      "leaderName": "緑黄しらほし",
-      "archetypeId": 41,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/41.webp",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1223"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1221",
+      "source": "cardrush"
     },
     {
       "id": 1224,
       "leaderName": "紫エネル",
       "archetypeId": 94,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "archetypeImg": "",
       "date": "2026/04/01",
       "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1224"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1224",
+      "source": "cardrush"
     },
     {
-      "id": 1218,
-      "leaderName": "黒ティーチ",
-      "archetypeId": 16,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/16.webp",
-      "date": "2026/03/30",
-      "rawDate": "2026-03-30",
-      "eventName": "天竜杯",
+      "id": 1222,
+      "leaderName": "緑ミホーク",
+      "archetypeId": 63,
+      "archetypeImg": "",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1218"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1222",
+      "source": "cardrush"
+    },
+    {
+      "id": 1219,
+      "leaderName": "空島ルフィ",
+      "archetypeId": 98,
+      "archetypeImg": "",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1219",
+      "source": "cardrush"
+    },
+    {
+      "id": 1223,
+      "leaderName": "緑黄しらほし",
+      "archetypeId": 41,
+      "archetypeImg": "",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "",
+      "result": "優勝",
+      "deckUrl": "https://cardrush.media/onepiece/decks/1223",
+      "source": "cardrush"
     },
     {
       "id": 1217,
       "leaderName": "青黄ナミ",
       "archetypeId": 21,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
+      "archetypeImg": "",
       "date": "2026/03/30",
       "rawDate": "2026-03-30",
-      "eventName": "フラッグシップバトル",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1217"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1217",
+      "source": "cardrush"
     },
     {
-      "id": 1213,
-      "leaderName": "青黄ハンコック",
-      "archetypeId": 64,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/64.webp",
-      "date": "2026/03/26",
-      "rawDate": "2026-03-26",
-      "eventName": "あかなし杯",
+      "id": 1218,
+      "leaderName": "黒ティーチ",
+      "archetypeId": 16,
+      "archetypeImg": "",
+      "date": "2026/03/30",
+      "rawDate": "2026-03-30",
+      "eventName": "",
       "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1213"
-    },
-    {
-      "id": 1214,
-      "leaderName": "緑ミホーク",
-      "archetypeId": 63,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
-      "date": "2026/03/26",
-      "rawDate": "2026-03-26",
-      "eventName": "あかなし杯",
-      "result": "準優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1214"
-    },
-    {
-      "id": 1195,
-      "leaderName": "紫ドフラミンゴ",
-      "archetypeId": 61,
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/61.webp",
-      "date": "2026/03/23",
-      "rawDate": "2026-03-23",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "deckUrl": "https://cardrush.media/onepiece/decks/1195"
+      "deckUrl": "https://cardrush.media/onepiece/decks/1218",
+      "source": "cardrush"
     }
   ],
   "distribution": [
     {
+      "leaderName": "紫エネル",
+      "archetypeImg": "",
+      "wins14": 7,
+      "wins7": 4,
+      "runnerUp14": 0,
+      "total14": 7
+    },
+    {
       "leaderName": "青黄ナミ",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
-      "wins14": 3,
-      "wins7": 0,
-      "runnerUp14": 1,
+      "archetypeImg": "",
+      "wins14": 6,
+      "wins7": 2,
+      "runnerUp14": 0,
+      "total14": 6
+    },
+    {
+      "leaderName": "青黄ハンコック",
+      "archetypeImg": "",
+      "wins14": 4,
+      "wins7": 4,
+      "runnerUp14": 0,
       "total14": 4
     },
     {
-      "leaderName": "紫エネル",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
+      "leaderName": "緑ミホーク",
+      "archetypeImg": "",
       "wins14": 3,
-      "wins7": 0,
+      "wins7": 2,
       "runnerUp14": 0,
       "total14": 3
     },
     {
-      "leaderName": "緑ミホーク",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
-      "wins14": 1,
-      "wins7": 0,
-      "runnerUp14": 1,
+      "leaderName": "空島ルフィ",
+      "archetypeImg": "",
+      "wins14": 3,
+      "wins7": 2,
+      "runnerUp14": 0,
+      "total14": 3
+    },
+    {
+      "leaderName": "黒イム",
+      "archetypeImg": "",
+      "wins14": 2,
+      "wins7": 2,
+      "runnerUp14": 0,
       "total14": 2
     },
     {
       "leaderName": "赤青ルーシー",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/95.webp",
-      "wins14": 1,
-      "wins7": 0,
+      "archetypeImg": "",
+      "wins14": 2,
+      "wins7": 1,
       "runnerUp14": 0,
-      "total14": 1
-    },
-    {
-      "leaderName": "紫ドフラミンゴ",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/61.webp",
-      "wins14": 1,
-      "wins7": 0,
-      "runnerUp14": 0,
-      "total14": 1
+      "total14": 2
     },
     {
       "leaderName": "緑黄しらほし",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/41.webp",
-      "wins14": 1,
-      "wins7": 0,
-      "runnerUp14": 0,
-      "total14": 1
-    },
-    {
-      "leaderName": "青黄ハンコック",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/64.webp",
-      "wins14": 1,
-      "wins7": 0,
-      "runnerUp14": 0,
-      "total14": 1
-    },
-    {
-      "leaderName": "空島ルフィ",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/98.webp",
+      "archetypeImg": "",
       "wins14": 1,
       "wins7": 0,
       "runnerUp14": 0,
@@ -235,24 +430,101 @@
     },
     {
       "leaderName": "黒ティーチ",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/16.webp",
+      "archetypeImg": "",
       "wins14": 1,
       "wins7": 0,
+      "runnerUp14": 0,
+      "total14": 1
+    },
+    {
+      "leaderName": "黒クロコダイル",
+      "archetypeImg": "",
+      "wins14": 1,
+      "wins7": 1,
       "runnerUp14": 0,
       "total14": 1
     }
   ],
   "sampleDecks": [
     {
-      "id": "cardrush_1225",
-      "leaderName": "紫エネル",
-      "leaderCard": "OP15-058",
-      "date": "2026/04/02",
-      "rawDate": "2026-04-02",
-      "eventName": "フラッグシップバトル",
+      "id": "cardrush_1255",
+      "leaderName": "青黄ナミ",
+      "leaderCard": "OP11-041",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
       "result": "優勝",
       "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1225",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1255",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-052",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-119",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-053",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-055",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-042",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-112",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-047",
+          "count": 2
+        },
+        {
+          "cardNumber": "P-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-108",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-024",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1258",
+      "leaderName": "紫エネル",
+      "leaderCard": "OP15-058",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1258",
       "deck": [
         {
           "cardNumber": "OP15-061",
@@ -264,6 +536,10 @@
         },
         {
           "cardNumber": "OP15-067",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-071",
           "count": 4
         },
         {
@@ -271,20 +547,16 @@
           "count": 4
         },
         {
-          "cardNumber": "OP10-075",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP07-072",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP10-067",
-          "count": 2
+          "cardNumber": "OP07-064",
+          "count": 3
         },
         {
           "cardNumber": "OP15-060",
-          "count": 2
+          "count": 3
+        },
+        {
+          "cardNumber": "OP12-063",
+          "count": 3
         },
         {
           "cardNumber": "OP15-118",
@@ -307,21 +579,909 @@
           "count": 4
         },
         {
-          "cardNumber": "OP13-076",
+          "cardNumber": "OP15-074",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP05-077",
           "count": 2
         }
       ]
     },
     {
-      "id": "cardrush_1228",
+      "id": "cardrush_1252",
+      "leaderName": "青黄ハンコック",
+      "leaderCard": "OP14-041",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1252",
+      "deck": [
+        {
+          "cardNumber": "OP14-103",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 3
+        },
+        {
+          "cardNumber": "EB03-023",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST17-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-105",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-104",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-108",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-057",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1257",
+      "leaderName": "黒イム",
+      "leaderCard": "OP13-079",
+      "date": "2026/04/09",
+      "rawDate": "2026-04-09",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1257",
+      "deck": [
+        {
+          "cardNumber": "OP13-091",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-080",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-084",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-089",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-082",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-086",
+          "count": 4
+        },
+        {
+          "cardNumber": "PRB02-014",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-091",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-098",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-097",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP13-099",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1249",
+      "leaderName": "紫エネル",
+      "leaderCard": "OP15-058",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1249",
+      "deck": [
+        {
+          "cardNumber": "OP15-061",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-066",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-064",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-063",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP15-118",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-077",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-075",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP15-074",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-075",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP05-077",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1246",
+      "leaderName": "黒イム",
+      "leaderCard": "OP13-079",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1246",
+      "deck": [
+        {
+          "cardNumber": "OP13-091",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-080",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-084",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-089",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-082",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-086",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-092",
+          "count": 4
+        },
+        {
+          "cardNumber": "PRB02-014",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-098",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-097",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP13-099",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1247",
+      "leaderName": "青黄ハンコック",
+      "leaderCard": "OP14-041",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1247",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-103",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST17-004",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-105",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-119",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-108",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-104",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-057",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1248",
+      "leaderName": "赤青ルーシー",
+      "leaderCard": "OP15-002",
+      "date": "2026/04/08",
+      "rawDate": "2026-04-08",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1248",
+      "deck": [
+        {
+          "cardNumber": "OP15-053",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-052",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-040",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-045",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-006",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP05-015",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-046",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-118",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP10-049",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-020",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-056",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-054",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-021",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-059",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP05-019",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-057",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1251",
+      "leaderName": "青黄ハンコック",
+      "leaderCard": "OP14-041",
+      "date": "2026/04/07",
+      "rawDate": "2026-04-07",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1251",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-103",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-114",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST17-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-105",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-104",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-057",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1237",
+      "leaderName": "空島ルフィ",
+      "leaderCard": "OP15-098",
+      "date": "2026/04/06",
+      "rawDate": "2026-04-06",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1237",
+      "deck": [
+        {
+          "cardNumber": "OP15-119",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-108",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-114",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-102",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB02-052",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-099",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP15-109",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-105",
+          "count": 1
+        },
+        {
+          "cardNumber": "ST29-005",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-116",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1239",
+      "leaderName": "青黄ハンコック",
+      "leaderCard": "OP14-041",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1239",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-103",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST17-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-114",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-105",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-108",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-104",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-057",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1240",
+      "leaderName": "緑ミホーク",
+      "leaderCard": "OP14-020",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1240",
+      "deck": [
+        {
+          "cardNumber": "OP12-034",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST02-007",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-035",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB01-015",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-033",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST24-002",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-118",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-030",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP07-026",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-031",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST24-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-119",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-040",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-037",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP08-036",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1241",
+      "leaderName": "黒クロコダイル",
+      "leaderCard": "OP14-079",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1241",
+      "deck": [
+        {
+          "cardNumber": "OP14-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-085",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-087",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-088",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-091",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-093",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-090",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-094",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-084",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-086",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-120",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-092",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP05-094",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-099",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-096",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1242",
+      "leaderName": "青黄ナミ",
+      "leaderCard": "OP11-041",
+      "date": "2026/04/05",
+      "rawDate": "2026-04-05",
+      "eventName": "",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1242",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-052",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP11-106",
+          "count": 2
+        },
+        {
+          "cardNumber": "EB03-053",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-055",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-042",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-112",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-047",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP03-048",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP06-104",
+          "count": 4
+        },
+        {
+          "cardNumber": "P-096",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 2
+        },
+        {
+          "cardNumber": "PRB02-008",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-112",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP12-119",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-108",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP06-058",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1226",
       "leaderName": "青黄ナミ",
       "leaderCard": "OP11-041",
       "date": "2026/04/02",
       "rawDate": "2026-04-02",
-      "eventName": "あかなし杯",
+      "eventName": "",
       "result": "優勝",
       "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1228",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1226",
       "deck": [
         {
           "cardNumber": "OP06-106",
@@ -348,40 +1508,32 @@
           "count": 4
         },
         {
+          "cardNumber": "OP14-102",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-111",
+          "count": 4
+        },
+        {
           "cardNumber": "OP13-042",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-110",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-104",
           "count": 4
-        },
-        {
-          "cardNumber": "EB04-061",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP10-112",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP12-119",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-047",
-          "count": 2
-        },
-        {
-          "cardNumber": "PRB02-008",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP12-112",
-          "count": 2
         },
         {
           "cardNumber": "OP07-115",
           "count": 4
         },
         {
-          "cardNumber": "OP06-058",
-          "count": 2
+          "cardNumber": "EB03-060",
+          "count": 4
         }
       ]
     },
@@ -391,7 +1543,7 @@
       "leaderCard": "OP15-002",
       "date": "2026/04/02",
       "rawDate": "2026-04-02",
-      "eventName": "フラッグシップバトル",
+      "eventName": "",
       "result": "優勝",
       "source": "cardrush",
       "sourceUrl": "https://cardrush.media/onepiece/decks/1227",
@@ -463,574 +1615,6 @@
         {
           "cardNumber": "OP15-057",
           "count": 3
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1222",
-      "leaderName": "緑ミホーク",
-      "leaderCard": "OP14-020",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1222",
-      "deck": [
-        {
-          "cardNumber": "OP12-034",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB01-015",
-          "count": 1
-        },
-        {
-          "cardNumber": "ST24-002",
-          "count": 4
-        },
-        {
-          "cardNumber": "PRB02-006",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP10-032",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP08-023",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP12-118",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP10-030",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP07-026",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP14-033",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP13-031",
-          "count": 4
-        },
-        {
-          "cardNumber": "ST24-004",
-          "count": 4
-        },
-        {
-          "cardNumber": "ST02-007",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP13-040",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP12-037",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP06-038",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP08-036",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP14-039",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1219",
-      "leaderName": "空島ルフィ",
-      "leaderCard": "OP15-098",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "そだ杯",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1219",
-      "deck": [
-        {
-          "cardNumber": "OP15-119",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-108",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-058",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-109",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-114",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-113",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP05-106",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP06-106",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-106",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP05-102",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB02-052",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP15-116",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP07-115",
-          "count": 4
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1221",
-      "leaderName": "紫エネル",
-      "leaderCard": "OP15-058",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1221",
-      "deck": [
-        {
-          "cardNumber": "OP15-061",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-066",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-067",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-071",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-060",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-118",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP07-072",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP10-075",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-077",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-075",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-076",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-078",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP13-076",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1223",
-      "leaderName": "緑黄しらほし",
-      "leaderCard": "OP11-022",
-      "date": "2026/04/01",
-      "rawDate": "2026-04-01",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1223",
-      "deck": [
-        {
-          "cardNumber": "EB03-052",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP12-102",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-030",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-018",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-107",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-036",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-016",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-011",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-033",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-058",
-          "count": 4
-        },
-        {
-          "cardNumber": "ST16-004",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP06-035",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP08-036",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP13-040",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1218",
-      "leaderName": "黒ティーチ",
-      "leaderCard": "OP09-081",
-      "date": "2026/03/30",
-      "rawDate": "2026-03-30",
-      "eventName": "天竜杯",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1218",
-      "deck": [
-        {
-          "cardNumber": "OP09-093",
-          "count": 4
-        },
-        {
-          "cardNumber": "ST27-003",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP10-082",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-083",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-084",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP10-086",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP09-086",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-089",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-083",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-090",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-095",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-098",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP09-096",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP09-099",
-          "count": 4
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1217",
-      "leaderName": "青黄ナミ",
-      "leaderCard": "OP11-041",
-      "date": "2026/03/30",
-      "rawDate": "2026-03-30",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1217",
-      "deck": [
-        {
-          "cardNumber": "OP06-106",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP11-106",
-          "count": 3
-        },
-        {
-          "cardNumber": "P-096",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP06-104",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP08-050",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP15-047",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP12-112",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB03-053",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-058",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB03-055",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP13-042",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP01-070",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP10-112",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP03-048",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP06-047",
-          "count": 1
-        },
-        {
-          "cardNumber": "OP07-115",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP04-056",
-          "count": 2
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1213",
-      "leaderName": "青黄ハンコック",
-      "leaderCard": "OP14-041",
-      "date": "2026/03/26",
-      "rawDate": "2026-03-26",
-      "eventName": "あかなし杯",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1213",
-      "deck": [
-        {
-          "cardNumber": "OP14-103",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB03-023",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP08-050",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP14-113",
-          "count": 4
-        },
-        {
-          "cardNumber": "ST17-004",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP15-113",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-114",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-105",
-          "count": 4
-        },
-        {
-          "cardNumber": "EB04-058",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-107",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-112",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-104",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP07-115",
-          "count": 4
-        }
-      ]
-    },
-    {
-      "id": "cardrush_1195",
-      "leaderName": "紫ドフラミンゴ",
-      "leaderCard": "OP14-060",
-      "date": "2026/03/23",
-      "rawDate": "2026-03-23",
-      "eventName": "フラッグシップバトル",
-      "result": "優勝",
-      "source": "cardrush",
-      "sourceUrl": "https://cardrush.media/onepiece/decks/1195",
-      "deck": [
-        {
-          "cardNumber": "OP14-067",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP10-065",
-          "count": 4
-        },
-        {
-          "cardNumber": "ST18-001",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP14-063",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP14-072",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP14-074",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-068",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-071",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP14-061",
-          "count": 3
-        },
-        {
-          "cardNumber": "OP14-069",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP10-071",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP07-076",
-          "count": 4
-        },
-        {
-          "cardNumber": "OP13-076",
-          "count": 2
-        },
-        {
-          "cardNumber": "OP10-078",
-          "count": 4
         }
       ]
     },

@@ -126,18 +126,14 @@ def fetch_cardrush_meta() -> list[dict]:
         decks_raw = (
             data.get("props", {})
                 .get("pageProps", {})
-                .get("dehydratedState", {})
-                .get("queries", [{}])[0]
-                .get("state", {})
-                .get("data", {})
-                .get("data", [])
+                .get("decks", [])
         )
         if not decks_raw:
             break
 
         page_has_recent = False
         for deck in decks_raw:
-            raw_date = deck.get("held_at", "")[:10]
+            raw_date = (deck.get("tournament_date") or deck.get("held_at") or "")[:10]
             if not raw_date:
                 continue
             dt = parse_date(raw_date)
@@ -145,8 +141,10 @@ def fetch_cardrush_meta() -> list[dict]:
                 continue
             page_has_recent = True
 
-            score_raw = deck.get("score", {}).get("label", "")
-            result_jp = "優勝" if "優勝" in score_raw else "準優勝"
+            score_raw = deck.get("score", "")
+            if isinstance(score_raw, dict):
+                score_raw = score_raw.get("label", "")
+            result_jp = "優勝" if "優勝" in str(score_raw) else "準優勝"
             archetype  = deck.get("archetype") or {}
 
             all_decks.append({
