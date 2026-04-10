@@ -79,10 +79,10 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
           <div className="mt-2 flex flex-col gap-2">
 
             {/* 行1: 色 | ブロックアイコン | 種類 | トリガー */}
-            <div className="flex gap-3">
+            <div className="flex gap-4 flex-wrap">
 
               {/* 色フィルター */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-shrink-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">色</div>
                 <div className="flex gap-1 flex-wrap">
                   {COLORS.map(c => {
@@ -120,7 +120,7 @@ export default function FilterPanel({ filters, onChange, seriesList }) {
               </div>
 
               {/* 種類フィルター */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-shrink-0">
                 <div className="text-[9px] text-amber-700/60 mb-1 font-semibold uppercase tracking-wider">種類</div>
                 <div className="flex gap-1 flex-wrap">
                   {TYPES.map(t => {
