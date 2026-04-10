@@ -170,16 +170,16 @@ def fetch_cardrush_meta() -> list[dict]:
     return all_decks
 
 
-def fetch_cardrush_deck_detail(deck_id: int) -> list[dict]:
+def fetch_cardrush_deck_detail(deck_id: int) -> tuple:
     """
     cardrush の個別デッキページから __NEXT_DATA__ を解析し、
-    カードリスト [{"cardNumber": "OP13-079", "count": 4}, ...] を返す。
-    リーダーカードは除外（count=1 かつ deck_type="リーダー"）。
+    (leader_card, [{cardNumber, count}, ...]) を返す。
+    フェッチ失敗時は (None, []) を返す。
     """
     url = f"{CARDRUSH_BASE}/onepiece/decks/{deck_id}"
     data = fetch_next_data(url)
     if not data:
-        return []
+        return None, []
 
     recipes = (
         data.get("props", {})
@@ -424,6 +424,11 @@ def main() -> None:
 
     print(f"\n  サンプルデッキ合計: {len(deduped)} 件 "
           f"(cardrush:{len(cardrush_decks)}, limitless:{len(limitless_decks)})", flush=True)
+
+    # 新規取得が0件の場合は既存のサンプルデッキを再利用
+    if not deduped:
+        print("  サンプルデッキ: 新規なし → 既存データを再利用", flush=True)
+        deduped = existing.get("sampleDecks", [])
 
     # ── JSON 出力 ──
     output = {

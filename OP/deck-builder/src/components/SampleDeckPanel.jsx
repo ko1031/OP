@@ -111,7 +111,6 @@ function SampleDeckCard({ sample, cardMap, onCopy }) {
   const sourceBadge =
     sample.source === 'cardrush'  ? { label: '🇯🇵 国内', cls: 'text-rose-300 bg-rose-900/30 border border-rose-700/40' } :
     sample.source === 'limitless' ? { label: '🌏 海外', cls: 'text-teal-300 bg-teal-900/30 border border-teal-700/40' } :
-    sample.source === 'static'    ? { label: '📋 静的', cls: 'text-gray-400 bg-gray-800/50 border border-gray-600/40' } :
     null;
 
   return (
