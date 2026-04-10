@@ -20,7 +20,7 @@ function resolveDeck(sampleDeck, cardMap) {
     .filter(Boolean);
 }
 
-// 動的デッキ（gumgum/limitless）を SampleDeckCard が期待する形式に正規化
+// 動的デッキ（cardrush/limitless）を SampleDeckCard が期待する形式に正規化
 function normalizeDynamicDeck(d, cardMap) {
   const leaderCard = cardMap[d.leaderCard];
   const name = leaderCard
@@ -28,16 +28,13 @@ function normalizeDynamicDeck(d, cardMap) {
     : (d.leaderName || d.leaderCard || '?');
   const colors = leaderCard?.colors || [];
 
-  // eventType 推定
-  const evtLower = (d.eventName || '').toLowerCase();
+  // eventType 推定（cardrush はイベント名から、limitless は CS 扱い）
+  const evtName  = d.eventName || '';
+  const evtLower = evtName.toLowerCase();
   let eventType = 'cs';
-  if (evtLower.includes('flagship')) eventType = 'flagship';
-
-  // 地域ラベル
-  const regionLabel =
-    d.eventRegion === 'east' ? '（東アジア）' :
-    d.eventRegion === 'west' ? '（欧米）' :
-    d.source === 'limitless'  ? '（海外）' : '';
+  if (evtLower.includes('flagship') || evtName.includes('フラッグシップ')) {
+    eventType = 'flagship';
+  }
 
   return {
     id:          d.id,
@@ -46,7 +43,7 @@ function normalizeDynamicDeck(d, cardMap) {
     name,
     colors,
     eventType,
-    event:       `${d.eventName || 'Tournament'}${regionLabel} 優勝`,
+    event:       evtName || 'Tournament',
     date:        d.date,
     rawDate:     d.rawDate || '',
     description: '',
@@ -110,11 +107,11 @@ function SampleDeckCard({ sample, cardMap, onCopy }) {
     ? { label: '非公認', cls: 'text-sky-300 bg-sky-900/40 border-sky-600/60' }
     : { label: 'CS', cls: 'text-purple-300 bg-purple-900/40 border-purple-600/60' };
 
-  // ソースバッジ
+  // ソースバッジ（国内 / 海外）
   const sourceBadge =
-    sample.source === 'gumgum'     ? { label: 'gumgum.gg',  cls: 'text-orange-300 bg-orange-900/30' } :
-    sample.source === 'limitless'  ? { label: 'Limitless',  cls: 'text-teal-300 bg-teal-900/30' } :
-    sample.source === 'cardrush'   ? { label: 'CarDrush',   cls: 'text-pink-300 bg-pink-900/30' } :
+    sample.source === 'cardrush'  ? { label: '🇯🇵 国内', cls: 'text-rose-300 bg-rose-900/30 border border-rose-700/40' } :
+    sample.source === 'limitless' ? { label: '🌏 海外', cls: 'text-teal-300 bg-teal-900/30 border border-teal-700/40' } :
+    sample.source === 'static'    ? { label: '📋 静的', cls: 'text-gray-400 bg-gray-800/50 border border-gray-600/40' } :
     null;
 
   return (
@@ -329,7 +326,7 @@ export default function SampleDeckPanel({ allCards, onCopy, onClose }) {
     : (error ? 'データ取得エラー（静的データ表示中）' : '');
 
   const sourceNote = dynamicDecks.length > 0
-    ? `cardrush.media・gumgum.gg・Limitless 大会上位デッキ`
+    ? `国内: cardrush.media ／ 海外: Limitless 大会上位デッキ`
     : 'フラッグシップバトル・非公認大会 2026年3〜4月';
 
   return (
@@ -384,7 +381,7 @@ export default function SampleDeckPanel({ allCards, onCopy, onClose }) {
           {!loading && (
             <div className="text-xs text-gray-600 pb-2 text-center space-y-0.5">
               {dynamicDecks.length > 0 && (
-                <div>出典: cardrush.media・gumgum.gg・onepiece.limitlesstcg.com</div>
+                <div>出典: cardrush.media（国内）・onepiece.limitlesstcg.com（海外）</div>
               )}
               <div>静的データ: フラッグシップバトル・非公認大会 2026年3〜4月</div>
             </div>
