@@ -153,6 +153,10 @@ function applyFilters(cards, filters) {
         || card.card_number?.toLowerCase().includes(q);
       if (!match) return false;
     }
+    // ブロックアイコンフィルター
+    if (filters.regulations?.length > 0) {
+      if (!filters.regulations.includes(card.block_icon ?? '')) return false;
+    }
     if (filters.colors?.length > 0) {
       if (!(card.colors||[]).some(c => filters.colors.includes(c))) return false;
     }
@@ -162,9 +166,13 @@ function applyFilters(cards, filters) {
     if (filters.series) {
       if (card.series_id !== filters.series) return false;
     }
-    const cost = card.cost ?? card.life ?? null;
-    if (filters.costMin !== '' && filters.costMin != null && cost != null && cost < filters.costMin) return false;
-    if (filters.costMax !== '' && filters.costMax != null && cost != null && cost > filters.costMax) return false;
+    const cost = card.cost != null ? card.cost : (card.life ?? null);
+    const hasCostMin = filters.costMin !== '' && filters.costMin != null;
+    const hasCostMax = filters.costMax !== '' && filters.costMax != null;
+    // コストフィルターが有効な場合、costが不明なカードは除外
+    if ((hasCostMin || hasCostMax) && cost == null) return false;
+    if (hasCostMin && cost < filters.costMin) return false;
+    if (hasCostMax && cost > filters.costMax) return false;
     const power = card.power ?? null;
     const hasPowerMin = filters.powerMin !== '' && filters.powerMin != null;
     const hasPowerMax = filters.powerMax !== '' && filters.powerMax != null;
