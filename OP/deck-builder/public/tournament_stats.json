@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-04-06T00:59:26+09:00",
+  "lastUpdated": "2026-04-10T14:31:35+09:00",
   "fetchedDays": 14,
   "recentWinners": [
     {
@@ -173,7 +173,7 @@
       "leaderName": "青黄ナミ",
       "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/21.webp",
       "wins14": 3,
-      "wins7": 2,
+      "wins7": 0,
       "runnerUp14": 1,
       "total14": 4
     },
@@ -181,7 +181,7 @@
       "leaderName": "紫エネル",
       "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/94.webp",
       "wins14": 3,
-      "wins7": 3,
+      "wins7": 0,
       "runnerUp14": 0,
       "total14": 3
     },
@@ -189,15 +189,15 @@
       "leaderName": "緑ミホーク",
       "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/63.webp",
       "wins14": 1,
-      "wins7": 1,
+      "wins7": 0,
       "runnerUp14": 1,
       "total14": 2
     },
     {
-      "leaderName": "緑黄しらほし",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/41.webp",
+      "leaderName": "赤青ルーシー",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/95.webp",
       "wins14": 1,
-      "wins7": 1,
+      "wins7": 0,
       "runnerUp14": 0,
       "total14": 1
     },
@@ -210,18 +210,10 @@
       "total14": 1
     },
     {
-      "leaderName": "黒ティーチ",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/16.webp",
+      "leaderName": "緑黄しらほし",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/41.webp",
       "wins14": 1,
       "wins7": 0,
-      "runnerUp14": 0,
-      "total14": 1
-    },
-    {
-      "leaderName": "赤青ルーシー",
-      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/95.webp",
-      "wins14": 1,
-      "wins7": 1,
       "runnerUp14": 0,
       "total14": 1
     },
@@ -237,9 +229,1845 @@
       "leaderName": "空島ルフィ",
       "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/98.webp",
       "wins14": 1,
-      "wins7": 1,
+      "wins7": 0,
       "runnerUp14": 0,
       "total14": 1
+    },
+    {
+      "leaderName": "黒ティーチ",
+      "archetypeImg": "https://files.cardrush.media/onepiece/archetypes/16.webp",
+      "wins14": 1,
+      "wins7": 0,
+      "runnerUp14": 0,
+      "total14": 1
+    }
+  ],
+  "sampleDecks": [
+    {
+      "id": "cardrush_1225",
+      "leaderName": "紫エネル",
+      "leaderCard": "OP15-058",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1225",
+      "deck": [
+        {
+          "cardNumber": "OP15-061",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-066",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-075",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-072",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-067",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-060",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-118",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-077",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-075",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1228",
+      "leaderName": "青黄ナミ",
+      "leaderCard": "OP11-041",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "あかなし杯",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1228",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "P-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-053",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-055",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-042",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-061",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-119",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-047",
+          "count": 2
+        },
+        {
+          "cardNumber": "PRB02-008",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-112",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP06-058",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1227",
+      "leaderName": "赤青ルーシー",
+      "leaderCard": "OP15-002",
+      "date": "2026/04/02",
+      "rawDate": "2026-04-02",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1227",
+      "deck": [
+        {
+          "cardNumber": "OP15-053",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-052",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-040",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-045",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-006",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-046",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-049",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP09-118",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP15-020",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-056",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-054",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-021",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP10-059",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-060",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP05-019",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP15-057",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1222",
+      "leaderName": "緑ミホーク",
+      "leaderCard": "OP14-020",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1222",
+      "deck": [
+        {
+          "cardNumber": "OP12-034",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB01-015",
+          "count": 1
+        },
+        {
+          "cardNumber": "ST24-002",
+          "count": 4
+        },
+        {
+          "cardNumber": "PRB02-006",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-032",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-023",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-118",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP10-030",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP07-026",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-033",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-031",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST24-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST02-007",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP13-040",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-037",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP06-038",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP08-036",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-039",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1219",
+      "leaderName": "空島ルフィ",
+      "leaderCard": "OP15-098",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "そだ杯",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1219",
+      "deck": [
+        {
+          "cardNumber": "OP15-119",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-108",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-109",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-114",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP06-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-102",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB02-052",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP15-116",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1221",
+      "leaderName": "紫エネル",
+      "leaderCard": "OP15-058",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1221",
+      "deck": [
+        {
+          "cardNumber": "OP15-061",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-066",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-118",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-072",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-075",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-077",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-075",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1223",
+      "leaderName": "緑黄しらほし",
+      "leaderCard": "OP11-022",
+      "date": "2026/04/01",
+      "rawDate": "2026-04-01",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1223",
+      "deck": [
+        {
+          "cardNumber": "EB03-052",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-102",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-030",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-018",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-036",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-016",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-011",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-033",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST16-004",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP06-035",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP08-036",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-040",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1218",
+      "leaderName": "黒ティーチ",
+      "leaderCard": "OP09-081",
+      "date": "2026/03/30",
+      "rawDate": "2026-03-30",
+      "eventName": "天竜杯",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1218",
+      "deck": [
+        {
+          "cardNumber": "OP09-093",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST27-003",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP10-082",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-084",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP10-086",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP09-086",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-089",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-090",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-095",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-098",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP09-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-099",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1217",
+      "leaderName": "青黄ナミ",
+      "leaderCard": "OP11-041",
+      "date": "2026/03/30",
+      "rawDate": "2026-03-30",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1217",
+      "deck": [
+        {
+          "cardNumber": "OP06-106",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-106",
+          "count": 3
+        },
+        {
+          "cardNumber": "P-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP06-104",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP15-047",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP12-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-053",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-055",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-042",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP01-070",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP10-112",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP03-048",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP06-047",
+          "count": 1
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP04-056",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1213",
+      "leaderName": "青黄ハンコック",
+      "leaderCard": "OP14-041",
+      "date": "2026/03/26",
+      "rawDate": "2026-03-26",
+      "eventName": "あかなし杯",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1213",
+      "deck": [
+        {
+          "cardNumber": "OP14-103",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-023",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-050",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST17-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP15-113",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-114",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-105",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-058",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-104",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP07-115",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "cardrush_1195",
+      "leaderName": "紫ドフラミンゴ",
+      "leaderCard": "OP14-060",
+      "date": "2026/03/23",
+      "rawDate": "2026-03-23",
+      "eventName": "フラッグシップバトル",
+      "result": "優勝",
+      "source": "cardrush",
+      "sourceUrl": "https://cardrush.media/onepiece/decks/1195",
+      "deck": [
+        {
+          "cardNumber": "OP14-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-065",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-063",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-072",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-074",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-068",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-061",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-069",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-078",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "limitless_6164",
+      "leaderName": "OP12-061",
+      "leaderCard": "OP12-061",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #382",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6164",
+      "deck": [
+        {
+          "cardNumber": "OP09-069",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-065",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-108",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP12-112",
+          "count": 4
+        },
+        {
+          "cardNumber": "P-088",
+          "count": 4
+        },
+        {
+          "cardNumber": "P-093",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST10-010",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-061",
+          "count": 2
+        },
+        {
+          "cardNumber": "EB04-038",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-073",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-062",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-078",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6166",
+      "leaderName": "OP13-002",
+      "leaderCard": "OP13-002",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #382",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6166",
+      "deck": [
+        {
+          "cardNumber": "ST22-002",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-016",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-043",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-045",
+          "count": 3
+        },
+        {
+          "cardNumber": "PRB02-008",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP02-008",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP08-040",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-054",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-047",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST23-001",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-046",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-042",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP04-056",
+          "count": 3
+        },
+        {
+          "cardNumber": "ST22-015",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "limitless_6168",
+      "leaderName": "OP14-060",
+      "leaderCard": "OP14-060",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #382",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6168",
+      "deck": [
+        {
+          "cardNumber": "OP10-065",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-072",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-072",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-061",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-074",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-069",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-076",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "limitless_6061",
+      "leaderName": "OP13-079",
+      "leaderCard": "OP13-079",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #382",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6061",
+      "deck": [
+        {
+          "cardNumber": "OP13-086",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-082",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-092",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-089",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-080",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-091",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-084",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-082",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-098",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-097",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-096",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "limitless_6169",
+      "leaderName": "OP14-020",
+      "leaderCard": "OP14-020",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #382",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6169",
+      "deck": [
+        {
+          "cardNumber": "ST02-007",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-034",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-039",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP10-032",
+          "count": 4
+        },
+        {
+          "cardNumber": "PRB02-006",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-023",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-029",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-118",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-027",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-119",
+          "count": 2
+        },
+        {
+          "cardNumber": "ST24-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP06-038",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP12-037",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-039",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "limitless_6143",
+      "leaderName": "EB02-010",
+      "leaderCard": "EB02-010",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #380",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6143",
+      "deck": [
+        {
+          "cardNumber": "EB02-017",
+          "count": 4
+        },
+        {
+          "cardNumber": "PRB02-012",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 4
+        },
+        {
+          "cardNumber": "P-111",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-004",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-031",
+          "count": 2
+        },
+        {
+          "cardNumber": "EB02-035",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-027",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP07-064",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB02-061",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP09-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-076",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-037",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-040",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP04-035",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6144",
+      "leaderName": "OP01-002",
+      "leaderCard": "OP01-002",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #380",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6144",
+      "deck": [
+        {
+          "cardNumber": "ST02-007",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-006",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-034",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-013",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-005",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP02-010",
+          "count": 2
+        },
+        {
+          "cardNumber": "EB01-015",
+          "count": 2
+        },
+        {
+          "cardNumber": "ST24-002",
+          "count": 4
+        },
+        {
+          "cardNumber": "PRB02-006",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB01-012",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-118",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-016",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST02-009",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP01-051",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-037",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6145",
+      "leaderName": "OP12-041",
+      "leaderCard": "OP12-041",
+      "date": "2026/03/21",
+      "rawDate": "2026-03-21",
+      "eventName": "Tournament #380",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6145",
+      "deck": [
+        {
+          "cardNumber": "OP12-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-043",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-070",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-031",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP07-064",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP09-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-059",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-079",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-029",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-041",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP04-056",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6075",
+      "leaderName": "OP13-002",
+      "leaderCard": "OP13-002",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #425",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6075",
+      "deck": [
+        {
+          "cardNumber": "ST22-002",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-016",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-043",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-007",
+          "count": 2
+        },
+        {
+          "cardNumber": "PRB02-008",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP02-008",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP06-047",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP08-040",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-045",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-054",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP08-047",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST23-001",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-042",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP04-056",
+          "count": 3
+        },
+        {
+          "cardNumber": "ST22-015",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "limitless_6076",
+      "leaderName": "OP11-040",
+      "leaderCard": "OP11-040",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #425",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6076",
+      "deck": [
+        {
+          "cardNumber": "OP13-043",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB01-061",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-054",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-034",
+          "count": 3
+        },
+        {
+          "cardNumber": "P-107",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-070",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP06-119",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-080",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-119",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP04-056",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": "limitless_6077",
+      "leaderName": "OP12-061",
+      "leaderCard": "OP12-061",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #425",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6077",
+      "deck": [
+        {
+          "cardNumber": "OP09-069",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-065",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-108",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 3
+        },
+        {
+          "cardNumber": "P-093",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-112",
+          "count": 3
+        },
+        {
+          "cardNumber": "P-088",
+          "count": 3
+        },
+        {
+          "cardNumber": "ST10-010",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-061",
+          "count": 3
+        },
+        {
+          "cardNumber": "EB04-038",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-073",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB03-062",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-115",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-077",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6019",
+      "leaderName": "OP13-079",
+      "leaderCard": "OP13-079",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #425",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6019",
+      "deck": [
+        {
+          "cardNumber": "OP13-086",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP05-082",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-092",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP13-083",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-089",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-080",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-091",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-084",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-082",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-098",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-096",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-097",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6081",
+      "leaderName": "OP12-041",
+      "leaderCard": "OP12-041",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #425",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6081",
+      "deck": [
+        {
+          "cardNumber": "OP13-043",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-070",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-063",
+          "count": 2
+        },
+        {
+          "cardNumber": "EB03-031",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-064",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP09-078",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-079",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-029",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP11-060",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP12-059",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP12-060",
+          "count": 4
+        },
+        {
+          "cardNumber": "EB04-041",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP04-056",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP06-058",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6073",
+      "leaderName": "OP14-060",
+      "leaderCard": "OP14-060",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #424",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6073",
+      "deck": [
+        {
+          "cardNumber": "OP10-065",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-067",
+          "count": 4
+        },
+        {
+          "cardNumber": "ST18-001",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-062",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-063",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-072",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-061",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-074",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-072",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP12-076",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP14-068",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP10-071",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-069",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP07-076",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-078",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": "limitless_6074",
+      "leaderName": "OP13-001",
+      "leaderCard": "OP13-001",
+      "date": "2026/03/14",
+      "rawDate": "2026-03-14",
+      "eventName": "Tournament #424",
+      "result": "優勝",
+      "source": "limitless",
+      "sourceUrl": "https://onepiece.limitlesstcg.com/decks/list/6074",
+      "deck": [
+        {
+          "cardNumber": "ST01-007",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-016",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-016",
+          "count": 3
+        },
+        {
+          "cardNumber": "OP14-034",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-022",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP14-031",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP10-011",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP13-027",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP13-118",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-030",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP12-037",
+          "count": 2
+        },
+        {
+          "cardNumber": "OP05-038",
+          "count": 4
+        },
+        {
+          "cardNumber": "OP01-027",
+          "count": 4
+        }
+      ]
     }
   ]
 }
