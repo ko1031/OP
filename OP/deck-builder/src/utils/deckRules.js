@@ -608,51 +608,69 @@ export function analyzeMatchups(deck, leader) {
     const reasons = [];
 
     // ── 速度比較 ──
-    if (avgCost < meta.avgCost - 1.2) {
+    if (avgCost < meta.avgCost - 1.5) {
       score += 1;
       reasons.push(`速度優位（平均コスト ${avgCost.toFixed(1)} vs ${meta.avgCost}）`);
-    } else if (avgCost > meta.avgCost + 1.2) {
+    } else if (avgCost < meta.avgCost - 0.8) {
+      score += 0.5;
+      reasons.push(`やや速度優位（平均コスト ${avgCost.toFixed(1)} vs ${meta.avgCost}）`);
+    } else if (avgCost > meta.avgCost + 1.5) {
       score -= 1;
       reasons.push(`速度で遅れがち（平均コスト ${avgCost.toFixed(1)} vs ${meta.avgCost}）`);
+    } else if (avgCost > meta.avgCost + 0.8) {
+      score -= 0.5;
+      reasons.push(`やや速度劣位（平均コスト ${avgCost.toFixed(1)} vs ${meta.avgCost}）`);
     }
 
     // ── カウンター密度 vs アグロ ──
     if (meta.style === 'aggro') {
-      if (counterDensity >= 0.42) {
+      if (counterDensity >= 0.45) {
         score += 1;
         reasons.push(`カウンター密度 ${Math.round(counterDensity * 100)}% でアグロの速度に耐えられる`);
-      } else if (counterDensity < 0.28) {
+      } else if (counterDensity >= 0.35) {
+        score += 0.5;
+        reasons.push(`カウンター密度 ${Math.round(counterDensity * 100)}% — アグロにある程度対応できる`);
+      } else if (counterDensity < 0.25) {
         score -= 1;
         reasons.push(`カウンター密度 ${Math.round(counterDensity * 100)}% — アグロに押されやすい`);
+      } else {
+        score -= 0.5;
+        reasons.push(`カウンター密度 ${Math.round(counterDensity * 100)}% — アグロへの耐性がやや不足`);
       }
     }
 
     // ── ライフ vs アグロ ──
     if (meta.style === 'aggro') {
-      if (ourLife >= 5) {
+      if (ourLife >= 6) {
         score += 0.5;
-        reasons.push(`ライフ ${ourLife} でアグロの削りに耐えやすい`);
-      } else {
+        reasons.push(`ライフ ${ourLife} でアグロの削りに強い`);
+      } else if (ourLife <= 4) {
         score -= 0.5;
         reasons.push(`ライフ ${ourLife} — アグロに序盤削られやすい`);
       }
     }
 
     // ── ランプ vs 速攻 ──
-    if (meta.style === 'ramp' && avgCost < 3.2) {
+    if (meta.style === 'ramp' && avgCost < 2.8) {
       score += 1;
       reasons.push('ランプの準備中に攻め込める速度がある');
+    } else if (meta.style === 'ramp' && avgCost < 3.2) {
+      score += 0.5;
+      reasons.push('ランプ相手にやや速度優位がある');
     }
 
     // ── コントロール vs 低速 ──
     if (meta.style === 'control') {
-      if (avgCost < 2.8) {
+      if (avgCost < 2.8 && counterDensity >= 0.38) {
         score += 1;
+        reasons.push('低コスト展開かつカウンターが厚くコントロールに対応しやすい');
+      } else if (avgCost < 2.8) {
+        score += 0.5;
         reasons.push('低コスト展開でコントロールの除去を回避しやすい');
-      } else if (counterDensity >= 0.4) {
+      } else if (counterDensity >= 0.42) {
         score += 0.5;
         reasons.push('カウンター密度が高くコントロール相手に粘れる');
-      } else {
+      } else if (avgCost > 3.5) {
         score -= 0.5;
         reasons.push('コントロールの除去に盤面が崩されやすい');
       }
@@ -667,16 +685,17 @@ export function analyzeMatchups(deck, leader) {
     // ── 色同士の相性（汎用的なヒューリスティック）──
     const colorOverlap = ourColors.some(c => meta.colors.includes(c));
     if (colorOverlap) {
-      reasons.push('同系色 — プレイングで差がつきやすいミラー気味の対面');
+      score -= 0.5;
+      reasons.push('同系色 — ミラー気味の対面でプレイング差が出やすい');
     }
 
     score = Math.max(-2, Math.min(2, Math.round(score * 2) / 2));
 
     const label =
       score >= 1.5 ? '大有利' :
-      score >= 0.5 ? '有利' :
+      score >= 1.0 ? '有利' :
       score <= -1.5 ? '大不利' :
-      score <= -0.5 ? '不利' : '五分';
+      score <= -1.0 ? '不利' : '五分';
 
     const labelColor =
       score >= 1 ? 'text-green-400' :
