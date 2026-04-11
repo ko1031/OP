@@ -4,12 +4,12 @@ import CardImage from './CardImage';
 import ColorBadge from './ColorBadge';
 
 const COLOR_LIST = [
-  { code: 'RED',    label: '赤', bg: 'bg-red-700/70',    border: 'border-red-500',    text: 'text-red-200'    },
-  { code: 'BLUE',   label: '青', bg: 'bg-blue-700/70',   border: 'border-blue-500',   text: 'text-blue-200'   },
-  { code: 'GREEN',  label: '緑', bg: 'bg-green-700/70',  border: 'border-green-500',  text: 'text-green-200'  },
-  { code: 'PURPLE', label: '紫', bg: 'bg-purple-700/70', border: 'border-purple-500', text: 'text-purple-200' },
-  { code: 'YELLOW', label: '黄', bg: 'bg-yellow-600/70', border: 'border-yellow-400', text: 'text-yellow-200' },
-  { code: 'BLACK',  label: '黒', bg: 'bg-gray-700/70',   border: 'border-gray-400',   text: 'text-gray-200'   },
+  { code: '赤', label: '赤', bg: 'bg-red-700/70',    border: 'border-red-500',    text: 'text-red-200'    },
+  { code: '青', label: '青', bg: 'bg-blue-700/70',   border: 'border-blue-500',   text: 'text-blue-200'   },
+  { code: '緑', label: '緑', bg: 'bg-green-700/70',  border: 'border-green-500',  text: 'text-green-200'  },
+  { code: '紫', label: '紫', bg: 'bg-purple-700/70', border: 'border-purple-500', text: 'text-purple-200' },
+  { code: '黄', label: '黄', bg: 'bg-yellow-600/70', border: 'border-yellow-400', text: 'text-yellow-200' },
+  { code: '黒', label: '黒', bg: 'bg-gray-700/70',   border: 'border-gray-400',   text: 'text-gray-200'   },
 ];
 
 function LeaderCard({ card, isSelected, onClick }) {
