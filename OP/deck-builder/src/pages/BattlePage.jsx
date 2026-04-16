@@ -227,12 +227,13 @@ function HandCard({ card, selected, onClick, onDoubleClick, onDragStart, onDragE
 }
 
 // ─── DON!!カード ────────────────────────────────────────────────────
-function DonCard({ active, onClick, onDragStart, onDragEnd, onTouchStart, onTouchMove, onTouchEnd }) {
+function DonCard({ active, onClick, onDragStart, onDragEnd, onTouchStart, onTouchMove, onTouchEnd, title }) {
   const canDrag = active && !!onDragStart;
+  const canClick = !!onClick; // activeに関わらずonClickがあればクリック可能
   // レスト時: 90°横向き表示（TCG標準のレスト表現）
   // 外枠はW×Hのまま保ち、内部画像を回転＋縮小してはみ出さないようにする
   return (
-    <div onClick={active ? onClick : undefined}
+    <div onClick={canClick ? onClick : undefined}
       draggable={canDrag}
       onDragStart={canDrag ? (e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); } : undefined}
       onDragEnd={canDrag ? onDragEnd : undefined}
@@ -240,9 +241,9 @@ function DonCard({ active, onClick, onDragStart, onDragEnd, onTouchStart, onTouc
       onTouchMove={active ? onTouchMove : undefined}
       onTouchEnd={active ? onTouchEnd : undefined}
       className={`flex-shrink-0 select-none transition-all duration-200 rounded overflow-hidden flex items-center justify-center
-        ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : 'cursor-default opacity-60'}`}
+        ${active ? 'cursor-pointer hover:scale-105 hover:brightness-105' : (canClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-60')}`}
       style={{ width: DON_CARD.W, height: DON_CARD.H, boxShadow: active ? '0 3px 12px rgba(0,0,0,0.6)' : 'none' }}
-      title={active ? 'DON!!（ドラッグでアタッチ / クリックでレスト）' : 'DON!!（レスト済み）'}>
+      title={title || (active ? 'DON!!（ドラッグでアタッチ / クリックでレスト）' : 'DON!!（レスト済み）')}>
       <img
         src={DON_IMG_URL} alt="DON!!"
         style={{
