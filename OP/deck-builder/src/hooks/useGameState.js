@@ -813,9 +813,10 @@ export function useGameState() {
       const cost = card.cost || 0;
       const afterDon = autoTapDon(prev, cost);
       const newHand = afterDon.hand.filter((_, i) => i !== idx);
-      const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0 }];
+      const hasRush = /【速攻】/.test(card.effect || '');
+      const newField = [...afterDon.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: afterDon.turn, _hasRush: hasRush }];
       const donLog = cost > 0 ? `（コスト${cost}→DON!!×${Math.min(cost, prev.donActive)}レスト）` : '';
-      return addLog(`「${card.name}」をフィールドに出した${donLog}`, { ...afterDon, hand: newHand, field: newField });
+      return addLog(`「${card.name}」をフィールドに出した${donLog}${hasRush ? '【速攻】' : ''}`, { ...afterDon, hand: newHand, field: newField });
     });
   }, [addLog]);
 
@@ -839,6 +840,11 @@ export function useGameState() {
     setState(prev => {
       if (!prev) return prev;
       const card = prev.field.find(c => c._uid === cardUid);
+      if (!card) return prev;
+      // アタック宣言の場合（アクティブ→タップ）に召喚酔いチェック
+      if (!card.tapped && card._summonedTurn === prev.turn && !card._hasRush) {
+        return addLog(`「${card.name}」は登場したターンにはアタックできません（速攻なし）`, prev);
+      }
       const newField = prev.field.map(c => c._uid === cardUid ? { ...c, tapped: !c.tapped } : c);
       return addLog(`「${card?.name}」を${card?.tapped ? 'アンタップ' : 'タップ（アタック）'}`, { ...prev, field: newField });
     });
@@ -1230,8 +1236,9 @@ export function useGameState() {
       const card = prev.hand[idx];
       if (card.card_type !== 'CHARACTER') return addLog('キャラクターのみフィールドに出せます', prev);
       const newHand = prev.hand.filter((_, i) => i !== idx);
-      const newField = [...prev.field, { ...card, tapped: false, donAttached: 0 }];
-      return addLog(`（効果）「${card.name}」をフィールドに登場（コスト無し）`, { ...prev, hand: newHand, field: newField });
+      const hasRush = /【速攻】/.test(card.effect || '');
+      const newField = [...prev.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }];
+      return addLog(`（効果）「${card.name}」をフィールドに登場（コスト無し）${hasRush ? '【速攻】' : ''}`, { ...prev, hand: newHand, field: newField });
     });
   }, [addLog]);
 
@@ -1244,8 +1251,9 @@ export function useGameState() {
       if (!card) return prev;
       if (card.card_type !== 'CHARACTER') return addLog('キャラクターのみフィールドに出せます', prev);
       const newTrash = prev.trash.filter(c => c._uid !== cardUid);
-      const newField = [...prev.field, { ...card, tapped: false, donAttached: 0 }];
-      return addLog(`（効果）「${card.name}」をトラッシュからフィールドに登場`, { ...prev, trash: newTrash, field: newField });
+      const hasRush = /【速攻】/.test(card.effect || '');
+      const newField = [...prev.field, { ...card, tapped: false, donAttached: 0, _summonedTurn: prev.turn, _hasRush: hasRush }];
+      return addLog(`（効果）「${card.name}」をトラッシュからフィールドに登場${hasRush ? '【速攻】' : ''}`, { ...prev, trash: newTrash, field: newField });
     });
   }, [addLog]);
 

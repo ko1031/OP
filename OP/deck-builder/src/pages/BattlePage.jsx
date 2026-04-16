@@ -1301,8 +1301,13 @@ function parseEventCounterValueUI(card) {
   if (card?.card_type !== 'EVENT') return 0;
   const e = card?.effect || '';
   if (!e.includes('【カウンター】')) return 0;
-  const m = e.match(/パワー[+＋](\d+)/);
-  return m ? parseInt(m[1]) : 0;
+  // 【カウンター】以降のテキスト内のみでパワー値を検索（全文検索だと誤マッチする）
+  const counterM = e.match(/【カウンター】([\s\S]*?)(?=【[^カウンター]|$)/);
+  const counterText = counterM ? counterM[1] : (e.split('【カウンター】')[1] || '');
+  const m = counterText.match(/パワー[+＋](\d+)/);
+  if (m) return parseInt(m[1]);
+  // 【カウンター】があるがパワーブーストなし（KO・レストなど）→ リストに表示するため1を返す
+  return 1;
 }
 function getCardCounterValueUI(card) {
   if (!card) return 0;
@@ -1717,7 +1722,7 @@ function CounterModal({
                       isEvent
                         ? 'text-blue-300 bg-blue-900/40 border-blue-700/50'
                         : 'text-purple-300 bg-purple-900/40 border-purple-700/50'
-                    }`}>+{cval.toLocaleString()}</div>
+                    }`}>{isEvent && cval === 1 ? '効果' : `+${cval.toLocaleString()}`}</div>
                     {/* 追加効果アイコン */}
                     {extraFx && (
                       <div className="flex gap-0.5 flex-wrap justify-center max-w-[68px]">
@@ -2071,7 +2076,7 @@ export default function BattlePage({ onNavigate }) {
       if ((state.cpuPendingAttacks?.length || 0) > 0) { const t = setTimeout(() => game.processCpuPendingAttack(), 600); return () => clearTimeout(t); }
       const t = setTimeout(() => game.runCpuMainPhase(), 1200); return () => clearTimeout(t);
     }
-  }, [state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length, state?.pendingRobinSkypiea, state?.pendingRobinKoDamage]);
+  }, [state?.phase, state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length, state?.pendingRobinSkypiea, state?.pendingRobinKoDamage]);
 
   useEffect(() => { if (isCpuTurn) { setAttackMode(null); setSelectedAttackerUid(null); } }, [isCpuTurn]);
 
@@ -2718,10 +2723,10 @@ export default function BattlePage({ onNavigate }) {
                   }
                   {ps.donActive > 0 && ps.donTapped > 0 && <div className="self-stretch w-px bg-white/15 mx-0.5"/>}
                   {ps.donTapped <= 8
-                    ? Array.from({ length: ps.donTapped }).map((_, i) => <DonCard key={`t-${i}`} active={false}/>)
+                    ? Array.from({ length: ps.donTapped }).map((_, i) => <DonCard key={`t-${i}`} active={false} onClick={isMyTurn && inMainPhase ? () => game.playerActivateTappedDon() : undefined} title={isMyTurn && inMainPhase ? 'クリックでアクティブに戻す' : undefined}/>)
                     : (
                       <div className="flex items-end gap-1.5">
-                        {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={false}/>)}
+                        {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={false} onClick={isMyTurn && inMainPhase ? () => game.playerActivateTappedDon() : undefined} title={isMyTurn && inMainPhase ? 'クリックでアクティブに戻す' : undefined}/>)}
                         <span className="text-white/30 font-black text-sm self-center pb-1">×{ps.donTapped}</span>
                       </div>
                     )

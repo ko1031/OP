@@ -431,8 +431,13 @@ function parseEventCounterValue(card) {
   if (card?.card_type !== 'EVENT') return 0;
   const e = card?.effect || '';
   if (!e.includes('【カウンター】')) return 0;
-  const m = e.match(/パワー[+＋](\d+)/);
-  return m ? parseInt(m[1]) : 0;
+  // 【カウンター】以降のテキスト内のみでパワー値を検索（全文検索だと誤マッチする）
+  const counterM = e.match(/【カウンター】([\s\S]*?)(?=【[^カウンター]|$)/);
+  const counterText = counterM ? counterM[1] : (e.split('【カウンター】')[1] || '');
+  const m = counterText.match(/パワー[+＋](\d+)/);
+  if (m) return parseInt(m[1]);
+  // 【カウンター】があるがパワーブーストなし（KO・レストなど）→ カウンターとして扱うため1を返す
+  return 1;
 }
 
 // キャラ・イベント問わずカウンター値を取得
