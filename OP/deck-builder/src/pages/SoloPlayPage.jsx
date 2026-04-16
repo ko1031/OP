@@ -2095,11 +2095,19 @@ export default function SoloPlayPage({ onNavigate }) {
                   )}
                   {s.donTapped <= 8
                     ? Array.from({ length: s.donTapped }).map((_, i) => (
-                        <DonCard key={`t-${i}`} active={false}/>
+                        <DonCard key={`t-${i}`} active={false}
+                          onClick={s.subPhase === 'main' ? () => game.activateDon(1) : undefined}
+                          title={s.subPhase === 'main' ? 'クリックでアクティブに戻す' : undefined}
+                        />
                       ))
                     : (
                       <div className="flex items-end gap-1.5">
-                        {Array.from({ length: 3 }).map((_, i) => <DonCard key={i} active={false}/>)}
+                        {Array.from({ length: 3 }).map((_, i) => (
+                          <DonCard key={i} active={false}
+                            onClick={s.subPhase === 'main' ? () => game.activateDon(1) : undefined}
+                            title={s.subPhase === 'main' ? 'クリックでアクティブに戻す' : undefined}
+                          />
+                        ))}
                         <span className="text-white/30 font-black text-sm self-center pb-1">×{s.donTapped}</span>
                       </div>
                     )

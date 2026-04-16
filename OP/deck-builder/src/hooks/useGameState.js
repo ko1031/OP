@@ -908,6 +908,15 @@ export function useGameState() {
     });
   }, [addLog]);
 
+  const activateDon = useCallback((count = 1) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const n = Math.min(count, prev.donTapped);
+      if (n <= 0) return addLog('レストDON!!がありません', prev);
+      return addLog(`DON!!×${n}をアクティブに`, { ...prev, donTapped: prev.donTapped - n, donActive: prev.donActive + n });
+    });
+  }, [addLog]);
+
   const attachDonToLeader = useCallback(() => {
     setState(prev => {
       if (!prev || prev.donActive <= 0) return addLog('アクティブDON!!がありません', prev || {});
@@ -1306,7 +1315,7 @@ export function useGameState() {
   return {
     state, startGame, mulligan, startMainGame, advancePhase,
     playToField, playStage, toggleFieldCard, toggleLeader,
-    trashFieldCard, trashHandCard, drawCard, tapDon,
+    trashFieldCard, trashHandCard, drawCard, tapDon, activateDon,
     attachDonToLeader, attachDonToField,
     returnDonToDeck, returnTappedDonToDeck, returnDonToDeckPriority,
     detachDonFromLeader, detachDonFromField,
