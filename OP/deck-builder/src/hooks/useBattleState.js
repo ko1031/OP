@@ -87,6 +87,10 @@ function getConditionalPowerBuff(card, ownSide, oppSide) {
   const oppLifeM = e.match(/相手のライフが(\d+)枚以上の場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
   if (oppLifeM && oppSide.life.length >= parseInt(oppLifeM[1])) bonus += parseInt(oppLifeM[2]);
 
+  // 自分のライフがN枚以上の場合、このリーダーのパワー-M（デメリット効果、例: OP13-004 赤黒サボ）
+  const myLifeGtePenaltyM = e.match(/自分のライフが(\d+)枚以上の場合[、,](?:[^。\n]*?)?(?:このリーダー(?:の)?|このキャラ[はの]?)パワー[-−](\d+)/);
+  if (myLifeGtePenaltyM && ownSide.life.length >= parseInt(myLifeGtePenaltyM[1])) bonus -= parseInt(myLifeGtePenaltyM[2]);
+
   // 自分の手札がN枚以下
   const handLteM = e.match(/(?:自分の)?手札が(\d+)枚以下の場合、(?:[^\n。]*?)(?:このキャラ[はの](?:、)?(?:[^\n。]*?)?|このキャラは)パワー[＋+](\d+)/);
   if (handLteM && ownSide.hand.length <= parseInt(handLteM[1])) bonus += parseInt(handLteM[2]);
@@ -733,8 +737,9 @@ function startCpuAttackOnState(ns, pendingAttacks) {
     const attackPower = computeAttackPower(attacker, c, p);
     // リーダーへの攻撃はleaderPowerBuff（相手アタック時効果）を防御力に加算
     // キャラ防御時は【相手のターン中】バフを computeDefensePower で適用
+    // リーダーにも computeDefensePower を適用してパッシブ効果（パワー±）を反映
     const defensePower = (targetType === 'leader'
-      ? (target.power || 0) + (p.leaderPowerBuff || 0)
+      ? computeDefensePower(target, p, c) + (p.leaderPowerBuff || 0)
       : computeDefensePower(target, p, c));
     const targetName = targetType === 'leader' ? 'プレイヤーリーダー' : `「${target.name}」`;
     const logMsg = `CPU「${attacker.name}」(${attackPower}) が${targetName}(${defensePower})にアタック！`;
