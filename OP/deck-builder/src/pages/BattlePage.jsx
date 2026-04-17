@@ -38,7 +38,7 @@ const P = {
 };
 
 // useBattleState.js側で自動処理するため EntryEffectModal を表示しないカード番号
-const AUTO_HANDLED_ENTRY_CARDS = new Set(['OP14-111', 'EB03-055', 'OP15-109', 'EB04-007']);
+const AUTO_HANDLED_ENTRY_CARDS = new Set(['OP14-111', 'EB03-055', 'OP15-109', 'EB04-007', 'P-105']);
 /** 登場時効果モーダルを表示すべきかどうか */
 const shouldShowEntryModal = (card) =>
   card && /【登場時】/.test(card.effect || '') && !AUTO_HANDLED_ENTRY_CARDS.has(card.card_number);
@@ -173,6 +173,12 @@ function GameCard({ card, tapped, faceDown, onClick, onDoubleClick, badge, highl
       {showPower && card?.power && !faceDown && (
         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 z-20 bg-black/80 text-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded-full border border-amber-700/40 whitespace-nowrap">
           {calcPower(card, ownerTurn).toLocaleString()}
+        </div>
+      )}
+      {/* コストバフ表示バッジ */}
+      {(card?._costBuff || 0) > 0 && !faceDown && (
+        <div className="absolute top-0.5 left-1/2 -translate-x-1/2 z-20 bg-cyan-700/90 text-cyan-100 text-[8px] font-black px-1 py-0.5 rounded-full border border-cyan-500/70 whitespace-nowrap pointer-events-none">
+          C+{card._costBuff}
         </div>
       )}
     </div>
@@ -618,6 +624,14 @@ function parseActiveAbility(card) {
   const deckBotM = body.match(/相手.*?デッキの下|デッキの下.*?相手/);
   if (deckBotM)
     autoActions.push({ id:'deckBottomOpponent', icon:'⬇️', label:'相手キャラをデッキ下へ（選択）', color:'text-purple-400' });
+  // 自分のキャラにコスト+N（OP13-120 サボ等）
+  const costPlusM = body.match(/自分のキャラ1枚まで[^。]*?コスト[+＋](\d+)/);
+  if (costPlusM)
+    autoActions.push({ id:'costBuff', amount: parseInt(costPlusM[1]), icon:'⬆️', label:`自分のキャラ1体にコスト+${costPlusM[1]}（選択）`, color:'text-cyan-300' });
+  // レストのDON!!をリーダーに付与（「自分のリーダーにレストのドン‼1枚まで付与」）
+  const restDonLeaderM = body.match(/自分のリーダーにレストの(?:ドン‼|DON!!)[^。]*?付与/);
+  if (restDonLeaderM)
+    autoActions.push({ id:'giveRestDonToLeader', icon:'💛', label:'リーダーにレストDON!!1枚を付与（自動）', color:'text-yellow-300' });
   return { abilityText, autoActions };
 }
 
@@ -702,6 +716,127 @@ function CpuCharTargetModal({ cpuField, action, onConfirm, onCancel }) {
           <div className="text-center text-amber-600/50 text-sm py-6">相手フィールドにキャラクターがいません</div>
         )}
         <button onClick={onCancel} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>キャンセル（効果不発）</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── P-105 プロモサボ: 登場時効果モーダル ────────────────────────────────
+// ライフ上/下から1枚を手札に加えることができる → その後リーダーかキャラにレストDON!!1枚付与
+function P105EffectModal({ playerLife, playerField, playerLeader, playerDonTapped, onResolve, onSkip }) {
+  const [step, setStep] = useState('lifeChoice'); // 'lifeChoice' | 'donTarget'
+  const [lifePos, setLifePos] = useState(null);   // 'top' | 'bottom'
+
+  const handleLifeChoice = (pos) => {
+    setLifePos(pos);
+    if (pos) setStep('donTarget');
+    else onResolve(null, null);   // ライフを取らない→スキップ
+  };
+
+  const handleDonTarget = (uid) => {
+    onResolve(lifePos, uid);
+  };
+
+  const canGiveDon = playerDonTapped > 0;
+
+  if (step === 'lifeChoice') {
+    return (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+        <div className="bg-[#0a0f24] border border-amber-600/40 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-5">
+          <div className="text-center mb-3">
+            <div className="text-amber-400 font-black text-base mb-1">⚡ P-105 サボ【登場時】</div>
+            <div className="text-amber-300/70 text-[11px] leading-relaxed mb-2">
+              ライフの上か下から1枚を手札に加えることができる：<br/>
+              その後、リーダーかキャラ1枚にレストのドン‼1枚まで付与
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {playerLife.length > 0 ? (
+              <>
+                <button onClick={() => handleLifeChoice('top')}
+                  className={`w-full py-2 rounded-xl text-sm font-black bg-amber-700/40 border border-amber-600/50 text-amber-200 hover:bg-amber-600/50`}>
+                  ❤️ ライフの上から1枚手札へ → DON!!付与
+                </button>
+                <button onClick={() => handleLifeChoice('bottom')}
+                  className={`w-full py-2 rounded-xl text-sm font-black bg-amber-700/40 border border-amber-600/50 text-amber-200 hover:bg-amber-600/50`}>
+                  ❤️ ライフの下から1枚手札へ → DON!!付与
+                </button>
+              </>
+            ) : (
+              <div className="text-amber-600/50 text-sm text-center py-2">ライフがありません</div>
+            )}
+            <button onClick={() => onSkip()}
+              className="w-full py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">
+              発動しない
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // step === 'donTarget'
+  const targets = [
+    { uid: 'leader', name: playerLeader?.name || 'リーダー', isLeader: true },
+    ...playerField.map(c => ({ uid: c._uid, name: c.name, isLeader: false })),
+  ];
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-yellow-600/40 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-yellow-400 font-black text-base mb-1">💛 レストのDON!!を付与</div>
+          {canGiveDon
+            ? <div className="text-amber-300/70 text-[11px]">付与するターゲットを選択（レストDON!!残り: {playerDonTapped}枚）</div>
+            : <div className="text-red-400/70 text-[11px]">レストのDON!!がありません（スキップ）</div>}
+        </div>
+        {canGiveDon && (
+          <div className="flex flex-wrap gap-2 justify-center mb-4">
+            {targets.map(t => (
+              <button key={t.uid} onClick={() => handleDonTarget(t.uid)}
+                className="flex flex-col items-center gap-1 px-3 py-2 bg-yellow-900/30 border border-yellow-700/40 rounded-xl hover:bg-yellow-700/40 transition-all">
+                <span className="text-yellow-300 font-black text-xs">{t.isLeader ? '👑' : '⚔️'}{t.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={() => onResolve(lifePos, null)}
+          className="w-full py-2 rounded-xl border border-amber-800/40 text-amber-600/70 text-sm hover:bg-amber-900/20 transition-all">
+          {canGiveDon ? 'スキップ（DON!!付与しない）' : '閉じる'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── 自分フィールドのキャラを選択するモーダル（コストバフ等）──────────────
+function PlayerCharSelectModal({ playerField, title, subtitle, onConfirm, onSkip }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm">
+      <div className="bg-[#0a0f24] border border-cyan-600/40 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5">
+        <div className="text-center mb-3">
+          <div className="text-cyan-400 font-black text-base mb-1">{title}</div>
+          {subtitle && <div className="text-cyan-300/60 text-xs">{subtitle}</div>}
+        </div>
+        {playerField.length > 0 ? (
+          <div className="flex gap-3 flex-wrap justify-center mb-4 max-h-[40vh] overflow-y-auto">
+            {playerField.map(card => (
+              <div key={card._uid} className="flex flex-col items-center gap-1 cursor-pointer group"
+                onClick={() => onConfirm(card._uid)}>
+                <div className="rounded-xl overflow-hidden border-2 border-cyan-500/50 group-hover:border-cyan-400 group-hover:scale-105 transition-all"
+                  style={{ width: 80, height: 112 }}>
+                  <CardImage card={card} className="w-full h-full object-cover" />
+                </div>
+                <div className="text-[9px] text-cyan-300/80 text-center max-w-[90px] truncate">{card.name}</div>
+                <div className="text-[8px] text-cyan-400/60">
+                  C{(card.cost || 0) + (card._costBuff || 0)}{card._costBuff ? `(+${card._costBuff})` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-amber-600/50 text-sm py-4">フィールドにキャラクターがいません</div>
+        )}
+        <button onClick={onSkip} className={`w-full py-2.5 rounded-xl text-sm font-black ${P.btnGray}`}>スキップ</button>
       </div>
     </div>
   );
@@ -1062,15 +1197,18 @@ function CharActiveModal({ card, onActivate, onSkip, game, onChainPlay }) {
   if (!abilityText) return null;
   const handleActivate = () => {
     autoActions.forEach(a => {
-      if (a.id === 'draw')        game.playerDraw(a.count);
-      if (a.id === 'donReturn')   game.playerReturnDonToDeckPriority(a.count);
-      if (a.id === 'search')      game.playerBeginSearch(a.count);
-      if (a.id === 'giveBlocker') game.playerGiveCharBlocker(card._uid); // このキャラに付与
+      if (a.id === 'draw')               game.playerDraw(a.count);
+      if (a.id === 'donReturn')          game.playerReturnDonToDeckPriority(a.count);
+      if (a.id === 'search')             game.playerBeginSearch(a.count);
+      if (a.id === 'giveBlocker')        game.playerGiveCharBlocker(card._uid); // このキャラに付与
+      if (a.id === 'giveRestDonToLeader') game.playerGiveRestDonToLeader();
     });
-    // 連鎖: 手札を捨てる or 相手キャラ対象効果
+    // 連鎖: 手札を捨てる or 相手キャラ対象効果 or コストバフ（キャラ選択）
     const discardAction = autoActions.find(a => a.id === 'discardHand');
     const targetAction  = autoActions.find(a => a.id === 'koOpponent' || a.id === 'restOpponent' || a.id === 'deckBottomOpponent');
-    if (discardAction && onChainPlay) onChainPlay(discardAction);
+    const costBuffAction = autoActions.find(a => a.id === 'costBuff');
+    if (costBuffAction && onChainPlay) onChainPlay(costBuffAction);
+    else if (discardAction && onChainPlay) onChainPlay(discardAction);
     else if (targetAction && onChainPlay) onChainPlay(targetAction);
     onActivate();
   };
@@ -2056,6 +2194,7 @@ export default function BattlePage({ onNavigate }) {
   const [pendingChainPlay, setPendingChainPlay] = useState(null); // { id:'playFromHand'|'playFromTrash', limit }
   const [pendingTargetEffect, setPendingTargetEffect] = useState(null); // { id:'koOpponent'|'restOpponent'|'deckBottomOpponent' }
   const [pendingDiscardHand, setPendingDiscardHand] = useState(false);
+  const [pendingCostBuffTarget, setPendingCostBuffTarget] = useState(null); // { amount } コストバフのキャラ選択待ち
   const [pendingPostDiscardAction, setPendingPostDiscardAction] = useState(null); // 捨て手札後に実行する効果
 
   const isCpuTurn = state?.activePlayer === 'cpu';
@@ -3011,10 +3150,37 @@ export default function BattlePage({ onNavigate }) {
         onActivate={() => setPendingCharAbility(null)}
         onSkip={() => setPendingCharAbility(null)}
         onChainPlay={(action) => {
-          if (action.id === 'discardHand') setPendingDiscardHand(true);
+          if (action.id === 'costBuff') setPendingCostBuffTarget({ amount: action.amount });
+          else if (action.id === 'discardHand') setPendingDiscardHand(true);
           else if (action.id === 'koOpponent' || action.id === 'restOpponent' || action.id === 'deckBottomOpponent') setPendingTargetEffect(action);
           else setPendingChainPlay(action);
         }}/>}
+
+      {/* コストバフ: プレイヤーキャラ選択 */}
+      {pendingCostBuffTarget && (
+        <PlayerCharSelectModal
+          playerField={ps.field}
+          title={`⬆️ コスト+${pendingCostBuffTarget.amount} 対象選択`}
+          subtitle={`自分のキャラ1体を選択（次の相手ターン終了時まで）`}
+          onConfirm={(uid) => {
+            game.playerApplyCharCostBuff(uid, pendingCostBuffTarget.amount);
+            setPendingCostBuffTarget(null);
+          }}
+          onSkip={() => setPendingCostBuffTarget(null)}
+        />
+      )}
+
+      {/* P-105 プロモサボ: 登場時効果 */}
+      {state.pendingP105Effect?.owner === 'player' && (
+        <P105EffectModal
+          playerLife={ps.life}
+          playerField={ps.field}
+          playerLeader={ps.leader}
+          playerDonTapped={ps.donTapped}
+          onResolve={(lifePos, targetUid) => game.playerResolveP105Effect(lifePos, targetUid)}
+          onSkip={() => game.playerResolveP105Effect(null, null)}
+        />
+      )}
 
       {/* ステージ起動メイン効果 */}
       {pendingStageActive && (

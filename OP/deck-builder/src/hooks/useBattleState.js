@@ -12,6 +12,10 @@ import {
   PERONA_CARD_NUMBER, ROBIN_EB03_NUMBER, ROBIN_OP15_NUMBER,
 } from './cpuDecide';
 
+// ─── 固有カード番号 ───────────────────────────────────────────────────
+const P105_CARD_NUMBER   = 'P-105';   // プロモサボ: 登場時 ライフ→手札＋レストDON!!付与
+const OP13120_CARD_NUMBER = 'OP13-120'; // サボ: 起動メイン コスト+2＋リーダーにレストDON!!付与
+
 // ─── ユーティリティ ───────────────────────────────────────────────────
 function shuffle(arr) {
   const a = [...arr];
@@ -28,10 +32,11 @@ function autoTapDon(side, cost) {
   return { ...side, donActive: side.donActive - n, donTapped: side.donTapped + n };
 }
 
-// ステージカードによるコスト削減を考慮した実効コストを返す
+// ステージカードによるコスト削減・一時コストバフを考慮した実効コストを返す
 // 例: 聖地マリージョア → 天竜人キャラ（コスト2以上）のコストを-1
+// 例: OP13-120サボ起動メイン → コスト+2
 function computeEffectiveCost(card, playerSide) {
-  let cost = card.cost || 0;
+  let cost = (card.cost || 0) + (card._costBuff || 0);
   const stageName = playerSide.stage?.name || '';
   if (
     stageName.includes('聖地マリージョア') &&
@@ -479,7 +484,7 @@ function parseCounterEventEffect(card) {
     effects.push({
       type: 'rest',
       condition: costCond ? `コスト${costCond[1]}以下` : null,
-      conditionFn: costCond ? (c => (c.cost || 0) <= parseInt(costCond[1])) : null,
+      conditionFn: costCond ? (c => ((c.cost || 0) + (c._costBuff || 0)) <= parseInt(costCond[1])) : null,
     });
   }
 
@@ -491,7 +496,7 @@ function parseCounterEventEffect(card) {
     let conditionFn = null;
     if (koCostCond) {
       condition = `コスト${koCostCond[1]}以下`;
-      conditionFn = (c => (c.cost || 0) <= parseInt(koCostCond[1]));
+      conditionFn = (c => ((c.cost || 0) + (c._costBuff || 0)) <= parseInt(koCostCond[1]));
     } else if (koPowerCond) {
       condition = `元パワー${parseInt(koPowerCond[1]).toLocaleString()}以下`;
       conditionFn = (c => (c.power || 0) <= parseInt(koPowerCond[1]));
@@ -506,7 +511,7 @@ function parseCounterEventEffect(card) {
     effects.push({
       type: 'returnHand',
       condition,
-      conditionFn: retCostCond?.[1] ? (c => (c.cost || 0) <= parseInt(retCostCond[1])) : null,
+      conditionFn: retCostCond?.[1] ? (c => ((c.cost || 0) + (c._costBuff || 0)) <= parseInt(retCostCond[1])) : null,
     });
   }
 
@@ -875,6 +880,7 @@ export function useBattleState() {
       battleLog: [{ msg: `対戦開始！ ${playerLeader?.name} vs CPU(${cpuLeader?.name})`, ts: Date.now() }],
       winner: null,
       pendingStageSetup: null,
+      pendingP105Effect: null,   // P-105: ライフ→手札＋レストDON!!付与
     });
   }, []);
 
@@ -1040,6 +1046,21 @@ export function useBattleState() {
         const nextPlayer = activePlayer === 'player' ? 'cpu' : 'player';
         const firstPlayer = playerOrder === 'first' ? 'player' : 'cpu';
         const nextTurn = nextPlayer === firstPlayer ? turn + 1 : turn;
+        // CPUターン終了時: プレイヤーキャラの期限切れコストバフをクリア
+        if (activePlayer === 'cpu') {
+          const clearedField = ns.player.field.map(c => {
+            if (c._costBuff && c._costBuffExpireTurn <= turn) {
+              const { _costBuff, _costBuffExpireTurn, ...rest } = c;
+              return rest;
+            }
+            return c;
+          });
+          if (clearedField.some((c, i) => c !== ns.player.field[i])) {
+            ns = addLog('一時コストバフ期限切れ（クリア）', {
+              ...ns, player: { ...ns.player, field: clearedField },
+            });
+          }
+        }
         return addLog(`ターン${nextTurn}: ${nextPlayer === 'player' ? 'プレイヤー' : 'CPU'}のターン`, {
           ...ns, activePlayer: nextPlayer, subPhase: 'refresh', turn: nextTurn,
         });
@@ -1090,6 +1111,10 @@ export function useBattleState() {
         ns = addLog('「ロロノア・ゾロ」登場時効果: リーダーパワー+2000', {
           ...ns, player: { ...ns.player, leaderPowerBuff: (ns.player.leaderPowerBuff || 0) + 2000 },
         });
+      }
+      // P-105 プロモサボ: 登場時効果 — ライフ→手札＋レストDON!!付与（UIで選択）
+      if (card.card_number === P105_CARD_NUMBER) {
+        ns = { ...ns, pendingP105Effect: { owner: 'player', step: 'lifeChoice' } };
       }
       return ns;
     });
@@ -2802,6 +2827,94 @@ export function useBattleState() {
     });
   }, []);
 
+  // ── P-105 プロモサボ: 登場時効果 ──────────────────────────────────
+  // lifePos: 'top' | 'bottom' | null（ライフを手札に加えるか否か）
+  // giveToUid: string | null（レストDON!!を付与するターゲットのUID。'leader'または field の _uid）
+  const playerResolveP105Effect = useCallback((lifePos, giveToUid) => {
+    setState(prev => {
+      if (!prev || !prev.pendingP105Effect) return prev;
+      const p = prev.player;
+      let ns = { ...prev, pendingP105Effect: null };
+      let side = ns.player;
+
+      // ① ライフ→手札（任意）
+      if (lifePos && side.life.length > 0) {
+        const isBottom = lifePos === 'bottom';
+        const lifeArr = [...side.life];
+        const [taken] = isBottom ? lifeArr.splice(lifeArr.length - 1, 1) : lifeArr.splice(0, 1);
+        const revealed = { ...taken, faceDown: false };
+        side = { ...side, life: lifeArr, hand: [...side.hand, revealed] };
+        ns = addLog(`【P-105サボ登場時】ライフ${isBottom ? '下' : '上'}から「${revealed.name}」手札へ`, { ...ns, player: side });
+      }
+
+      // ② レストのDON!!を付与（ライフを取った場合のみ有効）
+      if (lifePos && giveToUid && side.donTapped > 0) {
+        if (giveToUid === 'leader') {
+          side = {
+            ...side,
+            donTapped: side.donTapped - 1,
+            leader: { ...side.leader, donAttached: (side.leader.donAttached || 0) + 1 },
+          };
+          ns = addLog('【P-105サボ登場時】レストDON!!1枚をリーダーに付与', { ...ns, player: side });
+        } else {
+          const target = side.field.find(c => c._uid === giveToUid);
+          if (target) {
+            side = {
+              ...side,
+              donTapped: side.donTapped - 1,
+              field: side.field.map(c => c._uid === giveToUid ? { ...c, donAttached: (c.donAttached || 0) + 1 } : c),
+            };
+            ns = addLog(`【P-105サボ登場時】レストDON!!1枚を「${target.name}」に付与`, { ...ns, player: side });
+          }
+        }
+      } else if (lifePos && giveToUid && side.donTapped <= 0) {
+        ns = addLog('【P-105サボ登場時】レストのDON!!がありません（付与スキップ）', { ...ns, player: side });
+      }
+
+      return { ...ns, player: side };
+    });
+  }, []);
+
+  // ── リーダーにレストのDON!!を付与 ──────────────────────────────────
+  // OP13-120 サボ起動メインの「その後、自分のリーダーにレストのドン‼1枚までを、付与する」
+  const playerGiveRestDonToLeader = useCallback(() => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      if (p.donTapped <= 0) return addLog('レストのDON!!がありません（付与スキップ）', prev);
+      return addLog('リーダーにレストDON!!1枚を付与', {
+        ...prev,
+        player: {
+          ...p,
+          donTapped: p.donTapped - 1,
+          leader: { ...p.leader, donAttached: (p.leader.donAttached || 0) + 1 },
+        },
+      });
+    });
+  }, []);
+
+  // ── キャラクターに一時的コストバフを適用（起動メイン等）──────────
+  // uid: 対象キャラの _uid、amount: コスト増加量、expireTurn: バフが切れるターン番号
+  const playerApplyCharCostBuff = useCallback((uid, amount) => {
+    setState(prev => {
+      if (!prev) return prev;
+      const p = prev.player;
+      const target = p.field.find(c => c._uid === uid);
+      if (!target) return prev;
+      // 期限: 次の相手ターン終了時 = 現在ターン + 1 (CPU は同ターン内なので +1)
+      const expireTurn = prev.turn + 1;
+      const newField = p.field.map(c =>
+        c._uid === uid
+          ? { ...c, _costBuff: (c._costBuff || 0) + amount, _costBuffExpireTurn: expireTurn }
+          : c
+      );
+      return addLog(
+        `「${target.name}」コスト+${amount}（ターン${expireTurn}終了時まで）`,
+        { ...prev, player: { ...p, field: newField } }
+      );
+    });
+  }, []);
+
   const resetBattle = useCallback(() => setState(null), []);
 
   return {
@@ -2873,6 +2986,9 @@ export function useBattleState() {
     playerActivateTappedDon,
     playerAddDonFromDeck,
     playerRestAllCpuChars,
+    playerResolveP105Effect,
+    playerGiveRestDonToLeader,
+    playerApplyCharCostBuff,
     resetBattle,
   };
 }

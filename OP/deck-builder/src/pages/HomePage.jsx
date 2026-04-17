@@ -1,4 +1,4 @@
-import { Layers, Swords, Anchor, ChevronRight, Bot } from 'lucide-react';
+import { Layers, Swords, Anchor, ChevronRight, Bot, Users } from 'lucide-react';
 
 /* ─────────────────────────────────────────────
    カラーパレット（セピア・古地図系）
@@ -365,7 +365,7 @@ export default function HomePage({ onNavigate }) {
       {/* ═══════════════════════════════════════
           メニューカード
       ═══════════════════════════════════════ */}
-      <div className="relative z-10 flex flex-col sm:flex-row gap-4 w-full max-w-2xl xl:max-w-3xl flex-wrap justify-center">
+      <div className="relative z-10 flex flex-col sm:flex-row gap-4 w-full max-w-3xl xl:max-w-4xl flex-wrap justify-center">
         <NavCard
           onClick={() => onNavigate('solo-play')}
           color="red"
@@ -383,6 +383,15 @@ export default function HomePage({ onNavigate }) {
           subtitle="ルールベースAIと実戦対決。ライフトリガー・ブロッカー・フェーズ進行など本格ルール対応。"
           badge="CPU BATTLE"
           features={['ライフトリガー', 'ブロッカー', 'AI対戦', '自動効果']}
+        />
+        <NavCard
+          onClick={() => onNavigate('pvp-room')}
+          color="red"
+          icon={Users}
+          title="人対人 対戦"
+          subtitle="ルームコードで友達と対戦。フェーズ進行・アタック・ブロックをリアルタイムで同期。"
+          badge="PvP BATTLE"
+          features={['ルームコード', 'リアルタイム', 'JWT認証', 'フェーズ同期']}
         />
         <NavCard
           onClick={() => onNavigate('deck-builder')}
