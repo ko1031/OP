@@ -1,0 +1,36 @@
+name: Deploy PartyKit Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deck-builder/party/**'
+      - 'deck-builder/partykit.json'
+      - 'deck-builder/package.json'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  deploy-partykit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: deck-builder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: deck-builder/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to PartyKit
+        run: npx partykit deploy
+        env:
+          PARTYKIT_TOKEN: ${{ secrets.PARTYKIT_TOKEN }}
