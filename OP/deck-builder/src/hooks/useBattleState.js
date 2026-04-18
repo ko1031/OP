@@ -46,6 +46,18 @@ function computeEffectiveCost(card, playerSide) {
   ) {
     cost = Math.max(0, cost - 1);
   }
+  // 自分のリーダーが特徴《X》を持つ場合、このキャラはコスト+N（例: P-105 サボ）
+  const leaderTraitCostM = (card.effect || '').match(
+    /自分のリーダーが特徴《([^》]+)》を持つ場合[^。]*コスト[+＋](\d+)/
+  );
+  if (leaderTraitCostM) {
+    const requiredTrait = leaderTraitCostM[1];
+    const bonusCost = parseInt(leaderTraitCostM[2]);
+    const leaderTraits = playerSide.leader?.traits || [];
+    if (leaderTraits.includes(requiredTrait)) {
+      cost += bonusCost;
+    }
+  }
   return cost;
 }
 
