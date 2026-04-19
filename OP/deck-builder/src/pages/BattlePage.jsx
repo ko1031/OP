@@ -590,7 +590,7 @@ function parseEventEffect(card) {
 
 function parseActiveAbility(card) {
   const effectText = card?.effect || '';
-  const match = effectText.match(/【起動メイン[^】]*】([\s\S]*?)(?=【|$)/);
+  const match = effectText.match(/【起動メイン[^】]*】(?:【[^】]*】)*([\s\S]*?)(?=【|$)/);
   if (!match) return { abilityText: null, autoActions: [] };
   const abilityText = match[0].trim();
   const body = match[1].trim();
@@ -1603,7 +1603,7 @@ function GoroseiAbilityModal({ card, playerHand, playerField, playerTrash, playe
 // ─── ステージ起動メイン効果パーサー ──────────────────────────────────
 function parseStageActiveEffect(card) {
   const effectText = card?.effect || '';
-  const match = effectText.match(/【起動メイン[^】]*】([\s\S]*?)(?=【|$)/);
+  const match = effectText.match(/【起動メイン[^】]*】(?:【[^】]*】)*([\s\S]*?)(?=【|$)/);
   if (!match) return { abilityText: null, autoActions: [] };
   const abilityText = match[0].trim();
   const body = match[1].trim();
