@@ -2196,6 +2196,9 @@ export default function BattlePage({ onNavigate }) {
   const [pendingDiscardHand, setPendingDiscardHand] = useState(false);
   const [pendingCostBuffTarget, setPendingCostBuffTarget] = useState(null); // { amount } コストバフのキャラ選択待ち
   const [pendingPostDiscardAction, setPendingPostDiscardAction] = useState(null); // 捨て手札後に実行する効果
+  const [autoAdvanceStart, setAutoAdvanceStart] = useState(() => {
+    try { return localStorage.getItem('op_autoAdvanceStart') === 'true'; } catch { return false; }
+  });
 
   const isCpuTurn = state?.activePlayer === 'cpu';
   const isMyTurn  = state?.activePlayer === 'player';
@@ -2217,6 +2220,17 @@ export default function BattlePage({ onNavigate }) {
       const t = setTimeout(() => game.runCpuMainPhase(), 1200); return () => clearTimeout(t);
     }
   }, [state?.phase, state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, state?.attackState, state?.cpuPendingAttacks?.length, state?.pendingRobinSkypiea, state?.pendingRobinKoDamage]);
+
+  // ─── プレイヤーターン開始フェーズ自動進行 ──────────────────────────
+  useEffect(() => {
+    if (!state || state.phase !== 'game' || state.winner) return;
+    if (!isMyTurn) return;
+    if (!autoAdvanceStart) return;
+    if (state.pendingTrigger) return;
+    if (!['refresh', 'draw', 'don'].includes(subPhase)) return;
+    const t = setTimeout(() => game.advancePhase(), 600);
+    return () => clearTimeout(t);
+  }, [state?.phase, state?.activePlayer, state?.subPhase, state?.winner, state?.pendingTrigger, autoAdvanceStart]);
 
   useEffect(() => { if (isCpuTurn) { setAttackMode(null); setSelectedAttackerUid(null); } }, [isCpuTurn]);
 
@@ -2714,11 +2728,23 @@ export default function BattlePage({ onNavigate }) {
                     </div>
                   ))}
                 </div>
-                {isMyTurn && (
+                {isMyTurn && !autoAdvanceStart && (
                   <button onClick={game.advancePhase} className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
                     {subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
                   </button>
                 )}
+                {isMyTurn && autoAdvanceStart && subPhase === 'end' && (
+                  <button onClick={game.advancePhase} className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
+                    次ターン ▶
+                  </button>
+                )}
+                <label className="flex items-center gap-1 mt-1 cursor-pointer select-none" title="リフレッシュ・ドロー・DON!!フェーズを自動スキップしてメインフェーズへ進みます">
+                  <input type="checkbox" checked={autoAdvanceStart} onChange={e => {
+                    setAutoAdvanceStart(e.target.checked);
+                    try { localStorage.setItem('op_autoAdvanceStart', e.target.checked); } catch {}
+                  }} className="accent-amber-400 w-3 h-3"/>
+                  <span className="text-[9px] text-amber-500/80 leading-tight">開始自動</span>
+                </label>
               </div>
 
               {/* リーダー（flex中央配置） */}
