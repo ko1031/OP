@@ -301,6 +301,9 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
   const [detailCard,      setDetailCard]      = useState(null);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [showTurnBanner,  setShowTurnBanner]  = useState(true);
+  const [autoAdvanceStart, setAutoAdvanceStart] = useState(() => {
+    try { return localStorage.getItem('op_autoAdvanceStart') === 'true'; } catch { return false; }
+  });
 
   // ターンバナー表示
   const turnKey = `${state.isMyTurn}-${state.turnNumber}`;
@@ -385,6 +388,15 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
       await handleEndTurn();
     }
   }, [state.isMyTurn, state.phase, handleEndTurn, addLog]);
+
+  // ─── 開始フェーズ自動進行（リフレッシュ/ドロー/DON!!） ────────────────
+  useEffect(() => {
+    if (!state.isMyTurn) return;
+    if (!autoAdvanceStart) return;
+    if (!['refresh', 'draw', 'don'].includes(state.phase)) return;
+    const t = setTimeout(() => handleNextPhase(), 600);
+    return () => clearTimeout(t);
+  }, [state.isMyTurn, state.phase, autoAdvanceStart, handleNextPhase]);
 
   const handleAttack = useCallback(async () => {
     if (!state.isMyTurn) return;
@@ -624,16 +636,25 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
           {/* アクションボタン */}
           <div className="p-3 border-b border-amber-900/15 space-y-2">
             <div className={`${P.label} mb-1`}>アクション</div>
-            <button onClick={handleNextPhase} disabled={!state.isMyTurn}
-              className={`w-full py-2.5 rounded-lg text-xs flex items-center justify-center gap-1.5
-                ${state.isMyTurn ? P.btnGold : P.btnGray + ' opacity-40 cursor-not-allowed'}`}>
-              <ChevronRight size={13} />
-              {PHASES.findIndex(p => p.id === state.phase) === PHASES.length - 1 ? 'ターン終了' : '次のフェーズ'}
-            </button>
+            {(!autoAdvanceStart || !['refresh','draw','don'].includes(state.phase)) && (
+              <button onClick={handleNextPhase} disabled={!state.isMyTurn}
+                className={`w-full py-2.5 rounded-lg text-xs flex items-center justify-center gap-1.5
+                  ${state.isMyTurn ? P.btnGold : P.btnGray + ' opacity-40 cursor-not-allowed'}`}>
+                <ChevronRight size={13} />
+                {PHASES.findIndex(p => p.id === state.phase) === PHASES.length - 1 ? 'ターン終了' : '次のフェーズ'}
+              </button>
+            )}
             <button onClick={handleAttack} disabled={!state.isMyTurn}
               className={`w-full py-2 rounded-lg text-xs ${state.isMyTurn ? P.btnBlue : P.btnGray + ' opacity-40 cursor-not-allowed'}`}>
               <Zap size={11} className="inline mr-1" />アタック
             </button>
+            <label className="flex items-center gap-1 cursor-pointer select-none" title="リフレッシュ・ドロー・DON!!フェーズを自動スキップしてメインフェーズへ進みます">
+              <input type="checkbox" checked={autoAdvanceStart} onChange={e => {
+                setAutoAdvanceStart(e.target.checked);
+                try { localStorage.setItem('op_autoAdvanceStart', e.target.checked); } catch {}
+              }} className="accent-amber-400 w-3 h-3"/>
+              <span className="text-[9px] text-amber-500/80 leading-tight">開始自動</span>
+            </label>
           </div>
 
           {/* デッキ / トラッシュ */}
@@ -672,30 +693,4 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
                   {entry.text}
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══ 手札エリア ══ */}
-      <div className="relative z-10 flex-shrink-0 border-t-2 border-amber-900/20 bg-[#06091a]/90 backdrop-blur-sm">
-        <div className="flex items-center gap-2 px-3 py-2">
-          <div className={`${P.label} flex-shrink-0`}>手札 <span className="text-amber-600/50 normal-case font-normal">{state.me.handCount}枚</span></div>
-          <div className="flex-1 flex items-center gap-2 overflow-x-auto pb-1">
-            {Array.from({ length: Math.min(state.me.handCount, 10) }).map((_,i) => (
-              <div key={i} style={{ width:HAND_CARD.W, height:HAND_CARD.H, flexShrink:0 }}
-                className="rounded-xl border-2 border-amber-800/30 bg-gradient-to-br from-amber-900/15 to-[#06091a] flex items-center justify-center cursor-pointer hover:border-amber-600/40 hover:scale-105 transition-all">
-                <span className="text-amber-700/30 text-2xl">⚓</span>
-              </div>
-            ))}
-          </div>
-          <button disabled={!state.isMyTurn}
-            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs flex items-center gap-1
-              ${state.isMyTurn ? P.btnGold : P.btnGray + ' opacity-40 cursor-not-allowed'}`}>
-            ドロー
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+            </di
