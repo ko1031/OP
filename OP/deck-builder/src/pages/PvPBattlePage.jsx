@@ -121,6 +121,14 @@ function gameReducer(state, action) {
         log: [...state.log.slice(-40), { id: Date.now() + Math.random(), text: action.text, type: action.logType || 'action' }],
       };
 
+    // ドロー（手札+1）
+    case 'DRAW':
+      return { ...state, me: { ...state.me, handCount: state.me.handCount + 1 } };
+
+    // 相手がドロー（手札+1）
+    case 'OPP_DRAW':
+      return { ...state, opp: { ...state.opp, handCount: state.opp.handCount + 1 } };
+
     // 投了
     case 'SURRENDER':
       return { ...state, result: action.winner };
@@ -337,6 +345,7 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
 
       case ACTION.DRAW:
         addLog('相手がカードをドローしました');
+        dispatch({ type:'OPP_DRAW' });
         break;
 
       case ACTION.LIFE_DAMAGE:
@@ -402,6 +411,13 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
     if (!state.isMyTurn) return;
     await sendAction(ACTION.ATTACK, {});
     addLog('アタック！');
+  }, [state.isMyTurn, sendAction, addLog]);
+
+  const handleDraw = useCallback(async () => {
+    if (!state.isMyTurn) return;
+    await sendAction(ACTION.DRAW, {});
+    dispatch({ type:'DRAW' });
+    addLog('1枚ドローしました');
   }, [state.isMyTurn, sendAction, addLog]);
 
   const handleSurrender = useCallback(async () => {
@@ -693,4 +709,16 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
                   {entry.text}
                 </div>
               ))}
-            </di
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══ 手札エリア ══ */}
+      <div className="relative z-10 flex-shrink-0 border-t-2 border-amber-900/20 bg-[#06091a]/90 backdrop-blur-sm">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <div className={`${P.label} flex-shrink-0`}>手札 <span className="text-amber-600/50 normal-case font-normal">{state.me.handCount}枚</span></div>
+          <div className="flex-1 flex items-center gap-2 overflow-x-auto pb-1">
+            {Array.from({ length: Math.min(state.me.handCount, 10) }).map((_,i) => (
+              <div key={i} style={{ width:HAND_CARD.W, height:HAND_CARD.H, flexShrink:0 }}
+                className="rounded-xl border-2 border-amber-800/30 bg-gradient-to-br from-amber-900/15 to-[#0609
