@@ -1465,6 +1465,9 @@ export default function SoloPlayPage({ onNavigate }) {
   const [phaseError, setPhaseError] = useState(null); // フェーズエラーメッセージ
   const [dragInfo,  setDragInfo]  = useState(null);  // ドラッグ中カード情報 { card, context }
   const [dragOver,  setDragOver]  = useState(null);  // ホバー中ドロップゾーン名
+  const [autoAdvanceStart, setAutoAdvanceStart] = useState(() => {
+    try { return localStorage.getItem('op_autoAdvanceStart') === 'true'; } catch { return false; }
+  });
 
   const game = useGameState();
   const { state } = game;
@@ -1489,6 +1492,14 @@ export default function SoloPlayPage({ onNavigate }) {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [state, game]);
+
+  // ─── ターン開始フェーズ自動進行 ─────────────────────────────────────
+  useEffect(() => {
+    if (!state || !autoAdvanceStart) return;
+    if (!['refresh', 'draw', 'don'].includes(state.subPhase)) return;
+    const t = setTimeout(() => game.advancePhase(), 600);
+    return () => clearTimeout(t);
+  }, [state?.subPhase, autoAdvanceStart]);
 
   // ─── ライフカードのトリガー検知 ───
   // useGameState 側で pendingLifeTrigger フラグが立った時だけトーストを表示する。
@@ -1926,10 +1937,25 @@ export default function SoloPlayPage({ onNavigate }) {
                     </div>
                   ))}
                 </div>
-                <button onClick={game.advancePhase}
-                  className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
-                  {s.subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
-                </button>
+                {!autoAdvanceStart && (
+                  <button onClick={game.advancePhase}
+                    className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
+                    {s.subPhase === 'end' ? '次ターン ▶' : '次へ ▶'}
+                  </button>
+                )}
+                {autoAdvanceStart && s.subPhase === 'end' && (
+                  <button onClick={game.advancePhase}
+                    className={`mt-1 w-full text-xs py-1 rounded-lg font-bold ${P.btnGold}`}>
+                    次ターン ▶
+                  </button>
+                )}
+                <label className="flex items-center gap-1 mt-1 cursor-pointer select-none" title="リフレッシュ・ドロー・DON!!フェーズを自動スキップしてメインフェーズへ進みます">
+                  <input type="checkbox" checked={autoAdvanceStart} onChange={e => {
+                    setAutoAdvanceStart(e.target.checked);
+                    try { localStorage.setItem('op_autoAdvanceStart', e.target.checked); } catch {}
+                  }} className="accent-amber-400 w-3 h-3"/>
+                  <span className="text-[9px] text-amber-500/80 leading-tight">開始自動</span>
+                </label>
               </div>
 
               {/* リーダー（flex — 中央配置） */}
@@ -2312,53 +2338,4 @@ export default function SoloPlayPage({ onNavigate }) {
       )}
 
       {/* ─── イベント効果モーダル ─── */}
-      {pendingEventEffect && (
-        <EventEffectModal
-          card={pendingEventEffect.card}
-          game={game}
-          onActivate={() => { game.trashHandCard(pendingEventEffect.uid); setPendingEventEffect(null); }}
-          onSkip={() => { game.trashHandCard(pendingEventEffect.uid); setPendingEventEffect(null); }}
-        />
-      )}
-
-      {/* ─── リーダー効果確認モーダル ─── */}
-      {showLeaderAbilityModal && (
-        <LeaderAbilityModal
-          leaderEffect={s.leaderEffect}
-          leaderName={s.leader?.name}
-          onConfirm={handleLeaderAbilityConfirm}
-          onCancel={() => setShowLeaderAbilityModal(false)}
-        />
-      )}
-
-      {/* ─── キャラクター選択モーダル ─── */}
-      {charSelectInfo && (
-        <CharacterSelectModal
-          field={s.field}
-          info={charSelectInfo}
-          onConfirm={handleCharSelectConfirm}
-          onCancel={() => setCharSelectInfo(null)}
-        />
-      )}
-
-      {/* ─── キャラ起動メインモーダル ─── */}
-      {pendingCharAbility && (
-        <CharActiveModal
-          card={pendingCharAbility}
-          game={game}
-          onActivate={() => setPendingCharAbility(null)}
-          onSkip={() => setPendingCharAbility(null)}
-        />
-      )}
-
-      {/* ─── サーチ解決モーダル ─── */}
-      {state?.searchReveal?.length > 0 && (
-        <SearchModal
-          revealed={state.searchReveal}
-          onResolve={(result) => game.resolveSearch(result)}
-          onCancel={game.cancelSearch}
-        />
-      )}
-    </div>
-  );
-}
+  
