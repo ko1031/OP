@@ -721,4 +721,18 @@ export default function PvPBattlePage({ onNavigate, battleConfig }) {
           <div className="flex-1 flex items-center gap-2 overflow-x-auto pb-1">
             {Array.from({ length: Math.min(state.me.handCount, 10) }).map((_,i) => (
               <div key={i} style={{ width:HAND_CARD.W, height:HAND_CARD.H, flexShrink:0 }}
-                className="rounded-xl border-2 border-amber-800/30 bg-gradient-to-br from-amber-900/15 to-[#0609
+                className="rounded-xl border-2 border-amber-800/30 bg-gradient-to-br from-amber-900/15 to-[#06091a] flex items-center justify-center cursor-pointer hover:border-amber-600/40 hover:scale-105 transition-all">
+                <span className="text-amber-700/30 text-2xl">⚓</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={handleDraw} disabled={!state.isMyTurn}
+            className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs flex items-center gap-1
+              ${state.isMyTurn ? P.btnGold : P.btnGray + ' opacity-40 cursor-not-allowed'}`}>
+            ドロー
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

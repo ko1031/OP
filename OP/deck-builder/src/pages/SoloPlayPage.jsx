@@ -2338,4 +2338,53 @@ export default function SoloPlayPage({ onNavigate }) {
       )}
 
       {/* ─── イベント効果モーダル ─── */}
-  
+      {pendingEventEffect && (
+        <EventEffectModal
+          card={pendingEventEffect.card}
+          game={game}
+          onActivate={() => { game.trashHandCard(pendingEventEffect.uid); setPendingEventEffect(null); }}
+          onSkip={() => { game.trashHandCard(pendingEventEffect.uid); setPendingEventEffect(null); }}
+        />
+      )}
+
+      {/* ─── リーダー効果確認モーダル ─── */}
+      {showLeaderAbilityModal && (
+        <LeaderAbilityModal
+          leaderEffect={s.leaderEffect}
+          leaderName={s.leader?.name}
+          onConfirm={handleLeaderAbilityConfirm}
+          onCancel={() => setShowLeaderAbilityModal(false)}
+        />
+      )}
+
+      {/* ─── キャラクター選択モーダル ─── */}
+      {charSelectInfo && (
+        <CharacterSelectModal
+          field={s.field}
+          info={charSelectInfo}
+          onConfirm={handleCharSelectConfirm}
+          onCancel={() => setCharSelectInfo(null)}
+        />
+      )}
+
+      {/* ─── キャラ起動メインモーダル ─── */}
+      {pendingCharAbility && (
+        <CharActiveModal
+          card={pendingCharAbility}
+          game={game}
+          onActivate={() => setPendingCharAbility(null)}
+          onSkip={() => setPendingCharAbility(null)}
+        />
+      )}
+
+      {/* ─── サーチ解決モーダル ─── */}
+      {state?.searchReveal?.length > 0 && (
+        <SearchModal
+          revealed={state.searchReveal}
+          onResolve={(result) => game.resolveSearch(result)}
+          onCancel={game.cancelSearch}
+        />
+      )}
+    </div>
+  );
+}
